@@ -452,10 +452,9 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         return State.ToString(format, formatProvider);
     }
 
-    /// <inheritdoc/>
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    bool ISpanFormattable.TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        return State.TryFormat(destination, out charsWritten, format, provider);
+        return (State as ISpanFormattable).TryFormat(destination, out charsWritten, format, provider);
     }
 
     protected virtual void Dispose(bool disposing)

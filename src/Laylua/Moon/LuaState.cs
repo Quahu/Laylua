@@ -257,8 +257,7 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         return $"Lua: {ptr.ToString(format, formatProvider)}";
     }
 
-    /// <inheritdoc/>
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    bool ISpanFormattable.TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
         if (destination.Length < 6)
         {
