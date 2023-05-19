@@ -8,7 +8,7 @@ It offers several advantages that make it stand out:
 - **Preventing Panic Aborts**  
   Unlike other similar libraries, Laylua prevents the Lua panic handler from aborting the application even on Linux, making Lua interactions completely safe and far more error-forgiving.
 - **Proper Sandbox Capabilities**  
-  Laylua does not impose any restrictions on you, allowing you to initialize a clean Lua state with no preloaded libraries. You can then load individual libraries of your choice.
+  Laylua does not impose any restrictions on you, allowing you to initialize a clean Lua state without any preloaded libraries. You have the freedom to selectively load specific libraries of your preference. Additionally, Laylua comes with built-in features for memory allocation and instruction count limiting.
 
 ## Example
 ```cs
