@@ -101,8 +101,16 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         : this(CultureInfo.CurrentCulture)
     { }
 
+    public Lua(LuaAllocator allocator)
+        : this(CultureInfo.CurrentCulture, new LuaState(allocator))
+    { }
+
     public Lua(CultureInfo culture)
         : this(culture, new LuaState())
+    { }
+
+    public Lua(CultureInfo culture, LuaAllocator allocator)
+        : this(culture, new LuaState(allocator))
     { }
 
     public Lua(CultureInfo culture, LuaState state)
