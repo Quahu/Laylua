@@ -961,7 +961,7 @@ public unsafe class DefaultLuaMarshaler : LuaMarshaler
                         }
                         else
                         {
-                            throw new InvalidOperationException("The delegate cannot be marshalled without a user data descriptor.");
+                            throw new InvalidOperationException("The delegate cannot be marshaled without a user data descriptor.");
                         }
 
                         break;
