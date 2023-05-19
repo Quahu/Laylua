@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="../Laylua.targets"/>
+    <PropertyGroup>
+        <RootNamespace>Laylua</RootNamespace>
+    </PropertyGroup>
+
+    <!--    <PropertyGroup>-->
+    <!--        <DefineConstants>TRACE_PANIC</DefineConstants>-->
+    <!--    </PropertyGroup>-->
+
+    <ItemGroup>
+        <PackageReference Include="Qommon" Version="4.0.1"/>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
+        <VersionPrefix>0.0.1</VersionPrefix>
+        <LangVersion>preview</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+    <PropertyGroup>
+        <Nullable>enable</Nullable>
+        <WarningsAsErrors>Nullable</WarningsAsErrors>
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <Authors>Quahu</Authors>
+        <Description>A library that allows you to easily embed and sandbox Lua in your application.</Description>
+        <PackageTags>lua wrapper sandbox embed</PackageTags>
+        <RepositoryUrl>https://github.com/Quahu/Laylua</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/Quahu/Laylua</PackageProjectUrl>
+        <PackageLicenseExpression>LGPL-3.0-only</PackageLicenseExpression>
+        <RepositoryType>Git</RepositoryType>
+
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+    <PropertyGroup>
+        <NoWarn>
+            CA2255, <!-- The 'ModuleInitializer' attribute is only intended to be used in application code or advanced source generator scenarios -->
+            CS0078, <!-- The 'l' suffix is easily confused with the digit '1' - use 'L' for clarity -->
+            CA1401, <!-- P/Invokes should not be visible-->
+        </NoWarn>
+    </PropertyGroup>
+</Project>
