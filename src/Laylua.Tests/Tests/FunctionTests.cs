@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Laylua.Moon;
 using NUnit.Framework;
@@ -133,6 +133,21 @@ end";
             var ex = Assert.Throws<LuaException>(() => lua.Execute("print('Hello, World!')"))!;
             Assert.IsNotNull(ex.Status);
             Assert.AreEqual(LuaStatus.RuntimeError, ex.Status);
+        }
+
+        [Test]
+        public void DelegateCalledWithLuaReferenceParameterDisposesLuaReference()
+        {
+            LuaReference? reference = null;
+            lua["func"] = (LuaTable table) =>
+            {
+                reference = table;
+            };
+
+            lua.Execute("func({ 1, 2, 3 })");
+
+            Assert.IsNotNull(reference);
+            Assert.IsFalse(LuaReference.IsAlive(reference!));
         }
 
         [Test]
