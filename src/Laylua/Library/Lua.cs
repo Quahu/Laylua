@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Laylua.Marshalling;
 using Laylua.Moon;
+using Qommon;
 using Qommon.Pooling;
 
 namespace Laylua;
@@ -326,6 +327,11 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     {
         using (var results = Evaluate(code))
         {
+            if (results.Count == 0)
+            {
+                Throw.InvalidOperationException("The evaluation returned no results.");
+            }
+
             return results.First.GetValue<T>();
         }
     }
