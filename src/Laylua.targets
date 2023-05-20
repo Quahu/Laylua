@@ -10,15 +10,16 @@
         <Nullable>enable</Nullable>
         <WarningsAsErrors>Nullable</WarningsAsErrors>
     </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-        <Authors>Quahu</Authors>
+    <PropertyGroup>
+        <Authors>Quahu,Niewiarowski</Authors>
         <Description>A library that allows you to easily embed and sandbox Lua in your application.</Description>
-        <PackageTags>lua wrapper sandbox embed</PackageTags>
+        <PackageTags>lua wrapper sandbox embed script</PackageTags>
         <RepositoryUrl>https://github.com/Quahu/Laylua</RepositoryUrl>
         <PackageProjectUrl>https://github.com/Quahu/Laylua</PackageProjectUrl>
         <PackageLicenseExpression>LGPL-3.0-only</PackageLicenseExpression>
         <RepositoryType>Git</RepositoryType>
-
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
