@@ -43,7 +43,7 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
         [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
-            ThrowIfInvalid();
+            ThrowArgumentOutOfRangeIfInvalid(index);
 
             return _stack[_index + index - 1];
         }
@@ -60,7 +60,7 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
         [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
-            ThrowIfInvalid();
+            ThrowArgumentOutOfRangeIfInvalid(_index);
 
             return _stack[_index];
         }
@@ -77,9 +77,10 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
         [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
-            ThrowIfInvalid();
+            var index = _index + _count - 1;
+            ThrowArgumentOutOfRangeIfInvalid(index);
 
-            return _stack[_index + _count - 1];
+            return _stack[index];
         }
     }
 
@@ -103,10 +104,10 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
         return new LuaStackValueRange(stack, oldTop + 1, count);
     }
 
-    private void ThrowIfInvalid()
+    private void ThrowArgumentOutOfRangeIfInvalid(int index)
     {
         if (_stack == null)
-            Throw.InvalidOperationException($"This operation is not valid on a default {nameof(LuaStackValueRange)} instance.");
+            Throw.ArgumentOutOfRangeException(nameof(index), index, null);
     }
 
     /// <summary>
@@ -115,7 +116,8 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
     /// </summary>
     public void PushValues()
     {
-        ThrowIfInvalid();
+        if (IsEmpty)
+            return;
 
         for (var i = 0; i < _count; i++)
         {
@@ -125,22 +127,16 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
 
     public Enumerator GetEnumerator()
     {
-        ThrowIfInvalid();
-
         return new Enumerator(this);
     }
 
     IEnumerator<LuaStackValue> IEnumerable<LuaStackValue>.GetEnumerator()
     {
-        ThrowIfInvalid();
-
         return new Enumerator(this);
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        ThrowIfInvalid();
-
         return new Enumerator(this);
     }
 

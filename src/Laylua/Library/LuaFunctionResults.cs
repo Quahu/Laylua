@@ -79,7 +79,7 @@ public struct LuaFunctionResults : IEnumerable<LuaStackValue>, IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (!_isDisposed)
+        if (!_isDisposed && _range._stack != null)
         {
             _range._stack.RemoveRange(_range._index, _range._count);
         }
