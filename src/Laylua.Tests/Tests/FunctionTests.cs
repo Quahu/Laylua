@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Laylua.Moon;
 using NUnit.Framework;
@@ -55,11 +55,11 @@ end";
         [Test]
         public void CallParamAndVariadicActionFromLua()
         {
-            var count = -1;
+            var count = 0;
             lua["func"] = (int arg1, LuaStackValueRange args) =>
             {
                 count++;
-                count = args.Count;
+                count += args.Count;
             };
 
             lua.Execute("func(1, 2, 3)");
@@ -86,6 +86,7 @@ end";
         //     }
         // }
 
+        // Can't be local, because params doesn't work in local methods.
         private static double Sum(params double[] numbers)
         {
             return numbers.Sum();
@@ -101,6 +102,9 @@ end";
             var result = lua.Evaluate<double>("return func(1, 2, 3)");
 
             Assert.AreEqual(6, result);
+
+            result = lua.Evaluate<double>("return func()");
+            Assert.AreEqual(0, result);
         }
 
         [Test]
@@ -148,6 +152,41 @@ end";
 
             Assert.IsNotNull(reference);
             Assert.IsFalse(LuaReference.IsAlive(reference!));
+        }
+
+        private LuaReference[]? _references = null;
+
+        // Can't be local, because params doesn't work in local methods.
+        private void ParamsObjectMethod(params object[] args)
+        {
+            _references = args.OfType<LuaReference>().ToArray();
+        }
+
+        [Test]
+        public void DelegateCalledWithObjectArrayParameterDisposesLuaReferences()
+        {
+            lua["func"] = ParamsObjectMethod;
+
+            lua.Execute("func({ 1 }, { 2 }, { 3 })");
+
+            Assert.IsNotNull(_references);
+            foreach (var reference in _references!)
+            {
+                Assert.IsFalse(LuaReference.IsAlive(reference));
+            }
+        }
+
+        [Test]
+        public void DelegateCalledReturnsValue()
+        {
+            lua["func"] = () =>
+            {
+                return 42;
+            };
+
+            var result = lua.Evaluate<int>("return func()");
+
+            Assert.AreEqual(42, result);
         }
 
         [Test]
