@@ -45,7 +45,7 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
         {
             ThrowArgumentOutOfRangeIfInvalid(index);
 
-            return _stack[_index + index - 1];
+            return _stack[_index + (index - 1)];
         }
     }
 
@@ -170,7 +170,7 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
         /// <inheritdoc/>
         public bool MoveNext()
         {
-            if (_index == _range.Count - 1)
+            if (_index == _range.Count)
             {
                 return false;
             }
