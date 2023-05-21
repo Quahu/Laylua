@@ -356,21 +356,11 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     public void Execute(ReadOnlySpan<char> code)
     {
         var L = State.L;
-        var oldTop = lua_gettop(L);
         LoadString(code);
-        var status = lua_pcall(L, 0, LUA_MULTRET, 0);
-        var newTop = lua_gettop(L);
-        try
+        var status = lua_pcall(L, 0, 0, 0);
+        if (status.IsError())
         {
-            if (status.IsError())
-            {
-                throw new LuaException(this, status);
-            }
-        }
-        finally
-        {
-            if (oldTop != newTop)
-                lua_settop(L, oldTop);
+            throw new LuaException(this, status);
         }
     }
 
