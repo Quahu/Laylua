@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -143,6 +143,12 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     }
 
     [DoesNotReturn]
+    internal void ThrowLuaException(LuaStatus status)
+    {
+        throw new LuaException(this, status);
+    }
+
+    [DoesNotReturn]
     internal void ThrowLuaException(string message)
     {
         throw new LuaException(this, message);
@@ -264,7 +270,9 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         {
             var L = this.GetStatePointer();
             if (lua_rawgetglobal(L, name).IsNoneOrNil())
-                throw new KeyNotFoundException();
+            {
+                Throw.KeyNotFoundException();
+            }
 
             return Marshaler.ToObject<TValue>(-1)!;
         }
@@ -360,7 +368,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         var status = lua_pcall(L, 0, 0, 0);
         if (status.IsError())
         {
-            throw new LuaException(this, status);
+            ThrowLuaException(status);
         }
     }
 
@@ -432,7 +440,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
 
             if (status.IsError())
             {
-                throw new LuaException(this, status);
+                ThrowLuaException(status);
             }
         }
     }
