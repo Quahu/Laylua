@@ -96,6 +96,9 @@ public static unsafe partial class LuaNative
 
     private static StringBytes ToCString(ReadOnlySpan<char> s)
     {
+        if (s.Length == 0)
+            return default;
+
         var needsTerminator = s[^1] != 0;
         var maxByteCount = Encoding.UTF8.GetMaxByteCount(s.Length);
 
@@ -116,6 +119,12 @@ public static unsafe partial class LuaNative
 
     private static StringBytes ToLString(ReadOnlySpan<char> s, out nuint len)
     {
+        if (s.Length == 0)
+        {
+            len = 0;
+            return default;
+        }
+
         var maxByteCount = Encoding.UTF8.GetMaxByteCount(s.Length);
         var bytes = RentedArray<byte>.Rent(maxByteCount);
         len = (nuint) Encoding.UTF8.GetBytes(s, bytes);

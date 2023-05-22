@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -326,14 +326,14 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         return false;
     }
 
-    public T? Evaluate<T>(string code)
+    public T? Evaluate<T>(string code, string? name = null)
     {
-        return Evaluate<T>(code.AsSpan());
+        return Evaluate<T>(code.AsSpan(), name.AsSpan());
     }
 
-    public T? Evaluate<T>(ReadOnlySpan<char> code)
+    public T? Evaluate<T>(ReadOnlySpan<char> code, ReadOnlySpan<char> name = default)
     {
-        using (var results = Evaluate(code))
+        using (var results = Evaluate(code, name))
         {
             if (results.Count == 0)
             {
@@ -344,27 +344,27 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    public LuaFunctionResults Evaluate(string code)
+    public LuaFunctionResults Evaluate(string code, string? name = null)
     {
-        return Evaluate(code.AsSpan());
+        return Evaluate(code.AsSpan(), name.AsSpan());
     }
 
-    public LuaFunctionResults Evaluate(ReadOnlySpan<char> code)
+    public LuaFunctionResults Evaluate(ReadOnlySpan<char> code, ReadOnlySpan<char> name = default)
     {
         var top = Stack.Count;
-        LoadString(code);
+        LoadString(code, name);
         return LuaFunction.PCall(this, top, 0);
     }
 
-    public void Execute(string code)
+    public void Execute(string code, string? name = null)
     {
-        Execute(code.AsSpan());
+        Execute(code.AsSpan(), name.AsSpan());
     }
 
-    public void Execute(ReadOnlySpan<char> code)
+    public void Execute(ReadOnlySpan<char> code, ReadOnlySpan<char> name = default)
     {
         var L = State.L;
-        LoadString(code);
+        LoadString(code, name);
         var status = lua_pcall(L, 0, 0, 0);
         if (status.IsError())
         {
@@ -372,14 +372,14 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    public LuaFunction Compile(string code)
+    public LuaFunction Compile(string code, string? name = null)
     {
-        return Compile(code.AsSpan());
+        return Compile(code.AsSpan(), name.AsSpan());
     }
 
-    public LuaFunction Compile(ReadOnlySpan<char> code)
+    public LuaFunction Compile(ReadOnlySpan<char> code, ReadOnlySpan<char> name = default)
     {
-        LoadString(code);
+        LoadString(code, name);
         return Marshaler.PopObject<LuaFunction>()!;
     }
 
@@ -425,7 +425,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    private void LoadString(ReadOnlySpan<char> code)
+    private void LoadString(ReadOnlySpan<char> code, ReadOnlySpan<char> name)
     {
         Stack.EnsureFreeCapacity(1);
 
@@ -435,7 +435,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
             LuaStatus status;
             fixed (byte* bytesPtr = bytes)
             {
-                status = luaL_loadbuffer(State.L, bytesPtr, (nuint) bytes.Length, Id);
+                status = luaL_loadbuffer(State.L, bytesPtr, (nuint) bytes.Length, name);
             }
 
             if (status.IsError())

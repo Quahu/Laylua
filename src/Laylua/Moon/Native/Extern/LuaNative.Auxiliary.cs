@@ -383,8 +383,21 @@ public static unsafe partial class LuaNative
         return _luaL_loadfilex(L, filename, null);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaStatus luaL_loadbufferx(lua_State* L, byte* buff, nuint sz, [MarshalAs(UnmanagedType.LPUTF8Str)] string? name, [MarshalAs(UnmanagedType.LPStr)] string? mode);
+    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(luaL_loadbufferx))]
+    private static extern LuaStatus _luaL_loadbufferx(lua_State* L, byte* buff, nuint sz, byte* name, byte* mode);
+
+    public static LuaStatus luaL_loadbufferx(lua_State* L, byte* buff, nuint sz, ReadOnlySpan<char> name, ReadOnlySpan<char> mode)
+    {
+        using (var nameBytes = ToCString(name))
+        using (var modeBytes = ToCString(mode))
+        {
+            fixed (byte* namePtr = nameBytes)
+            fixed (byte* modePtr = modeBytes)
+            {
+                return _luaL_loadbufferx(L, buff, sz, namePtr, modePtr);
+            }
+        }
+    }
 
     [DllImport(DllName, CallingConvention = Cdecl)]
     public static extern LuaStatus luaL_loadstring(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string s);
@@ -522,7 +535,7 @@ public static unsafe partial class LuaNative
         return lua_getfield(L, LuaRegistry.Index, n);
     }
 
-    public static LuaStatus luaL_loadbuffer(lua_State* L, byte* buff, nuint sz, string? name)
+    public static LuaStatus luaL_loadbuffer(lua_State* L, byte* buff, nuint sz, ReadOnlySpan<char> name)
     {
         return luaL_loadbufferx(L, buff, sz, name, null);
     }
