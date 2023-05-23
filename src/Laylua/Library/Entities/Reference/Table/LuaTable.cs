@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -422,7 +422,7 @@ public unsafe partial class LuaTable : LuaReference
     public struct PairsEnumerator : IEnumerator<KeyValuePair<LuaStackValue, LuaStackValue>>
     {
         /// <inheritdoc/>
-        public KeyValuePair<LuaStackValue, LuaStackValue> Current
+        public readonly KeyValuePair<LuaStackValue, LuaStackValue> Current
         {
             get
             {
@@ -470,7 +470,7 @@ public unsafe partial class LuaTable : LuaReference
         /// <returns>
         ///     This enumerator instance.
         /// </returns>
-        public PairsEnumerator GetEnumerator()
+        public readonly PairsEnumerator GetEnumerator()
         {
             return this;
         }
@@ -514,7 +514,7 @@ public unsafe partial class LuaTable : LuaReference
     public struct SequenceEnumerator : IEnumerator<LuaStackValue>
     {
         /// <inheritdoc/>
-        public LuaStackValue Current
+        public readonly LuaStackValue Current
         {
             get
             {
@@ -562,7 +562,7 @@ public unsafe partial class LuaTable : LuaReference
         /// <returns>
         ///     This enumerator instance.
         /// </returns>
-        public SequenceEnumerator GetEnumerator()
+        public readonly SequenceEnumerator GetEnumerator()
         {
             return this;
         }
