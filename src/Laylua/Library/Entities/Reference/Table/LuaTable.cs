@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -75,7 +75,11 @@ public unsafe partial class LuaTable : LuaReference
         var table = new LuaTable();
         table.Lua = lua;
         table.Reference = LuaRegistry.Indices.Globals;
+
+#pragma warning disable CA1816
         GC.SuppressFinalize(table);
+#pragma warning restore CA1816
+
         return table;
     }
 

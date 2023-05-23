@@ -50,7 +50,11 @@ public sealed unsafe class LuaThread : LuaReference
         thread.Lua = lua;
         thread.Reference = LuaRegistry.Indices.MainThread;
         thread._l = lua.GetStatePointer();
+
+#pragma warning disable CA1816
         GC.SuppressFinalize(thread);
+#pragma warning restore CA1816
+
         return thread;
     }
 

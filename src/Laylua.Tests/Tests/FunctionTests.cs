@@ -165,7 +165,9 @@ end";
         [Test]
         public void DelegateCalledWithObjectArrayParameterDisposesLuaReferences()
         {
+#pragma warning disable CS8974
             lua["func"] = ParamsObjectMethod;
+#pragma warning restore CS8974
 
             lua.Execute("func({ 1 }, { 2 }, { 3 })");
 
