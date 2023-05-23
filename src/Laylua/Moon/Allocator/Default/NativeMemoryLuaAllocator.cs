@@ -89,7 +89,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
     }
 
     /// <inheritdoc/>
-    protected internal override void* Allocate( /*void* userDataPtr,*/ void* ptr, nuint oldSizeOrType, nuint size)
+    protected internal override void* Allocate(void* ptr, nuint oldSizeOrType, nuint size)
     {
         if (ptr == null)
         {
