@@ -41,7 +41,9 @@ public sealed unsafe class LuaFunction : LuaReference
         var L = lua.GetStatePointer();
         var status = lua_pcall(L, argumentCount, LUA_MULTRET, 0);
         if (status.IsError())
-            lua.ThrowLuaException();
+        {
+            lua.ThrowLuaException(status);
+        }
 
         var newTop = lua_gettop(L);
         var range = LuaStackValueRange.FromTop(lua.Stack, oldTop, newTop);
