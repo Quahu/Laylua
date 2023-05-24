@@ -384,7 +384,7 @@ public abstract unsafe class LuaReference : IEquatable<LuaReference>, IDisposabl
     /// </summary>
     /// <param name="reference"> The reference to check. </param>
     /// <returns>
-    ///     <see langword="true"/> if disposed.
+    ///     <see langword="true"/> if the reference is initialized and not disposed.
     /// </returns>
     public static bool IsAlive(LuaReference reference)
     {
