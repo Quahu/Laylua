@@ -932,11 +932,6 @@ public unsafe class DefaultLuaMarshaler : LuaMarshaler
                 ((LuaStackValue) (object) obj).PushValue();
                 break;
             }
-            case LuaStackValueRange:
-            {
-                ((LuaStackValueRange) (object) obj).PushValues();
-                break;
-            }
             case LuaReference:
             {
                 LuaReference.PushValue((LuaReference) (object) obj);
