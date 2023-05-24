@@ -1,4 +1,4 @@
-﻿namespace Laylua.Marshalling;
+﻿namespace Laylua.Marshaling;
 
 /// <summary>
 ///     Represents the default <see cref="LuaMarshalerProvider"/> implementation.

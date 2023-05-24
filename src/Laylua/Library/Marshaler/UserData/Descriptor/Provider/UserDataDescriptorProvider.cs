@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public abstract class UserDataDescriptorProvider
 {

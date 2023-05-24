@@ -1,7 +1,7 @@
 ﻿using System;
 using Laylua.Moon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 /// <summary>
 ///     Represents the metatable values and methods

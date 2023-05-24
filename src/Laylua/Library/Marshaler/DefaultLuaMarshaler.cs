@@ -13,7 +13,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 #endif
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public unsafe class DefaultLuaMarshaler : LuaMarshaler
 {
@@ -516,7 +516,7 @@ public unsafe class DefaultLuaMarshaler : LuaMarshaler
                 if (enumerableType.IsArray)
                 {
                     if (enumerableType.GetArrayRank() != 1)
-                        throw new RankException("Marshalling multidimensional arrays is not supported.");
+                        throw new RankException("Marshaling multidimensional arrays is not supported.");
 
                     var elementType = enumerableType.GetElementType();
                     if (elementType != null && elementType.IsValueType)

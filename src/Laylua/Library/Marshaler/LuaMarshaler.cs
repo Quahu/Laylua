@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler : IDisposable
 {

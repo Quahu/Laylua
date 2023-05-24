@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using Laylua.Marshalling;
+using Laylua.Marshaling;
 using Laylua.Moon;
 
 namespace Laylua;

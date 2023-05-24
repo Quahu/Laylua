@@ -1,6 +1,6 @@
 ﻿using Laylua.Moon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 /// <summary>
 ///     Represents a <see cref="UserDataDescriptor"/> that is callback-based.

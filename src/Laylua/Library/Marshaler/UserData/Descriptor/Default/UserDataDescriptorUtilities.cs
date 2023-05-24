@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Qommon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public static class UserDataDescriptorUtilities
 {

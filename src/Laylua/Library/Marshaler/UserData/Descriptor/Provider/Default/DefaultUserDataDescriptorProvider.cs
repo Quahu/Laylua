@@ -2,7 +2,7 @@
 using Laylua.Moon;
 using Qommon.Collections.ThreadSafe;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
 {

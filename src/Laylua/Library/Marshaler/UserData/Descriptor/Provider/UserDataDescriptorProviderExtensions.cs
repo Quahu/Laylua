@@ -1,4 +1,4 @@
-﻿namespace Laylua.Marshalling;
+﻿namespace Laylua.Marshaling;
 
 public static class UserDataDescriptorProviderExtensions
 {

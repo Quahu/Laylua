@@ -1,4 +1,4 @@
-﻿namespace Laylua.Marshalling;
+﻿namespace Laylua.Marshaling;
 
 public abstract class UserDataDescriptor
 {

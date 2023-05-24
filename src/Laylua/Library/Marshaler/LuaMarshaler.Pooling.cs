@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Laylua.Moon;
 using Qommon.Pooling;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {

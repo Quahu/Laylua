@@ -1,4 +1,4 @@
-﻿namespace Laylua.Marshalling;
+﻿namespace Laylua.Marshaling;
 
 /// <summary>
 ///     Represents a type responsible for providing <see cref="LuaMarshaler"/> instances.

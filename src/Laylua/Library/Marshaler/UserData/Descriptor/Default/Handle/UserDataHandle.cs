@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using Laylua.Moon;
 using Qommon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 internal unsafe class UserDataHandle
 {

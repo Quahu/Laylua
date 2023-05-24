@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using Qommon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 [EditorBrowsable(EditorBrowsableState.Never)]
 public static class LuaMarshalerExtensions

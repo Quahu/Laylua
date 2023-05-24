@@ -1,6 +1,6 @@
 ﻿using Qommon;
 
-namespace Laylua.Marshalling;
+namespace Laylua.Marshaling;
 
 public class TypeUserDataDescriptor<TUserData> : CallbackBasedUserDataDescriptor
 {
