@@ -208,12 +208,10 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         }
 
         ExceptionDispatchInfo exception;
-        var lua = (laylua.State as Lua);
+        var lua = laylua.State as Lua;
         var panic = laylua.Panic;
 
-        message = message != null
-            ? $"Unhandled error: '{message}'."
-            : "Unhandled error.";
+        message ??= "Unhandled error occurred.";
 
         if (panic == null)
         {
