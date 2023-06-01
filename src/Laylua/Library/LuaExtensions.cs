@@ -32,7 +32,7 @@ public static unsafe class LuaExtensions
         }
     }
 
-    public static bool CloseLibrary(this Lua lua, ILuaLibrary library)
+    public static bool CloseLibrary(this Lua lua, LuaLibrary library)
     {
         return lua.CloseLibrary(library.Name);
     }

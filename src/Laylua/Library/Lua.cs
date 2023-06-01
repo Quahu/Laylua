@@ -96,7 +96,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
 
     private LuaThread? _mainThread;
     private LuaTable? _globals;
-    private readonly List<ILuaLibrary> _openLibraries = new();
+    private readonly List<LuaLibrary> _openLibraries = new();
 
     public Lua()
         : this(CultureInfo.CurrentCulture)
@@ -297,7 +297,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    public bool OpenLibrary(ILuaLibrary library)
+    public bool OpenLibrary(LuaLibrary library)
     {
         foreach (var openlibrary in _openLibraries)
         {

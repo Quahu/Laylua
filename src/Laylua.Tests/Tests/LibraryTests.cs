@@ -56,7 +56,7 @@ namespace Laylua.Tests
                 if (field.Name == "All")
                     continue;
 
-                var library = (field.GetValue(null) as ILuaLibrary)!;
+                var library = (field.GetValue(null) as LuaLibrary)!;
                 lua.OpenLibrary(library!);
 
                 lua.Stack.EnsureFreeCapacity(1);
