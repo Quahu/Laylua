@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
@@ -13,7 +14,7 @@ internal sealed unsafe class LayluaState : IDisposable
 {
     private static readonly ConcurrentDictionary<IntPtr, GCHandle> GCHandlePointers = new();
 
-    public class PanicInfo : IDisposable
+    public sealed class PanicInfo : IDisposable
     {
         private const int StackStateSize = 16 * 8 + 8 + 16 * 16;
 
@@ -126,7 +127,7 @@ internal sealed unsafe class LayluaState : IDisposable
         return state;
     }
 
-    public static LayluaState FromExtraSpace(lua_State* L)
+    public static bool TryFromExtraSpace(lua_State* L, [MaybeNullWhen((false))] out LayluaState state)
     {
         if (L != null)
         {
@@ -137,13 +138,25 @@ internal sealed unsafe class LayluaState : IDisposable
                 {
                     if (gcHandle.IsAllocated)
                     {
-                        return Unsafe.As<LayluaState>(gcHandle.Target!);
+                        state = Unsafe.As<LayluaState>(gcHandle.Target!);
+                        return true;
                     }
                 }
             }
         }
 
-        throw new InvalidOperationException("Laylua is not attached to this Lua state.");
+        state = default;
+        return false;
+    }
+
+    public static LayluaState FromExtraSpace(lua_State* L)
+    {
+        if (!TryFromExtraSpace(L, out var state))
+        {
+            Throw.ArgumentException("Laylua is not attached to this Lua state.", nameof(L));
+        }
+
+        return state;
     }
 
     private sealed class PanicInfoPooledObjectPolicy : DefaultPooledObjectPolicy<PanicInfo>
