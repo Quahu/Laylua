@@ -8,7 +8,7 @@ public abstract class LuaMarshalerProvider
     /// <summary>
     ///     Gets the default marshaler provider instance.
     /// </summary>
-    public static DefaultLuaMarshalerProvider Default { get; } = new(new DefaultUserDataDescriptorProvider());
+    public static DefaultLuaMarshalerProvider Default { get; } = new();
 
     /// <summary>
     ///     Creates a marshaler for the specified Lua instance.

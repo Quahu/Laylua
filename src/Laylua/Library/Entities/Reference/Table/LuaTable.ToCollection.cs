@@ -61,7 +61,7 @@ public unsafe partial class LuaTable
                     continue;
                 }
 
-                var value = Lua.Marshaler.PopObject();
+                var value = Lua.Marshaler.PopValue();
                 Debug.Assert(value != null);
                 list.Add(value);
             }
@@ -90,8 +90,8 @@ public unsafe partial class LuaTable
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
-                var key = Lua.Marshaler.ToObject(-2);
-                var value = Lua.Marshaler.ToObject(-1);
+                var key = Lua.Marshaler.GetValue(-2);
+                var value = Lua.Marshaler.GetValue(-1);
                 Debug.Assert(key != null);
                 Debug.Assert(value != null);
                 dictionary[key] = value;
@@ -138,8 +138,8 @@ public unsafe partial class LuaTable
                     continue;
                 }
 
-                var key = Lua.Marshaler.ToObject<string>(-2);
-                var value = Lua.Marshaler.ToObject(-1);
+                var key = Lua.Marshaler.GetValue<string>(-2);
+                var value = Lua.Marshaler.GetValue(-1);
                 Debug.Assert(key != null);
                 Debug.Assert(value != null);
                 dictionary[key] = value;
@@ -187,8 +187,8 @@ public unsafe partial class LuaTable
                     continue;
                 }
 
-                var key = Lua.Marshaler.ToObject<string>(-2);
-                var value = Lua.Marshaler.ToObject<TValue>(-1);
+                var key = Lua.Marshaler.GetValue<string>(-2);
+                var value = Lua.Marshaler.GetValue<TValue>(-1);
                 Debug.Assert(key != null);
                 Debug.Assert(value != null);
                 dictionary[key] = value;
@@ -230,14 +230,14 @@ public unsafe partial class LuaTable
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
-                if (!Lua.Marshaler.TryToObject<TKey>(-2, out var key))
+                if (!Lua.Marshaler.TryGetValue<TKey>(-2, out var key))
                 {
                     if (throwOnNonConvertible)
                     {
                         throw new InvalidOperationException($"Failed to convert the key {Lua.Stack[-2]} to type {typeof(TKey)}.");
                     }
                 }
-                else if (!Lua.Marshaler.TryToObject<TValue>(-1, out var value))
+                else if (!Lua.Marshaler.TryGetValue<TValue>(-1, out var value))
                 {
                     if (throwOnNonConvertible)
                     {

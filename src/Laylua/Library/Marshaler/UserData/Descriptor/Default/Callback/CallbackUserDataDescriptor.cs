@@ -5,12 +5,12 @@ namespace Laylua.Marshaling;
 /// <summary>
 ///     Represents a <see cref="UserDataDescriptor"/> that is callback-based.
 /// </summary>
-public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataDescriptor
+public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescriptor
 {
     /// <summary>
     ///     Gets the flags of this descriptor.
     /// </summary>
-    public abstract CallbackUserDataDescriptorFlags Flags { get; }
+    public abstract CallbackUserDataDescriptorFlags Callbacks { get; }
 
     private LuaCFunction? _pairs;
     private LuaCFunction? _add;
@@ -38,7 +38,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
     private LuaCFunction? _close;
     private LuaCFunction? _toString;
 
-    protected CallbackBasedUserDataDescriptor()
+    protected CallbackUserDataDescriptor()
     { }
 
     /// <inheritdoc/>
@@ -46,10 +46,10 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
     {
         var L = lua.GetStatePointer();
         var metatableIndex = metatable.Index;
-        var flags = Flags;
+        var callbacks = Callbacks;
         using (lua.Stack.SnapshotCount())
         {
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Pairs))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Pairs))
             {
                 _pairs ??= L =>
                 {
@@ -62,7 +62,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Add))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Add))
             {
                 _add ??= L =>
                 {
@@ -75,7 +75,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Subtract))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Subtract))
             {
                 _subtract ??= L =>
                 {
@@ -88,7 +88,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Multiply))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Multiply))
             {
                 _multiply ??= L =>
                 {
@@ -101,7 +101,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Modulo))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Modulo))
             {
                 _modulo ??= L =>
                 {
@@ -114,7 +114,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Power))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Power))
             {
                 _power ??= L =>
                 {
@@ -127,7 +127,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Divide))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Divide))
             {
                 _divide ??= L =>
                 {
@@ -140,7 +140,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.FloorDivide))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.FloorDivide))
             {
                 _floorDivide ??= L =>
                 {
@@ -153,7 +153,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.BitwiseAnd))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseAnd))
             {
                 _bitwiseAnd ??= L =>
                 {
@@ -166,7 +166,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.BitwiseOr))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseOr))
             {
                 _bitwiseOr ??= L =>
                 {
@@ -179,7 +179,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.BitwiseExclusiveOr))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseExclusiveOr))
             {
                 _bitwiseExclusiveOr ??= L =>
                 {
@@ -192,7 +192,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.ShiftLeft))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.ShiftLeft))
             {
                 _shiftLeft ??= L =>
                 {
@@ -205,7 +205,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.ShiftRight))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.ShiftRight))
             {
                 _shiftRight ??= L =>
                 {
@@ -218,7 +218,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Negate))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Negate))
             {
                 _negate ??= L =>
                 {
@@ -231,7 +231,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.BitwiseNot))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseNot))
             {
                 _bitwiseNot ??= L =>
                 {
@@ -244,7 +244,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Concat))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Concat))
             {
                 _concat ??= L =>
                 {
@@ -257,7 +257,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Length))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Length))
             {
                 _length ??= L =>
                 {
@@ -270,7 +270,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Equal))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Equal))
             {
                 _equal ??= L =>
                 {
@@ -283,7 +283,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.LessThan))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.LessThan))
             {
                 _lessThan ??= L =>
                 {
@@ -296,7 +296,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.LessThanOrEqual))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.LessThanOrEqual))
             {
                 _lessThanOrEqual ??= L =>
                 {
@@ -309,7 +309,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Index))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Index))
             {
                 _index ??= L =>
                 {
@@ -322,7 +322,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.NewIndex))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.NewIndex))
             {
                 _newIndex ??= L =>
                 {
@@ -335,7 +335,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Call))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Call))
             {
                 _call ??= L =>
                 {
@@ -353,12 +353,12 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.Close))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Close))
             {
                 _close ??= L =>
                 {
                     var lua = Lua.FromExtraSpace(L);
-                    return Close(lua, lua.Stack[1]);
+                    return Close(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
                 lua_pushstring(L, LuaMetatableKeysUtf8.__close);
@@ -366,7 +366,7 @@ public abstract unsafe partial class CallbackBasedUserDataDescriptor : UserDataD
                 lua_rawset(L, metatableIndex);
             }
 
-            if (flags.HasFlag(CallbackUserDataDescriptorFlags.ToString))
+            if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.ToString))
             {
                 _toString ??= L =>
                 {

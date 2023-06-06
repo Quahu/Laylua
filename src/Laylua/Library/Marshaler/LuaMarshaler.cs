@@ -107,54 +107,29 @@ public abstract partial class LuaMarshaler : IDisposable
         }
     }
 
-    internal void ReturnReference(LuaReference reference)
-    {
-        if (LuaReference.IsAlive(reference))
-        {
-            _leakedEntities.Push(reference);
-        }
-        else
-        {
-            ResetReference(reference);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ResetReference(LuaReference reference)
-    {
-        reference.Reset();
-
-        if (_entityPool.Return(reference))
-        {
-            GC.ReRegisterForFinalize(reference);
-        }
-    }
-
-    internal abstract void RemoveUserDataHandle(UserDataHandle handle);
-
     /// <summary>
     ///     Tries to convert the Lua value at the specified stack index
-    ///     to a .NET object of type <typeparamref name="T"/>.
+    ///     to a .NET value of type <typeparamref name="T"/>.
     /// </summary>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
-    /// <param name="obj"> The output object. </param>
-    /// <typeparam name="T"> The type of the object. </typeparam>
+    /// <param name="obj"> The output value. </param>
+    /// <typeparam name="T"> The type of the value. </typeparam>
     /// <returns>
     ///     <see langword="true"/> if successful.
     /// </returns>
-    public abstract bool TryToObject<T>(int stackIndex, out T? obj);
+    public abstract bool TryGetValue<T>(int stackIndex, out T? obj);
 
     /// <summary>
-    ///     Pushes the specified .NET object onto the Lua stack,
+    ///     Pushes the specified .NET value onto the Lua stack,
     ///     converting it to a Lua value appropriately.
     /// </summary>
     /// <remarks>
     ///     The marshaler expects space on the stack for the value to be pushed.
     ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
     /// </remarks>
-    /// <param name="obj"> The object to push. </param>
-    /// <typeparam name="T"> The type of the object. </typeparam>
-    public abstract void PushObject<T>(T obj);
+    /// <param name="obj"> The value to push. </param>
+    /// <typeparam name="T"> The type of the value. </typeparam>
+    public abstract void PushValue<T>(T obj);
 
     /// <summary>
     ///     Called by <see cref="Laylua.Lua"/> when it is disposed

@@ -7,88 +7,100 @@ using Qommon;
 
 namespace Laylua.Marshaling;
 
-internal unsafe class UserDataHandle
+public unsafe class UserDataHandle
 {
-    public const string UserDataTableName = "__laylua__internal_userdatacache";
-    public const string WeakValueModeMetatableName = "__laylua__internal_weakvaluemode";
-
-    public static readonly nuint Size = (nuint) IntPtr.Size * 2;
-
-    public static IntPtr IdentifierPtr
+    internal static IntPtr IdentifierPtr
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => LayluaNative.getPotentialPanicPtr;
     }
 
-    public readonly Lua Lua;
+    internal const string UserDataTableName = "__laylua__internal_userdatacache";
+    internal const string WeakValueModeMetatableName = "__laylua__internal_weakvaluemode";
 
-    public readonly object Target;
+    internal readonly Lua Lua;
 
-    public readonly UserDataDescriptor Descriptor;
+    internal readonly UserDataDescriptor Descriptor;
 
-    public IntPtr GCPtr => (IntPtr) _gcHandle;
+    internal IntPtr GCPtr => (IntPtr) _gcHandle;
 
     private GCHandle _gcHandle;
-    private bool _created;
 
-    private static UserDataHandle _(lua_State* L)
-    {
-        var ptr = lua_touserdata(L, 1);
-        return FromUserDataPointer(ptr);
-    }
-
-    private static readonly LuaCFunction __gcDelegate = L =>
-    {
-        var handle = _(L);
-        handle._gcHandle.Free();
-        handle.Lua.Marshaler.RemoveUserDataHandle(handle);
-        return 0;
-    };
-
-    public UserDataHandle(Lua lua, object obj, UserDataDescriptor descriptor)
+    internal UserDataHandle(Lua lua, UserDataDescriptor descriptor)
     {
         Guard.IsNotNull(lua);
-        Guard.IsNotNull(obj);
         Guard.IsNotNull(descriptor);
 
         Lua = lua;
-        Target = obj;
         Descriptor = descriptor;
 
         _gcHandle = GCHandle.Alloc(this);
     }
 
-    public void Push()
+    private static readonly LuaCFunction __gc = L =>
+    {
+        var handle = FromStackIndex(L, 1);
+        handle._gcHandle.Free();
+        handle.Lua.Marshaler.RemoveUserDataHandle(handle);
+        return 0;
+    };
+
+    /// <summary>
+    ///     Attempts to get the type of the value of this handle.
+    /// </summary>
+    public virtual bool TryGetType([MaybeNullWhen(false)] out Type type)
+    {
+        type = default;
+        return false;
+    }
+
+    /// <summary>
+    ///     Attempts to get the value of this handle.
+    /// </summary>
+    public virtual bool TryGetValue<TTarget>([MaybeNullWhen(false)] out TTarget value)
+    {
+        value = default;
+        return false;
+    }
+
+    internal void Push()
     {
         var L = Lua.GetStatePointer();
         var top = lua_gettop(L);
 
-        if (_created)
+        try
         {
-            try
-            {
-                luaL_getsubtable(L, LuaRegistry.Index, UserDataTableName);
+            luaL_getsubtable(L, LuaRegistry.Index, UserDataTableName);
 
-                if (!lua_rawgetp(L, -1, GCPtr.ToPointer()).IsNoneOrNil())
-                {
-                    lua_remove(L, -2);
-                    return;
-                }
-
-                lua_settop(L, top);
-            }
-            catch
+            if (!lua_rawgetp(L, -1, GCPtr.ToPointer()).IsNoneOrNil())
             {
-                lua_settop(L, top);
-                throw;
+                lua_remove(L, -2);
+                return;
             }
+
+            lua_settop(L, top);
+        }
+        catch
+        {
+            lua_settop(L, top);
+            throw;
         }
 
         try
         {
-            var ptr = (IntPtr*) lua_newuserdata(L, Size);
-            ptr[0] = GCPtr;
-            ptr[1] = IdentifierPtr;
+            lua_newuserdatauv(L, 0, 2);
+
+            lua_pushlightuserdata(L, (void*) IdentifierPtr);
+            if (!lua_setiuservalue(L, -2, 1))
+            {
+                Throw.InvalidOperationException($"Failed to set the userdata {nameof(IdentifierPtr)}.");
+            }
+
+            lua_pushlightuserdata(L, (void*) GCPtr);
+            if (!lua_setiuservalue(L, -2, 2))
+            {
+                Throw.InvalidOperationException($"Failed to set the userdata {nameof(GCPtr)}.");
+            }
 
             PushMetatable();
             lua_setmetatable(L, -2);
@@ -119,14 +131,12 @@ internal unsafe class UserDataHandle
             lua_settop(L, top);
             throw;
         }
-
-        _created = true;
     }
 
     private void PushMetatable()
     {
         var L = Lua.GetStatePointer();
-        var metatableName = $"__laylua_{Descriptor.MetatableName}";
+        var metatableName = $"__laylua_userdata_{Descriptor.MetatableName}";
         if (!luaL_getmetatable(L, metatableName).IsNoneOrNil())
             return;
 
@@ -136,7 +146,7 @@ internal unsafe class UserDataHandle
         Descriptor.OnMetatableCreated(Lua, Lua.Stack[-1]);
 
         lua_pushstring(L, LuaMetatableKeysUtf8.__gc);
-        lua_pushcfunction(L, __gcDelegate);
+        lua_pushcfunction(L, __gc);
         lua_rawset(L, -3);
 
         lua_pushstring(L, LuaMetatableKeysUtf8.__metadata);
@@ -147,27 +157,39 @@ internal unsafe class UserDataHandle
         lua_setfield(L, LuaRegistry.Index, metatableName);
     }
 
-    public static UserDataHandle FromUserDataPointer(void* ptr)
+    internal static UserDataHandle FromStackIndex(lua_State* L, int stackIndex)
     {
-        if (TryFromUserDataPointer(ptr, out var handle))
+        if (!TryFromStackIndex(L, stackIndex, out var handle))
         {
-            return handle;
+            Throw.ArgumentException("The value is not a valid userdata handle.", nameof(stackIndex));
         }
 
-        throw new InvalidOperationException("The user data pointer is invalid.");
+        return handle;
     }
 
-    public static bool TryFromUserDataPointer(void* ptr, [MaybeNullWhen(false)] out UserDataHandle handle)
+    internal static bool TryFromStackIndex(lua_State* L, int stackIndex, [MaybeNullWhen(false)] out UserDataHandle handle)
     {
-        if (ptr == null)
+        stackIndex = lua_absindex(L, stackIndex);
+        var top = lua_gettop(L);
+        try
         {
-            handle = null;
-            return false;
+            if (lua_type(L, stackIndex) == LuaType.UserData
+                && lua_getiuservalue(L, stackIndex, 1) == LuaType.LightUserData
+                && lua_touserdata(L, -1) == (void*) IdentifierPtr
+                && lua_getiuservalue(L, stackIndex, 2) == LuaType.LightUserData)
+            {
+                var gcPtr = lua_touserdata(L, -1);
+                var gcHandle = GCHandle.FromIntPtr((IntPtr) gcPtr);
+                handle = Unsafe.As<UserDataHandle>(gcHandle.Target)!;
+                return true;
+            }
+        }
+        finally
+        {
+            lua_settop(L, top);
         }
 
-        var gcPtr = *(IntPtr*) ptr;
-        var gcHandle = GCHandle.FromIntPtr(gcPtr);
-        handle = Unsafe.As<UserDataHandle>(gcHandle.Target)!;
-        return true;
+        handle = null;
+        return false;
     }
 }

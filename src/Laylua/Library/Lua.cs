@@ -238,7 +238,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         using (Stack.SnapshotCount())
         {
             var L = this.GetStatePointer();
-            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Marshaler.TryToObject(-1, out value))
+            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Marshaler.TryGetValue(-1, out value))
             {
                 Debug.Assert(value != null);
                 return true;
@@ -274,7 +274,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
                 Throw.KeyNotFoundException();
             }
 
-            return Marshaler.ToObject<TValue>(-1)!;
+            return Marshaler.GetValue<TValue>(-1)!;
         }
     }
 
@@ -291,7 +291,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
 
         using (Stack.SnapshotCount())
         {
-            Marshaler.PushObject(value);
+            Marshaler.PushValue(value);
             var L = this.GetStatePointer();
             lua_rawsetglobal(L, name);
         }
@@ -380,7 +380,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     public LuaFunction Compile(ReadOnlySpan<char> code, ReadOnlySpan<char> name = default)
     {
         LoadString(code, name);
-        return Marshaler.PopObject<LuaFunction>()!;
+        return Marshaler.PopValue<LuaFunction>()!;
     }
 
     /// <summary>
@@ -397,7 +397,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         {
             var L = this.GetStatePointer();
             lua_createtable(L, sequenceCapacity, tableCapacity);
-            return Marshaler.PopObject<LuaTable>()!;
+            return Marshaler.PopValue<LuaTable>()!;
         }
     }
 
@@ -421,7 +421,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         {
             var L = this.GetStatePointer();
             _ = lua_newuserdatauv(L, size, userValueCount);
-            return Marshaler.PopObject<LuaUserData>()!;
+            return Marshaler.PopValue<LuaUserData>()!;
         }
     }
 

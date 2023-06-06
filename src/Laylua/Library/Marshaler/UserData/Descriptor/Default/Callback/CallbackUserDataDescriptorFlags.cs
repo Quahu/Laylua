@@ -5,7 +5,7 @@ namespace Laylua.Marshaling;
 
 /// <summary>
 ///     Represents the metatable values and methods
-///     supported by the <see cref="CallbackBasedUserDataDescriptor"/>.
+///     supported by the <see cref="CallbackUserDataDescriptor"/>.
 /// </summary>
 [Flags]
 public enum CallbackUserDataDescriptorFlags : ulong

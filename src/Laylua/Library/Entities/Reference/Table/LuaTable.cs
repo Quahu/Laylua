@@ -111,7 +111,7 @@ public unsafe partial class LuaTable : LuaReference
             var hasMetatable = lua_getmetatable(L, -1);
             if (hasMetatable)
             {
-                metatable = Lua.Marshaler.ToObject<LuaTable>(-1)!;
+                metatable = Lua.Marshaler.GetValue<LuaTable>(-1)!;
                 return true;
             }
 
@@ -150,7 +150,7 @@ public unsafe partial class LuaTable : LuaReference
         {
             PushValue(this);
             var L = Lua.GetStatePointer();
-            Lua.Marshaler.PushObject(metatable);
+            Lua.Marshaler.PushValue(metatable);
             lua_setmetatable(L, -2);
         }
     }
@@ -197,7 +197,7 @@ public unsafe partial class LuaTable : LuaReference
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushObject(key);
+            Lua.Marshaler.PushValue(key);
             var L = Lua.GetStatePointer();
             return lua_gettable(L, -2) > LuaType.Nil;
         }
@@ -218,7 +218,7 @@ public unsafe partial class LuaTable : LuaReference
 
         using (Lua.Stack.SnapshotCount())
         {
-            Lua.Marshaler.PushObject(value);
+            Lua.Marshaler.PushValue(value);
             PushValue(this);
             var L = Lua.GetStatePointer();
             lua_pushnil(L);
@@ -254,9 +254,9 @@ public unsafe partial class LuaTable : LuaReference
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushObject(key);
+            Lua.Marshaler.PushValue(key);
             var L = Lua.GetStatePointer();
-            if (!lua_gettable(L, -2).IsNoneOrNil() && Lua.Marshaler.TryToObject(-1, out value))
+            if (!lua_gettable(L, -2).IsNoneOrNil() && Lua.Marshaler.TryGetValue(-1, out value))
             {
                 Debug.Assert(value != null);
                 return true;
@@ -289,12 +289,12 @@ public unsafe partial class LuaTable : LuaReference
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushObject(key);
+            Lua.Marshaler.PushValue(key);
             var L = Lua.GetStatePointer();
             if (lua_gettable(L, -2).IsNoneOrNil())
                 throw new KeyNotFoundException();
 
-            return Lua.Marshaler.ToObject<TValue>(-1)!;
+            return Lua.Marshaler.GetValue<TValue>(-1)!;
         }
     }
 
@@ -316,8 +316,8 @@ public unsafe partial class LuaTable : LuaReference
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushObject(key);
-            Lua.Marshaler.PushObject(value);
+            Lua.Marshaler.PushValue(key);
+            Lua.Marshaler.PushValue(value);
             var L = Lua.GetStatePointer();
             lua_settable(L, -3);
         }

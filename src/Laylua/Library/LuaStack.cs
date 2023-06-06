@@ -190,7 +190,7 @@ public unsafe class LuaStack : IReadOnlyCollection<LuaStackValue>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Push<T>(T value)
     {
-        _lua.Marshaler.PushObject(value);
+        _lua.Marshaler.PushValue(value);
     }
 
     /// <summary>

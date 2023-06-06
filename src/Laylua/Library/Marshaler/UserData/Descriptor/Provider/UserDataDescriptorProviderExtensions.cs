@@ -2,7 +2,7 @@
 
 public static class UserDataDescriptorProviderExtensions
 {
-    public static void SetDescriptor<T>(this UserDataDescriptorProvider provider, TypeUserDataDescriptor<T> descriptor)
+    public static void SetDescriptor<T>(this UserDataDescriptorProvider provider, UserDataDescriptor descriptor)
     {
         provider.SetDescriptor(typeof(T), descriptor);
     }

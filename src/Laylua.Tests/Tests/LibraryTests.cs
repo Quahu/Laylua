@@ -62,7 +62,7 @@ namespace Laylua.Tests
                 lua.Stack.EnsureFreeCapacity(1);
 
                 lua_pushglobaltable(L);
-                using (var globals = lua.Marshaler.PopObject<LuaTable>()!)
+                using (var globals = lua.Marshaler.PopValue<LuaTable>()!)
                 {
                     foreach (var (key, _) in globals.EnumeratePairs())
                     {

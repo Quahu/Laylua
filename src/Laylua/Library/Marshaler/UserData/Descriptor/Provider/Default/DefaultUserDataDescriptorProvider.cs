@@ -1,44 +1,86 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Laylua.Moon;
-using Qommon.Collections.ThreadSafe;
 
 namespace Laylua.Marshaling;
 
 public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
 {
+    private readonly Dictionary<Type, UserDataDescriptor?> _descriptorDictionary;
+    private readonly List<(Type, UserDataDescriptor?)> _descriptorList;
     private readonly DelegateUserDataDescriptor _delegateDescriptor;
-    private readonly IThreadSafeDictionary<Type, UserDataDescriptor?> _descriptors;
 
     public DefaultUserDataDescriptorProvider()
     {
-        _descriptors = ThreadSafeDictionary.ConcurrentDictionary.Create<Type, UserDataDescriptor?>();
+        _descriptorDictionary = new Dictionary<Type, UserDataDescriptor?>();
+        _descriptorList = new List<(Type, UserDataDescriptor?)>();
         _delegateDescriptor = new DelegateUserDataDescriptor();
     }
 
-    public override void SetDescriptor(Type type, UserDataDescriptor descriptor)
+    /// <inheritdoc/>
+    public override void SetDescriptor(Type type, UserDataDescriptor? descriptor)
     {
-        _descriptors[type] = descriptor;
+        _descriptorDictionary[type] = descriptor;
+
+        var existingIndex = _descriptorList.IndexOf((type, descriptor));
+        if (existingIndex == -1)
+        {
+            _descriptorList.Add((type, descriptor));
+            _descriptorList.Sort(static (a, b) =>
+            {
+                var aType = a.Item1;
+                var bType = b.Item1;
+                if (aType == bType)
+                    return 0;
+
+                if (aType.IsAssignableFrom(bType))
+                    return -1;
+
+                if (bType.IsAssignableFrom(aType))
+                    return 1;
+
+                return 0;
+            });
+        }
+        else
+        {
+            _descriptorList[existingIndex] = (type, descriptor);
+        }
     }
 
-    protected virtual UserDataDescriptor? CreateDescriptor<T>(T obj)
-    {
-        return null;
-    }
-
-    public override UserDataDescriptor? GetDescriptor<T>(T obj)
+    /// <inheritdoc/>
+    public override bool TryGetDescriptor<T>(T obj, [MaybeNullWhen(false)] out UserDataDescriptor descriptor)
     {
         if (obj is Delegate)
         {
             if (obj is LuaCFunction)
-                return null;
+            {
+                descriptor = null;
+                return false;
+            }
 
-            return _delegateDescriptor;
+            descriptor = _delegateDescriptor;
+            return true;
         }
 
-        return _descriptors.GetOrAdd(typeof(T), (_, state) =>
+        var objType = obj!.GetType();
+        if (_descriptorDictionary.TryGetValue(objType, out descriptor))
         {
-            var (@this, obj) = state;
-            return @this.CreateDescriptor(obj);
-        }, (this, obj));
+            return descriptor != null;
+        }
+
+        for (var i = 0; i < _descriptorList.Count; i++)
+        {
+            var tuple = _descriptorList[i];
+            if (tuple.Item1.IsAssignableFrom(objType))
+            {
+                descriptor = tuple.Item2;
+                return descriptor != null;
+            }
+        }
+
+        descriptor = default;
+        return false;
     }
 }

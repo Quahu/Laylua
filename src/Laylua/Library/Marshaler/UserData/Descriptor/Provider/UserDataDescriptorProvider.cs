@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Laylua.Marshaling;
 
 public abstract class UserDataDescriptorProvider
 {
-    public abstract void SetDescriptor(Type type, UserDataDescriptor descriptor);
+    public abstract void SetDescriptor(Type type, UserDataDescriptor? descriptor);
 
-    public abstract UserDataDescriptor? GetDescriptor<T>(T obj);
+    public abstract bool TryGetDescriptor<T>(T obj, [MaybeNullWhen(false)] out UserDataDescriptor descriptor);
 }

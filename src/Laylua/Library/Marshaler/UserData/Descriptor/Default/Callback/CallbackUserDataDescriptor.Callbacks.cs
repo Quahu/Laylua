@@ -1,6 +1,6 @@
 ﻿namespace Laylua.Marshaling;
 
-public abstract partial class CallbackBasedUserDataDescriptor
+public abstract partial class CallbackUserDataDescriptor
 {
     public virtual int Pairs(Lua lua, LuaStackValue userData)
     {
@@ -117,7 +117,7 @@ public abstract partial class CallbackBasedUserDataDescriptor
         return 0;
     }
 
-    public virtual int Close(Lua lua, LuaStackValue userData)
+    public virtual int Close(Lua lua, LuaStackValue userData, LuaStackValue error)
     {
         return 0;
     }

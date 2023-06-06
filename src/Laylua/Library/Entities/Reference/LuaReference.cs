@@ -123,7 +123,7 @@ public abstract unsafe class LuaReference : IEquatable<LuaReference>, IDisposabl
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            return Lua.Marshaler.PopObject<T>()!;
+            return Lua.Marshaler.PopValue<T>()!;
         }
     }
 

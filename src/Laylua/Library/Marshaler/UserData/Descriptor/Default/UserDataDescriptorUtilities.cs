@@ -1,19 +1,29 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Laylua.Moon;
 using Qommon;
 
 namespace Laylua.Marshaling;
 
 public static class UserDataDescriptorUtilities
 {
+    public delegate int MethodInvokerDelegate(Lua lua, LuaStackValueRange arguments);
+
+    public delegate int IndexDelegate(Lua lua, LuaStackValue userData, LuaStackValue key);
+
+    public delegate int NewIndexDelegate(Lua lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value);
+
     private static readonly MethodInfo _pushMethod;
 
     private static readonly ConstructorInfo _luaStackValueRangeConstructor;
     private static readonly PropertyInfo _luaStackValueRangeGetItemProperty;
+
+    private static readonly MethodInfo _luaMarshalerTryToObjectMethod;
 
     private static readonly MethodInfo _getParamsArgument;
 
@@ -22,6 +32,9 @@ public static class UserDataDescriptorUtilities
     private static readonly MethodInfo _luaReferenceDisposeEnumerable;
     private static readonly MethodInfo _luaReferenceDisposeDictionary;
     private static readonly MethodInfo _luaReferenceDisposeKvpEnumerable;
+
+    private static readonly MethodUserDataDescriptor _methodUserDataDescriptor = new();
+    private static readonly OverloadedMethodUserDataDescriptor _overloadedMethodUserDataDescriptor = new();
 
     static UserDataDescriptorUtilities()
     {
@@ -38,6 +51,10 @@ public static class UserDataDescriptorUtilities
         var luaStackValueRangeGetItemProperty = Array.Find(typeof(LuaStackValueRange).GetProperties(), propertyInfo => propertyInfo.GetIndexParameters().Length == 1);
         Guard.IsNotNull(luaStackValueRangeGetItemProperty);
         _luaStackValueRangeGetItemProperty = luaStackValueRangeGetItemProperty;
+
+        var luaMarshalerTryToObjectMethod = typeof(LuaMarshaler).GetMethod(nameof(LuaMarshaler.TryGetValue), BindingFlags.Instance | BindingFlags.Public);
+        Guard.IsNotNull(luaMarshalerTryToObjectMethod);
+        _luaMarshalerTryToObjectMethod = luaMarshalerTryToObjectMethod;
 
         var getParamsArgument = typeof(UserDataDescriptorUtilities).GetMethod(nameof(GetParamsArgument), BindingFlags.Static | BindingFlags.NonPublic);
         Guard.IsNotNull(getParamsArgument);
@@ -117,19 +134,18 @@ public static class UserDataDescriptorUtilities
         _luaReferenceDisposeKvpEnumerable = luaReferenceDisposeKvpEnumerable;
     }
 
-    private static T?[] GetParamsArgument<T>(Lua lua, LuaStackValueRange arguments, int argumentIndex)
+    private static T?[] GetParamsArgument<T>(Lua lua, int argumentCount, int argumentIndex)
     {
-        var remainingArgumentCount = arguments.Count - (argumentIndex - 1);
+        var remainingArgumentCount = argumentCount - (argumentIndex - 2);
         if (remainingArgumentCount == 0)
             return Array.Empty<T>();
 
         var paramsArgument = new T?[remainingArgumentCount];
         for (var i = 0; i < remainingArgumentCount; i++)
         {
-            var argument = arguments[argumentIndex + i];
-            if (!argument.TryGetValue<T>(out var convertedArgument))
+            if (!lua.Marshaler.TryGetValue<T>(argumentIndex + i, out var convertedArgument))
             {
-                lua.RaiseArgumentTypeError(argument.Index, typeof(T).Name);
+                lua.RaiseArgumentTypeError(argumentIndex + i, typeof(T).Name);
             }
 
             paramsArgument[i] = convertedArgument;
@@ -138,23 +154,32 @@ public static class UserDataDescriptorUtilities
         return paramsArgument;
     }
 
-    public static Func<Lua, LuaStackValueRange, int> CreateCallInvoker(object? instance, MethodInfo methodInfo)
+    public static MethodInvokerDelegate CreateDelegateInvoker(Delegate @delegate)
+    {
+        return CreateInvoker(@delegate.Target, @delegate.Method);
+    }
+
+    public static MethodInvokerDelegate CreateMethodInvoker(MethodInfo methodInfo)
+    {
+        return CreateInvoker(null, methodInfo);
+    }
+
+    private static MethodInvokerDelegate CreateInvoker(object? instance, MethodInfo methodInfo)
     {
         Guard.IsNotNull(methodInfo);
 
-        var parameterInfos = methodInfo.GetParameters();
-
+        var parameters = methodInfo.GetParameters();
         var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
         var argumentsParameterExpression = Expression.Parameter(typeof(LuaStackValueRange), "arguments");
         var requiredParameterCount = 0;
-        for (var i = 0; i < parameterInfos.Length; i++)
+        for (var i = 0; i < parameters.Length; i++)
         {
-            var parameterInfo = parameterInfos[i];
-            if (parameterInfo.IsOptional)
+            var parameter = parameters[i];
+            if (parameter.IsOptional)
                 break;
 
-            if (i == parameterInfos.Length - 1 && (parameterInfo.ParameterType.IsArray && parameterInfo.GetCustomAttribute<ParamArrayAttribute>() != null
-                || parameterInfo.ParameterType == typeof(LuaStackValueRange)))
+            if (i == parameters.Length - 1 && (parameter.ParameterType.IsArray && parameter.GetCustomAttribute<ParamArrayAttribute>() != null
+                || parameter.ParameterType == typeof(LuaStackValueRange)))
                 break;
 
             requiredParameterCount++;
@@ -165,50 +190,97 @@ public static class UserDataDescriptorUtilities
         // T1 arg1
         // T2 arg2
         // T3 arg3
-        var argumentVariableExpressions = new ParameterExpression[parameterInfos.Length];
-        for (var i = 0; i < parameterInfos.Length; i++)
+        var argumentVariableExpressions = new ParameterExpression[parameters.Length];
+        for (var i = 0; i < parameters.Length; i++)
         {
-            argumentVariableExpressions[i] = Expression.Variable(parameterInfos[i].ParameterType, parameterInfos[i].Name);
+            argumentVariableExpressions[i] = Expression.Variable(parameters[i].ParameterType, parameters[i].Name);
         }
 
-        // if (arguments.Count < requiredParameterCount)
-        //     lua.RaiseArgumentError(requiredParameterCount - arguments.Count, "Missing argument.");
-        bodyExpressions.Add(Expression.IfThen(
-            Expression.LessThan(
-                Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
-                Expression.Constant(requiredParameterCount)),
-            Expression.Call(luaParameterExpression, nameof(Lua.RaiseArgumentError), null,
-                Expression.Subtract(
-                    Expression.Constant(requiredParameterCount),
-                    Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count))),
-                Expression.Constant("Missing argument."))));
+        var isColonInvoker = false;
+        Expression? instanceExpression;
+        ParameterExpression? instanceExpressionVariable = null;
+        if (methodInfo.IsStatic)
+        {
+            instanceExpression = null;
+        }
+        else
+        {
+            // Instance being null here means this is a colon syntax invoker:
+            // obj:method()
+            // This means the first argument is 'obj'.
+            // TODO: fix calculations based on this
+            if (instance == null)
+            {
+                isColonInvoker = true;
+                requiredParameterCount++;
+
+                /*
+                    if (!Lua.Marshaler.TryToObject<T>(2, out var instance))
+                    {
+                        lua.RaiseArgumentTypeError(2, typeof(T).Name);
+                    }
+                */
+                var userDataHandleType = typeof(UserDataHandle<>).MakeGenericType(methodInfo.ReflectedType!);
+                instanceExpressionVariable = Expression.Variable(userDataHandleType, "instance");
+                instanceExpression = Expression.Field(instanceExpressionVariable, "Value");
+                bodyExpressions.Add(Expression.IfThen(
+                    Expression.IsFalse(
+                        Expression.Call(
+                            Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
+                            _luaMarshalerTryToObjectMethod.MakeGenericMethod(userDataHandleType),
+                            Expression.Constant(2), instanceExpressionVariable)),
+                    Expression.Call(
+                        luaParameterExpression,
+                        nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
+                        Expression.Constant(2), Expression.Constant(methodInfo.ReflectedType!.ToTypeString()))));
+            }
+            else
+            {
+                instanceExpression = Expression.Constant(instance);
+            }
+        }
+
+        // @delegate(arg1, arg2, arg3);
+        var callDelegateExpression = Expression.Call(instanceExpression, methodInfo, argumentVariableExpressions);
+
+        // // if (arguments.Count < requiredParameterCount)
+        // //     lua.RaiseArgumentError(requiredParameterCount - arguments.Count, "Missing argument.");
+        // bodyExpressions.Insert(0, Expression.IfThen(
+        //     Expression.LessThan(
+        //         Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
+        //         Expression.Constant(requiredParameterCount)),
+        //     Expression.Call(luaParameterExpression, nameof(Lua.RaiseArgumentError), null,
+        //         Expression.Subtract(
+        //             Expression.Constant(requiredParameterCount),
+        //             Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count))),
+        //         Expression.Constant("Missing argument."))));
 
         for (var i = 0; i < argumentVariableExpressions.Length; i++)
         {
-            var parameterInfo = parameterInfos[i];
-            var parameterType = parameterInfo.ParameterType;
+            var parameter = parameters[i];
+            var parameterType = parameter.ParameterType;
             var argumentVariableExpression = argumentVariableExpressions[i];
-            var argumentIndexExpression = Expression.Constant(i + 1);
+            var argumentIndexExpression = Expression.Constant(i + (isColonInvoker ? 3 : 2));
 
-            if (i != parameterInfos.Length - 1 || ((!parameterInfo.ParameterType.IsArray || parameterInfo.GetCustomAttribute<ParamArrayAttribute>() == null)
-                && parameterInfo.ParameterType != typeof(LuaStackValueRange)))
+            if (i != parameters.Length - 1 || ((!parameter.ParameterType.IsArray || parameter.GetCustomAttribute<ParamArrayAttribute>() == null)
+                && parameter.ParameterType != typeof(LuaStackValueRange)))
             {
                 /*
-                    if (!arguments[1].TryGetValue<T1>(out arg1))
+                    if (!Lua.Marshaler.TryToObject<T1>(argIndex1, out arg1))
                     {
-                        lua.RaiseArgumentTypeError(1, typeof(T1).Name);
+                        lua.RaiseArgumentTypeError(argIndex1, typeof(T1).Name);
                     }
                 */
                 var getArgumentExpression = Expression.IfThen(
                     Expression.IsFalse(
                         Expression.Call(
-                            Expression.Property(argumentsParameterExpression, _luaStackValueRangeGetItemProperty, argumentIndexExpression),
-                            nameof(LuaStackValue.TryGetValue), new[] { parameterType },
-                            argumentVariableExpression)),
+                            Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
+                            _luaMarshalerTryToObjectMethod.MakeGenericMethod(parameterType),
+                            argumentIndexExpression, argumentVariableExpression)),
                     Expression.Call(
                         luaParameterExpression,
                         nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
-                        Expression.Constant(i + 2), Expression.Constant(parameterType.Name)));
+                        Expression.Constant(i + (isColonInvoker ? 4 : 3)), Expression.Constant(parameterType.ToTypeString())));
 
                 if (i >= requiredParameterCount)
                 {
@@ -229,7 +301,7 @@ public static class UserDataDescriptorUtilities
                             argumentIndexExpression),
                         Expression.Assign(argumentVariableExpression, parameterType.IsArray && parameterType.GetCustomAttribute<ParamArrayAttribute>() != null
                             ? Expression.Call(typeof(Array), "Empty", new[] { parameterType.GetElementType()! })
-                            : Expression.Constant(parameterInfo.DefaultValue)),
+                            : Expression.Constant(parameter.DefaultValue)),
                         getArgumentExpression);
                 }
 
@@ -237,12 +309,12 @@ public static class UserDataDescriptorUtilities
             }
             else
             {
-                if (parameterInfo.ParameterType.IsArray)
+                if (parameter.ParameterType.IsArray)
                 {
                     var elementType = parameterType.GetElementType()!;
                     var getParamsArgument = _getParamsArgument.MakeGenericMethod(elementType);
                     var getArgumentExpression = Expression.Assign(argumentVariableExpression,
-                        Expression.Call(getParamsArgument, luaParameterExpression, argumentsParameterExpression, argumentIndexExpression));
+                        Expression.Call(getParamsArgument, luaParameterExpression, Expression.Property(argumentsParameterExpression, "Count"), argumentIndexExpression));
 
                     bodyExpressions.Add(getArgumentExpression);
                 }
@@ -257,15 +329,12 @@ public static class UserDataDescriptorUtilities
                                 Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
                                 Expression.Subtract(
                                     argumentIndexExpression,
-                                    Expression.Constant(1)))));
+                                    Expression.Constant(2)))));
 
                     bodyExpressions.Add(getArgumentExpression);
                 }
             }
         }
-
-        // @delegate(arg1, arg2, arg3);
-        var callDelegateExpression = Expression.Call(methodInfo.IsStatic ? null : Expression.Constant(instance), methodInfo, argumentVariableExpressions);
 
         Expression returnCountExpression;
         if (methodInfo.ReturnType != typeof(void))
@@ -376,14 +445,282 @@ public static class UserDataDescriptorUtilities
         bodyExpressions.Add(callDelegateExpression);
         bodyExpressions.Add(returnCountExpression);
 
-        Expression bodyExpression = Expression.Block(argumentVariableExpressions, bodyExpressions);
+        Expression bodyExpression = Expression.Block(instanceExpressionVariable != null ? argumentVariableExpressions.Prepend(instanceExpressionVariable) : argumentVariableExpressions, bodyExpressions);
 
         if (disposeArgumentExpressions.Count > 0)
         {
             bodyExpression = Expression.TryFinally(bodyExpression, Expression.Block(argumentVariableExpressions, disposeArgumentExpressions));
         }
 
-        var lambdaExpression = Expression.Lambda<Func<Lua, LuaStackValueRange, int>>(bodyExpression, luaParameterExpression, argumentsParameterExpression);
+        var lambdaExpression = Expression.Lambda<MethodInvokerDelegate>(bodyExpression, luaParameterExpression, argumentsParameterExpression);
+        return lambdaExpression.Compile();
+    }
+
+    public static IndexDelegate CreateIndex(Type type, bool isTypeDefinition, TypeMemberProvider memberProvider, UserDataNamingPolicy namingPolicy)
+    {
+        // Index
+        var returnLabelTarget = Expression.Label(typeof(int), "returnLabel");
+
+        var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
+        var userDataParameterExpression = Expression.Parameter(typeof(LuaStackValue), "userData");
+        var keyParameterExpression = Expression.Parameter(typeof(LuaStackValue), "key");
+
+        Expression? instanceExpression = isTypeDefinition
+            ? null
+            : Expression.Field(
+                Expression.Call(userDataParameterExpression, nameof(LuaStackValue.GetValue), new[] { typeof(UserDataHandle<>).MakeGenericType(type) }),
+                "Value");
+
+        // string name;
+        var nameVariableExpression = Expression.Variable(typeof(string), "name");
+
+        // name = key.GetValue<string>();
+        var nameVariableAssignExpression = Expression.Assign(
+            nameVariableExpression,
+            Expression.Call(keyParameterExpression, nameof(LuaStackValue.GetValue), new[] { typeof(string) }));
+
+        // lua.Stack
+        var getLuaStackExpression = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
+        var nameSwitchCases = new List<SwitchCase>();
+
+        // Properties
+        {
+            foreach (var property in memberProvider.EnumerateReadableProperties(type, isTypeDefinition))
+            {
+                var indexParameters = property.GetIndexParameters();
+                if (indexParameters.Length > 0)
+                    continue;
+
+                var propertyName = property.GetCustomAttribute<LuaNameAttribute>()?.Name ?? property.Name;
+                propertyName = namingPolicy.ConvertName(propertyName);
+
+                /*
+                    case "propertyName":
+                    {
+                        Lua.Stack.Push(instance.Property); // instance is either the type or the value
+                        return 1;
+                    }
+                */
+                var switchCaseExpression = Expression.SwitchCase(
+                    Expression.Block(
+                        Expression.Call(getLuaStackExpression, nameof(LuaStack.Push), new[] { property.PropertyType }, Expression.Property(instanceExpression, property)),
+                        Expression.Return(returnLabelTarget, Expression.Constant(1))),
+                    Expression.Constant(propertyName));
+
+                nameSwitchCases.Add(switchCaseExpression);
+            }
+        }
+
+        // Fields
+        {
+            foreach (var field in memberProvider.EnumerateFields(type, isTypeDefinition))
+            {
+                var fieldName = field.GetCustomAttribute<LuaNameAttribute>()?.Name ?? field.Name;
+                fieldName = namingPolicy.ConvertName(fieldName);
+
+                /*
+                    case "fieldName":
+                    {
+                        Lua.Stack.Push(instance.Field); // instance is either the type or the value
+                        return 1;
+                    }
+                */
+                var switchCaseExpression = Expression.SwitchCase(
+                    Expression.Block(
+                        Expression.Call(getLuaStackExpression, nameof(LuaStack.Push), new[] { field.FieldType }, Expression.Field(instanceExpression, field)),
+                        Expression.Return(returnLabelTarget, Expression.Constant(1))),
+                    Expression.Constant(fieldName));
+
+                nameSwitchCases.Add(switchCaseExpression);
+            }
+        }
+
+        // Methods
+        {
+            foreach (var methodGroup in memberProvider.EnumerateMethods(type, isTypeDefinition)
+                .GroupBy(static method => method.GetCustomAttribute<LuaNameAttribute>()?.Name ?? method.Name))
+            {
+                var methodName = namingPolicy.ConvertName(methodGroup.Key);
+                /*
+                    case "methodName":
+                    {
+                        Lua.Stack.Push(instance.Method); // instance is either the type or the value; method is either the method or an array of methods
+                        return 1;
+                    }
+                */
+
+                var methods = methodGroup.ToArray();
+                var switchCaseExpression = Expression.SwitchCase(
+                    Expression.Block(
+                        methods.Length == 1
+                            ? Expression.Call(getLuaStackExpression, nameof(LuaStack.Push), new[] { typeof(DescribedUserData<MethodInfo>) },
+                                Expression.Constant(new DescribedUserData<MethodInfo>(methods[0], _methodUserDataDescriptor)))
+                            : Expression.Call(getLuaStackExpression, nameof(LuaStack.Push), new[] { typeof(DescribedUserData<MethodInfo[]>) },
+                                Expression.Constant(new DescribedUserData<MethodInfo[]>(methods, _overloadedMethodUserDataDescriptor))),
+                        Expression.Return(returnLabelTarget, Expression.Constant(1))),
+                    Expression.Constant(methodName));
+
+                nameSwitchCases.Add(switchCaseExpression);
+            }
+        }
+
+        var nameSwitchExpression = Expression.Switch(nameVariableExpression, nameSwitchCases.ToArray());
+        var nameBlockExpression = Expression.Block(new[] { nameVariableExpression }, nameVariableAssignExpression, nameSwitchExpression);
+
+        /*
+            if (key.Type == LuaType.String)
+            {
+                // check fields, properties, methods
+            }
+            else
+            {
+                // check indexer
+            }
+        */
+        var ifKeyTypeStringThenElseExpression = Expression.IfThen(
+            Expression.Equal(
+                Expression.Property(keyParameterExpression, nameof(LuaStackValue.Type)),
+                Expression.Constant(LuaType.String)),
+            nameBlockExpression);
+
+        var labelExpression = Expression.Label(returnLabelTarget, Expression.Constant(0));
+        var lambdaBlockExpression = Expression.Block(ifKeyTypeStringThenElseExpression, labelExpression);
+
+        var lambdaExpression = Expression.Lambda<IndexDelegate>(lambdaBlockExpression,
+            luaParameterExpression, userDataParameterExpression, keyParameterExpression);
+
+        return lambdaExpression.Compile();
+    }
+
+    public static NewIndexDelegate CreateNewIndex(Type type, bool isTypeDefinition, TypeMemberProvider memberProvider, UserDataNamingPolicy namingPolicy)
+    {
+        var returnLabelTarget = Expression.Label(typeof(int), "returnLabel");
+
+        var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
+        var userDataParameterExpression = Expression.Parameter(typeof(LuaStackValue), "userData");
+        var keyParameterExpression = Expression.Parameter(typeof(LuaStackValue), "key");
+        var valueParameterExpression = Expression.Parameter(typeof(LuaStackValue), "value");
+
+        Expression? instanceExpression = isTypeDefinition
+            ? null
+            : Expression.Field(
+                Expression.Call(userDataParameterExpression, nameof(LuaStackValue.GetValue), new[] { typeof(UserDataHandle<>).MakeGenericType(type) }),
+                "Value");
+
+        // string name;
+        var nameVariableExpression = Expression.Variable(typeof(string), "name");
+
+        // name = key.GetValue<string>();
+        var nameVariableAssignExpression = Expression.Assign(
+            nameVariableExpression,
+            Expression.Call(keyParameterExpression, nameof(LuaStackValue.GetValue), new[] { typeof(string) }));
+
+        var switchCases = new List<SwitchCase>();
+
+        // Properties
+        {
+            foreach (var property in memberProvider.EnumerateWritableProperties(type, isTypeDefinition))
+            {
+                var indexParameters = property.GetIndexParameters();
+                if (indexParameters.Length > 0)
+                    continue;
+
+                var propertyName = property.GetCustomAttribute<LuaNameAttribute>()?.Name ?? property.Name;
+                propertyName = namingPolicy.ConvertName(propertyName);
+
+                /*
+                    case "propertyName":
+                    {
+                        if (!value.TryGetValue<TProperty>(out var typedValue))
+                        {
+                            lua.RaiseArgumentTypeError(value.Index, "TProperty");
+                        }
+
+                        instance.Property = typedValue; // instance is either the type or the value
+                        return 0;
+                    }
+                */
+                var typedValueVariableExpression = Expression.Variable(property.PropertyType, "typedValue");
+                var switchCaseExpression = Expression.SwitchCase(
+                    Expression.Block(new[] { typedValueVariableExpression },
+                        Expression.IfThen(
+                            Expression.IsFalse(
+                                Expression.Call(valueParameterExpression, nameof(LuaStackValue.TryGetValue), new[] { property.PropertyType }, typedValueVariableExpression)),
+                            Expression.Call(
+                                luaParameterExpression,
+                                nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
+                                Expression.Property(valueParameterExpression, nameof(LuaStackValue.Index)), Expression.Constant(property.PropertyType.ToTypeString()))),
+                        Expression.Assign(Expression.Property(instanceExpression, property), typedValueVariableExpression),
+                        Expression.Return(returnLabelTarget, Expression.Constant(0))),
+                    Expression.Constant(propertyName));
+
+                switchCases.Add(switchCaseExpression);
+            }
+        }
+
+        // Fields
+        {
+            foreach (var field in memberProvider.EnumerateFields(type, isTypeDefinition))
+            {
+                var fieldName = field.GetCustomAttribute<LuaNameAttribute>()?.Name ?? field.Name;
+                fieldName = namingPolicy.ConvertName(fieldName);
+                /*
+                    case "fieldName":
+                    {
+                        if (!value.TryGetValue<TField>(out var typedValue))
+                        {
+                            lua.RaiseArgumentTypeError(value.Index, "TField");
+                        }
+
+                        instance.Field = typedValue; // instance is either the type or the value
+                        return 0;
+                    }
+                */
+                var typedValueVariableExpression = Expression.Variable(field.FieldType, "typedValue");
+                var switchCaseExpression = Expression.SwitchCase(
+                    Expression.Block(new[] { typedValueVariableExpression },
+                        Expression.IfThen(
+                            Expression.IsFalse(
+                                Expression.Call(valueParameterExpression, nameof(LuaStackValue.TryGetValue), new[] { field.FieldType }, typedValueVariableExpression)),
+                            Expression.Call(
+                                luaParameterExpression,
+                                nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
+                                Expression.Property(valueParameterExpression, nameof(LuaStackValue.Index)), Expression.Constant(field.FieldType.ToTypeString()))),
+                        Expression.Assign(
+                            Expression.Field(instanceExpression, field),
+                            typedValueVariableExpression),
+                        Expression.Return(returnLabelTarget, Expression.Constant(0))),
+                    Expression.Constant(fieldName));
+
+                switchCases.Add(switchCaseExpression);
+            }
+        }
+
+        var nameSwitchExpression = Expression.Switch(nameVariableExpression, switchCases.ToArray());
+        var nameBlockExpression = Expression.Block(new[] { nameVariableExpression }, nameVariableAssignExpression, nameSwitchExpression);
+
+        /*
+            if (key.Type == LuaType.String)
+            {
+                // check fields, properties, methods
+            }
+            else
+            {
+                // check indexer
+            }
+        */
+        var ifKeyTypeStringThenElseExpression = Expression.IfThen(
+            Expression.Equal(
+                Expression.Property(keyParameterExpression, nameof(LuaStackValue.Type)),
+                Expression.Constant(LuaType.String)),
+            nameBlockExpression);
+
+        var labelExpression = Expression.Label(returnLabelTarget, Expression.Constant(0));
+        var lambdaBlockExpression = Expression.Block(ifKeyTypeStringThenElseExpression, labelExpression);
+
+        var lambdaExpression = Expression.Lambda<NewIndexDelegate>(lambdaBlockExpression,
+            luaParameterExpression, userDataParameterExpression, keyParameterExpression, valueParameterExpression);
+
         return lambdaExpression.Compile();
     }
 }

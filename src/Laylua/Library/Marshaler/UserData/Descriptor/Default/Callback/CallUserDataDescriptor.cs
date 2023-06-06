@@ -1,21 +1,14 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using Laylua.Moon;
+﻿using Laylua.Moon;
 
 namespace Laylua.Marshaling;
 
-public unsafe class DelegateUserDataDescriptor : UserDataDescriptor
+public abstract unsafe class CallUserDataDescriptor : UserDataDescriptor
 {
-    /// <inheritdoc/>
-    public override string MetatableName => "delegate";
-
-    private readonly ConditionalWeakTable<Delegate, Func<Lua, LuaStackValueRange, int>> _invokers;
     private readonly LuaCFunction _call;
 
-    public DelegateUserDataDescriptor()
+    protected CallUserDataDescriptor()
     {
-        _invokers = new();
-        _call ??= L =>
+        _call = L =>
         {
             var lua = Lua.FromExtraSpace(L);
             var top = lua_gettop(L);
@@ -28,7 +21,7 @@ public unsafe class DelegateUserDataDescriptor : UserDataDescriptor
     }
 
     /// <summary>
-    ///     By default, calls the delegate.
+    ///     Invoked through the __call metamethod.
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
     /// <param name="userData"> The user data. </param>
@@ -36,17 +29,7 @@ public unsafe class DelegateUserDataDescriptor : UserDataDescriptor
     /// <returns>
     ///     The amount of values pushed onto the stack.
     /// </returns>
-    public virtual int Call(Lua lua, LuaStackValue userData, LuaStackValueRange arguments)
-    {
-        var @delegate = userData.GetValue<Delegate>();
-        if (@delegate == null)
-        {
-            lua.RaiseArgumentError(userData.Index, "The argument must be a delegate.");
-        }
-
-        var invoker = _invokers.GetValue(@delegate, static @delegate => UserDataDescriptorUtilities.CreateCallInvoker(@delegate.Target, @delegate.Method));
-        return invoker(lua, arguments);
-    }
+    public abstract int Call(Lua lua, LuaStackValue userData, LuaStackValueRange arguments);
 
     /// <inheritdoc/>
     public override void OnMetatableCreated(Lua lua, LuaStackValue metatable)
