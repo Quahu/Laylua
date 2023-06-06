@@ -40,6 +40,29 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     }
 
     /// <summary>
+    ///     Gets whether this stack value is an integer.
+    /// </summary>
+    /// <remarks>
+    ///     This can be used when <see cref="Type"/> returns <see cref="LuaType.Number"/>
+    ///     to determine whether this value should be treated as an integer or a floating-point number.
+    /// </remarks>
+    /// <returns>
+    ///     <see langword="true"/> if the value is an integer number;
+    ///     <see langword="false"/> if the value is a floating-point number.
+    /// </returns>
+    public bool IsInteger
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        get
+        {
+            if (_lua == null)
+                return false;
+
+            return lua_isinteger(_lua.GetStatePointer(), Index);
+        }
+    }
+
+    /// <summary>
     ///     Gets or sets the .NET value of this stack value.
     /// </summary>
     public object? Value
