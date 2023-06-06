@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -156,7 +156,7 @@ namespace Laylua
                     {
                         using (fileMetatable)
                         {
-                            var metaDictionary = fileMetatable.ToDictionary();
+                            var metaDictionary = fileMetatable.ToDictionary<object, object>();
                             Logger.LogInformation("File metatable: {0}", metaDictionary);
                             LuaReference.Dispose(metaDictionary);
                         }
@@ -298,7 +298,7 @@ namespace Laylua
                     lua["array"] = new object[] { true, 42, "Hello, World!" };
                     using (var table = lua["array"] as LuaTable)
                     {
-                        var array = table!.ToArray();
+                        var array = table!.ToArray<object>();
                         Logger.LogInformation("Array contents: {0}", (object) array.Select(x => (x!.GetType().Name, x)).ToArray());
                     }
 

@@ -1,8 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using Laylua.Marshaling;
 using Laylua.Moon;
+using Qommon;
 
 namespace Laylua;
 
@@ -12,15 +12,17 @@ public unsafe partial class LuaTable
     ///     Converts this table to an array.
     /// </summary>
     /// <remarks>
-    ///     <inheritdoc cref="ToList"/>
+    ///     <inheritdoc cref="ToList{T}"/>
     /// </remarks>
     /// <param name="throwOnNonIntegerKeys"> Whether to throw on non-integer keys. </param>
+    /// <param name="throwOnNonConvertibleValues"> Whether to throw on non-convertible values. </param>
     /// <returns>
     ///     The output array.
     /// </returns>
-    public object[] ToArray(bool throwOnNonIntegerKeys = false)
+    public T[] ToArray<T>(bool throwOnNonIntegerKeys = false, bool throwOnNonConvertibleValues = true)
+        where T : notnull
     {
-        var list = ToList(throwOnNonIntegerKeys);
+        var list = ToList<T>(throwOnNonIntegerKeys, throwOnNonConvertibleValues);
         return list.ToArray();
     }
 
@@ -30,12 +32,17 @@ public unsafe partial class LuaTable
     /// <remarks>
     ///     This method skips non-integer keys
     ///     or throws if <paramref name="throwOnNonIntegerKeys"/> is <see langword="true"/>.
+    ///     <para/>
+    ///     This method throws for values that cannot be converted
+    ///     or skips them if <paramref name="throwOnNonConvertibleValues"/> is <see langword="false"/>.
     /// </remarks>
     /// <param name="throwOnNonIntegerKeys"> Whether to throw on non-integer keys. </param>
+    /// <param name="throwOnNonConvertibleValues"> Whether to throw on non-convertible values. </param>
     /// <returns>
     ///     The output list.
     /// </returns>
-    public List<object> ToList(bool throwOnNonIntegerKeys = false)
+    public List<T> ToList<T>(bool throwOnNonIntegerKeys = false, bool throwOnNonConvertibleValues = true)
+        where T : notnull
     {
         ThrowIfInvalid();
 
@@ -46,7 +53,7 @@ public unsafe partial class LuaTable
             PushValue(this);
             var L = Lua.GetStatePointer();
             var length = (int) luaL_len(L, -1);
-            var list = new List<object>(length);
+            var list = new List<T>(length);
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -54,16 +61,23 @@ public unsafe partial class LuaTable
                 {
                     if (throwOnNonIntegerKeys)
                     {
-                        throw new InvalidOperationException("Cannot convert a table containing non-integer keys.");
+                        Throw.InvalidOperationException("Cannot convert a table containing non-integer keys.");
                     }
-
-                    lua_pop(L);
-                    continue;
+                }
+                else if (!Lua.Marshaler.TryGetValue<T>(-1, out var value))
+                {
+                    if (throwOnNonConvertibleValues)
+                    {
+                        Throw.InvalidOperationException($"Failed to convert the value {Lua.Stack[-1]} to type {typeof(T)}.");
+                    }
+                }
+                else
+                {
+                    Debug.Assert(value != null);
+                    list.Add(value);
                 }
 
-                var value = Lua.Marshaler.PopValue();
-                Debug.Assert(value != null);
-                list.Add(value);
+                lua_pop(L);
             }
 
             return list;
@@ -73,96 +87,21 @@ public unsafe partial class LuaTable
     /// <summary>
     ///     Converts this table to a dictionary.
     /// </summary>
-    /// <returns>
-    ///     The output dictionary.
-    /// </returns>
-    public Dictionary<object, object> ToDictionary()
-    {
-        ThrowIfInvalid();
-
-        Lua.Stack.EnsureFreeCapacity(3);
-
-        var dictionary = new Dictionary<object, object>(Lua.Comparer);
-        using (Lua.Stack.SnapshotCount())
-        {
-            PushValue(this);
-            var L = Lua.GetStatePointer();
-            lua_pushnil(L);
-            while (lua_next(L, -2))
-            {
-                var key = Lua.Marshaler.GetValue(-2);
-                var value = Lua.Marshaler.GetValue(-1);
-                Debug.Assert(key != null);
-                Debug.Assert(value != null);
-                dictionary[key] = value;
-                lua_pop(L);
-            }
-
-            return dictionary;
-        }
-    }
-
-    /// <summary>
-    ///     Converts this table to a dictionary.
-    /// </summary>
     /// <remarks>
     ///     This method skips non-string keys
     ///     or throws if <paramref name="throwOnNonStringKeys"/> is <see langword="true"/>.
-    /// </remarks>
-    /// <param name="throwOnNonStringKeys"> Whether to throw on non-string keys. </param>
-    /// <returns>
-    ///     The output dictionary.
-    /// </returns>
-    public Dictionary<string, object> ToRecordDictionary(bool throwOnNonStringKeys = false)
-    {
-        ThrowIfInvalid();
-
-        Lua.Stack.EnsureFreeCapacity(3);
-
-        var dictionary = new Dictionary<string, object>(Lua.Comparer);
-        using (Lua.Stack.SnapshotCount())
-        {
-            PushValue(this);
-            var L = Lua.GetStatePointer();
-            lua_pushnil(L);
-            while (lua_next(L, -2))
-            {
-                if (lua_type(L, -2) != LuaType.String)
-                {
-                    if (throwOnNonStringKeys)
-                    {
-                        throw new InvalidOperationException("Cannot convert a table containing non-string keys.");
-                    }
-
-                    lua_pop(L);
-                    continue;
-                }
-
-                var key = Lua.Marshaler.GetValue<string>(-2);
-                var value = Lua.Marshaler.GetValue(-1);
-                Debug.Assert(key != null);
-                Debug.Assert(value != null);
-                dictionary[key] = value;
-                lua_pop(L);
-            }
-
-            return dictionary;
-        }
-    }
-
-    /// <summary>
-    ///     Converts this table to a dictionary.
-    /// </summary>
-    /// <remarks>
-    ///     This method skips non-string keys
-    ///     or throws if <paramref name="throwOnNonStringKeys"/> is <see langword="true"/>.
+    ///     <para/>
+    ///     This method throws for values that cannot be converted
+    ///     or skips them if <paramref name="throwOnNonConvertibleValues"/> is <see langword="false"/>.
     /// </remarks>
     /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
     /// <param name="throwOnNonStringKeys"> Whether to throw on non-string keys. </param>
+    /// <param name="throwOnNonConvertibleValues"> Whether to throw on non-convertible values. </param>
     /// <returns>
     ///     The output dictionary.
     /// </returns>
-    public Dictionary<string, TValue> ToRecordDictionary<TValue>(bool throwOnNonStringKeys = false)
+    public Dictionary<string, TValue> ToRecordDictionary<TValue>(bool throwOnNonStringKeys = false, bool throwOnNonConvertibleValues = true)
+        where TValue : notnull
     {
         ThrowIfInvalid();
 
@@ -180,18 +119,24 @@ public unsafe partial class LuaTable
                 {
                     if (throwOnNonStringKeys)
                     {
-                        throw new InvalidOperationException("Cannot convert a table containing non-string keys.");
+                        Throw.InvalidOperationException("Cannot convert a table containing non-string keys.");
                     }
-
-                    lua_pop(L);
-                    continue;
+                }
+                else if (!Lua.Marshaler.TryGetValue<TValue>(-1, out var value))
+                {
+                    if (throwOnNonConvertibleValues)
+                    {
+                        Throw.InvalidOperationException($"Failed to convert the value {Lua.Stack[-1]} to type {typeof(TValue)}.");
+                    }
+                }
+                else
+                {
+                    var key = Lua.Marshaler.GetValue<string>(-2);
+                    Debug.Assert(key != null);
+                    Debug.Assert(value != null);
+                    dictionary[key] = value;
                 }
 
-                var key = Lua.Marshaler.GetValue<string>(-2);
-                var value = Lua.Marshaler.GetValue<TValue>(-1);
-                Debug.Assert(key != null);
-                Debug.Assert(value != null);
-                dictionary[key] = value;
                 lua_pop(L);
             }
 
@@ -234,14 +179,14 @@ public unsafe partial class LuaTable
                 {
                     if (throwOnNonConvertible)
                     {
-                        throw new InvalidOperationException($"Failed to convert the key {Lua.Stack[-2]} to type {typeof(TKey)}.");
+                        Throw.InvalidOperationException($"Failed to convert the key {Lua.Stack[-2]} to type {typeof(TKey)}.");
                     }
                 }
                 else if (!Lua.Marshaler.TryGetValue<TValue>(-1, out var value))
                 {
                     if (throwOnNonConvertible)
                     {
-                        throw new InvalidOperationException($"Failed to convert the value {Lua.Stack[-1]} to type {typeof(TValue)}..");
+                        Throw.InvalidOperationException($"Failed to convert the value {Lua.Stack[-1]} to type {typeof(TValue)}.");
                     }
                 }
                 else

@@ -173,9 +173,9 @@ namespace Laylua.Tests
 
             using (var table = lua.GetGlobal<LuaTable>("table")!)
             {
-                Assert.Throws<InvalidOperationException>(() => table.ToArray(throwOnNonIntegerKeys: true));
+                Assert.Throws<InvalidOperationException>(() => table.ToArray<int>(throwOnNonIntegerKeys: true));
 
-                var actual = table.ToArray();
+                var actual = table.ToArray<int>();
                 var expected = new object[] { 1, 2, 3 };
                 CollectionAssert.AreEqual(expected, actual);
             }
@@ -188,7 +188,7 @@ namespace Laylua.Tests
 
             using (var table = lua.GetGlobal<LuaTable>("table")!)
             {
-                var actual = table.ToDictionary();
+                var actual = table.ToDictionary<object, object>();
                 var expected = new Dictionary<object, object>
                 {
                     [1] = 1,
@@ -208,9 +208,9 @@ namespace Laylua.Tests
 
             using (var table = lua.GetGlobal<LuaTable>("table")!)
             {
-                Assert.Throws<InvalidOperationException>(() => table.ToRecordDictionary(throwOnNonStringKeys: true));
+                Assert.Throws<InvalidOperationException>(() => table.ToRecordDictionary<object>(throwOnNonStringKeys: true));
 
-                var actual = table.ToRecordDictionary();
+                var actual = table.ToRecordDictionary<object>();
                 var expected = new Dictionary<string, object>
                 {
                     ["four"] = 4
