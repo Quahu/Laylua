@@ -52,12 +52,12 @@ public unsafe partial class LuaTable
         {
             var lua = _table.Lua;
             lua.Stack.EnsureFreeCapacity(3);
-            var marshaler = lua.Marshaler;
 
             using (_table.Lua.Stack.SnapshotCount())
             {
                 PushValue(_table);
                 var L = lua.GetStatePointer();
+                var marshaler = lua.Marshaler;
                 var length = (int) luaL_len(L, -1);
                 var list = new List<T>(length);
                 lua_pushnil(L);
