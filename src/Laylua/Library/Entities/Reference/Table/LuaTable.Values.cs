@@ -85,6 +85,34 @@ public unsafe partial class LuaTable
         }
 
         /// <summary>
+        ///     Gets an enumerable lazily yielding the values of the table.
+        /// </summary>
+        /// <remarks>
+        ///     This method throws for values that cannot be converted to <typeparamref name="T"/>
+        ///     or skips them if <paramref name="throwOnNonConvertible"/> is <see langword="false"/>.
+        /// </remarks>
+        /// <param name="throwOnNonConvertible"> Whether to throw on non-convertible values. </param>
+        /// <returns>
+        ///     The output enumerable.
+        /// </returns>
+        public IEnumerable<T> ToEnumerable<T>(bool throwOnNonConvertible = true)
+            where T : notnull
+        {
+            foreach (var stackValue in this)
+            {
+                if (!stackValue.TryGetValue<T>(out var value))
+                {
+                    if (throwOnNonConvertible)
+                    {
+                        Throw.InvalidOperationException($"Failed to convert the value {stackValue} to type {typeof(T)}.");
+                    }
+                }
+
+                yield return value!;
+            }
+        }
+
+        /// <summary>
         ///     Returns an enumerator that enumerates values of the table.
         /// </summary>
         /// <remarks>

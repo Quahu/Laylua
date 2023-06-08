@@ -523,6 +523,47 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
+    ///     Gets an enumerable lazily yielding the key/value pairs of this table.
+    /// </summary>
+    /// <remarks>
+    ///     This method throws for key/value pairs when either of the two cannot be converted
+    ///     to <typeparamref name="TKey"/>/<typeparamref name="TValue"/> respectively
+    ///     or skips them if <paramref name="throwOnNonConvertible"/> is <see langword="false"/>.
+    /// </remarks>
+    /// <typeparam name="TKey"> The type to convert the keys to. </typeparam>
+    /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
+    /// <param name="throwOnNonConvertible"> Whether to throw on non-convertible key/value pairs. </param>
+    /// <returns>
+    ///     The output dictionary.
+    /// </returns>
+    public IEnumerable<KeyValuePair<TKey, TValue>> ToEnumerable<TKey, TValue>(bool throwOnNonConvertible = true)
+        where TKey : notnull
+        where TValue : notnull
+    {
+        foreach (var (keyStackValue, valueStackValue) in EnumeratePairs())
+        {
+            if (!keyStackValue.TryGetValue<TKey>(out var key))
+            {
+                if (throwOnNonConvertible)
+                {
+                    Throw.InvalidOperationException($"Failed to convert the key {keyStackValue} to type {typeof(TKey)}.");
+                }
+            }
+            else if (!valueStackValue.TryGetValue<TValue>(out var value))
+            {
+                if (throwOnNonConvertible)
+                {
+                    Throw.InvalidOperationException($"Failed to convert the value {valueStackValue} to type {typeof(TValue)}.");
+                }
+            }
+            else
+            {
+                yield return new KeyValuePair<TKey, TValue>(key!, value!);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Returns an enumerator that lazily produces key/value pairs from this table.
     /// </summary>
     /// <remarks>

@@ -62,7 +62,6 @@ namespace Laylua.Tests
         public void LuaTableValues_ToArray_YieldsCorrectValues()
         {
             // Arrange
-            var values = new List<int>();
             lua.Execute("table = { a = 1, b = 2, c = 3 }");
 
             // Act
@@ -70,6 +69,45 @@ namespace Laylua.Tests
 
             // Assert
             Assert.That(table.Values.ToArray<int>(), Is.EquivalentTo(new[] { 1, 2, 3 }));
+        }
+
+        [Test]
+        public void LuaTableKeys_ToEnumerable_YieldsCorrectKeys()
+        {
+            // Arrange
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Assert
+            Assert.That(table.Keys.ToEnumerable<string>(), Is.EquivalentTo(new[] { "a", "b", "c" }));
+        }
+
+        [Test]
+        public void LuaTableValues_ToEnumerable_YieldsCorrectValues()
+        {
+            // Arrange
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Assert
+            Assert.That(table.Values.ToEnumerable<int>(), Is.EquivalentTo(new[] { 1, 2, 3 }));
+        }
+
+        [Test]
+        public void LuaTable_ToEnumerable_YieldsCorrectKeyValuePairs()
+        {
+            // Arrange
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Assert
+            Assert.That(table.ToEnumerable<string, int>(), Is.EquivalentTo(new Dictionary<string, int> { ["a"] = 1, ["b"] = 2, ["c"] = 3 }));
         }
 
         [Test]
