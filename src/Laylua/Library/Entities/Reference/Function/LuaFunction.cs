@@ -9,12 +9,12 @@ namespace Laylua;
 /// <remarks>
 ///     <inheritdoc cref="LuaReference"/>
 /// </remarks>
-public sealed unsafe class LuaFunction : LuaReference
+public sealed unsafe partial class LuaFunction : LuaReference
 {
     /// <summary>
     ///     Gets the upvalues of this function.
     /// </summary>
-    public LuaFunctionUpvalues Upvalues => new(this);
+    public UpvalueCollection Upvalues => new(this);
 
     internal LuaFunction()
     { }
