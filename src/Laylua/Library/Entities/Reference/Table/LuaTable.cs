@@ -19,6 +19,16 @@ namespace Laylua;
 public unsafe partial class LuaTable : LuaReference
 {
     /// <summary>
+    ///     Gets a view over the keys of this table.
+    /// </summary>
+    public KeyCollection Keys => new(this);
+
+    /// <summary>
+    ///     Gets a view over the values of this table.
+    /// </summary>
+    public ValueCollection Values => new(this);
+
+    /// <summary>
     ///     Gets the sequence length of this table.
     /// </summary>
     /// <remarks>
@@ -383,11 +393,130 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
+    ///     Gets a dictionary containing the key/value pairs of this table.
+    /// </summary>
+    /// <remarks>
+    ///     This method skips non-string keys
+    ///     or throws if <paramref name="throwOnNonStringKeys"/> is <see langword="true"/>.
+    ///     <para/>
+    ///     This method throws for values that cannot be converted
+    ///     or skips them if <paramref name="throwOnNonConvertibleValues"/> is <see langword="false"/>.
+    /// </remarks>
+    /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
+    /// <param name="throwOnNonStringKeys"> Whether to throw on non-string keys. </param>
+    /// <param name="throwOnNonConvertibleValues"> Whether to throw on non-convertible values. </param>
+    /// <returns>
+    ///     The output dictionary.
+    /// </returns>
+    public Dictionary<string, TValue> ToRecordDictionary<TValue>(bool throwOnNonStringKeys = false, bool throwOnNonConvertibleValues = true)
+        where TValue : notnull
+    {
+        ThrowIfInvalid();
+
+        Lua.Stack.EnsureFreeCapacity(3);
+
+        var dictionary = new Dictionary<string, TValue>(Lua.Comparer);
+        using (Lua.Stack.SnapshotCount())
+        {
+            PushValue(this);
+            var L = Lua.GetStatePointer();
+            lua_pushnil(L);
+            while (lua_next(L, -2))
+            {
+                if (lua_type(L, -2) != LuaType.String)
+                {
+                    if (throwOnNonStringKeys)
+                    {
+                        Throw.InvalidOperationException("Cannot convert a table containing non-string keys.");
+                    }
+                }
+                else if (!Lua.Marshaler.TryGetValue<TValue>(-1, out var value))
+                {
+                    if (throwOnNonConvertibleValues)
+                    {
+                        Throw.InvalidOperationException($"Failed to convert the value {Lua.Stack[-1]} to type {typeof(TValue)}.");
+                    }
+                }
+                else
+                {
+                    var key = Lua.Marshaler.GetValue<string>(-2);
+                    Debug.Assert(key != null);
+                    Debug.Assert(value != null);
+                    dictionary[key] = value;
+                }
+
+                lua_pop(L);
+            }
+
+            return dictionary;
+        }
+    }
+
+    /// <summary>
+    ///     Gets a dictionary containing the key/value pairs of this table.
+    /// </summary>
+    /// <remarks>
+    ///     This method throws for key/value pairs when either of the two cannot be converted
+    ///     to <typeparamref name="TKey"/>/<typeparamref name="TValue"/> respectively
+    ///     or skips them if <paramref name="throwOnNonConvertible"/> is <see langword="false"/>.
+    /// </remarks>
+    /// <typeparam name="TKey"> The type to convert the keys to. </typeparam>
+    /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
+    /// <param name="throwOnNonConvertible"> Whether to throw on non-convertible key/value pairs. </param>
+    /// <returns>
+    ///     The output dictionary.
+    /// </returns>
+    public Dictionary<TKey, TValue> ToDictionary<TKey, TValue>(bool throwOnNonConvertible = true)
+        where TKey : notnull
+        where TValue : notnull
+    {
+        ThrowIfInvalid();
+
+        Lua.Stack.EnsureFreeCapacity(3);
+
+        var dictionary = new Dictionary<TKey, TValue>();
+
+        using (Lua.Stack.SnapshotCount())
+        {
+            PushValue(this);
+            var L = Lua.GetStatePointer();
+            lua_pushnil(L);
+            while (lua_next(L, -2))
+            {
+                if (!Lua.Marshaler.TryGetValue<TKey>(-2, out var key))
+                {
+                    if (throwOnNonConvertible)
+                    {
+                        Throw.InvalidOperationException($"Failed to convert the key {Lua.Stack[-2]} to type {typeof(TKey)}.");
+                    }
+                }
+                else if (!Lua.Marshaler.TryGetValue<TValue>(-1, out var value))
+                {
+                    if (throwOnNonConvertible)
+                    {
+                        Throw.InvalidOperationException($"Failed to convert the value {Lua.Stack[-1]} to type {typeof(TValue)}.");
+                    }
+                }
+                else
+                {
+                    Debug.Assert(key != null);
+                    Debug.Assert(value != null);
+                    dictionary[key] = value;
+                }
+
+                lua_pop(L);
+            }
+
+            return dictionary;
+        }
+    }
+
+    /// <summary>
     ///     Returns an enumerator that lazily produces key/value pairs from this table.
     /// </summary>
     /// <remarks>
     ///     The enumerator uses the Lua stack
-    ///     which you should keep in mind if pushing your own data onto the stack
+    ///     which you should keep in mind when pushing your own data onto the stack
     ///     during enumeration.
     /// </remarks>
     /// <returns>
@@ -421,7 +550,7 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
-    ///     Represents an enumerator that can be used to lazily and efficiently enumerate the <see cref="LuaTable"/>.
+    ///     Represents an enumerator that can be used to enumerate the <see cref="LuaTable"/>.
     /// </summary>
     public struct PairsEnumerator : IEnumerator<KeyValuePair<LuaStackValue, LuaStackValue>>
     {
@@ -513,7 +642,7 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
-    ///     Represents an enumerator that can be used to lazily and efficiently enumerate the <see cref="LuaTable"/>.
+    ///     Represents an enumerator that can be used to enumerate the <see cref="LuaTable"/>.
     /// </summary>
     public struct SequenceEnumerator : IEnumerator<LuaStackValue>
     {

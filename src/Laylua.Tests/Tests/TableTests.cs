@@ -8,6 +8,71 @@ namespace Laylua.Tests
     public class TableTests : LuaFixture
     {
         [Test]
+        public void LuaTableKeys_GetEnumerator_YieldsCorrectKeys()
+        {
+            // Arrange
+            var keys = new List<string>();
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            foreach (var key in table.Keys)
+            {
+                keys.Add(key.GetValue<string>()!);
+            }
+
+            // Assert
+            Assert.That(keys, Is.EquivalentTo(new[] { "a", "b", "c" }));
+        }
+
+        [Test]
+        public void LuaTableValues_GetEnumerator_YieldsCorrectValues()
+        {
+            // Arrange
+            var values = new List<int>();
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            foreach (var value in table.Values)
+            {
+                values.Add(value.GetValue<int>()!);
+            }
+
+            // Assert
+            Assert.That(values, Is.EquivalentTo(new[] { 1, 2, 3 }));
+        }
+
+        [Test]
+        public void LuaTableKeys_ToArray_YieldsCorrectKeys()
+        {
+            // Arrange
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Assert
+            Assert.That(table.Keys.ToArray<string>(), Is.EquivalentTo(new[] { "a", "b", "c" }));
+        }
+
+        [Test]
+        public void LuaTableValues_ToArray_YieldsCorrectValues()
+        {
+            // Arrange
+            var values = new List<int>();
+            lua.Execute("table = { a = 1, b = 2, c = 3 }");
+
+            // Act
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Assert
+            Assert.That(table.Values.ToArray<int>(), Is.EquivalentTo(new[] { 1, 2, 3 }));
+        }
+
+        [Test]
         public void TableIndexer()
         {
             lua.Execute("table = { 1, [true] = true, three = '3' }");
@@ -163,21 +228,6 @@ namespace Laylua.Tests
                     var expected = new object[] { 1, true, "3" };
                     CollectionAssert.AreEquivalent(expected, actual);
                 }
-            }
-        }
-
-        [Test]
-        public void TableToArray()
-        {
-            lua.Execute("table = { 1, 2, 3, four = 4 }");
-
-            using (var table = lua.GetGlobal<LuaTable>("table")!)
-            {
-                Assert.Throws<InvalidOperationException>(() => table.ToArray<int>(throwOnNonIntegerKeys: true));
-
-                var actual = table.ToArray<int>();
-                var expected = new object[] { 1, 2, 3 };
-                CollectionAssert.AreEqual(expected, actual);
             }
         }
 

@@ -269,7 +269,7 @@ end");
             using (var results = function.Call(new[] { 1, 2, 3 }))
             using (var table = results.First.GetValue<LuaTable>()!)
             {
-                var actual = table.ToArray<int>();
+                var actual = table.Values.ToArray<int>();
                 try
                 {
                     var expected = new[] { 1, 2, 3 };

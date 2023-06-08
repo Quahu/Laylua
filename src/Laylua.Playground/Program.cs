@@ -298,7 +298,7 @@ namespace Laylua
                     lua["array"] = new object[] { true, 42, "Hello, World!" };
                     using (var table = lua["array"] as LuaTable)
                     {
-                        var array = table!.ToArray<object>();
+                        var array = table!.Values.ToArray<object>();
                         Logger.LogInformation("Array contents: {0}", (object) array.Select(x => (x!.GetType().Name, x)).ToArray());
                     }
 
