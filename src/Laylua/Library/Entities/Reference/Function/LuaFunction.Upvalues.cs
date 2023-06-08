@@ -19,7 +19,7 @@ public sealed unsafe partial class LuaFunction
         {
             using (_function.Lua.Stack.SnapshotCount())
             {
-                LuaReference.PushValue(_function);
+                PushValue(_function);
 
                 var L = _function.Lua.GetStatePointer();
                 var index = 1;
@@ -54,7 +54,7 @@ public sealed unsafe partial class LuaFunction
             public Enumerator(LuaFunction function)
             {
                 _function = function;
-                LuaReference.PushValue(_function);
+                PushValue(_function);
                 _functionIndex = lua_absindex(_function.Lua.GetStatePointer(), -1);
             }
 
