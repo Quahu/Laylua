@@ -44,13 +44,15 @@ namespace Laylua.Tests
         {
             var allocator = new NativeMemoryLuaAllocator();
 
+#if DEBUG
             NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger("Alloc"));
+#endif
             return allocator;
         }
 
         protected virtual Lua CreateLua(LuaAllocator allocator)
         {
-            return new Lua(CultureInfo.InvariantCulture, new LuaState(allocator))
+            return new Lua(CultureInfo.InvariantCulture, allocator)
             {
                 Id = Context.Test.Name
             };

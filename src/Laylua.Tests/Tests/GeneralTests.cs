@@ -1,6 +1,5 @@
 using System.Threading;
 using Laylua.Moon;
-using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 namespace Laylua.Tests
@@ -28,16 +27,16 @@ namespace Laylua.Tests
             var spinWait = new SpinWait();
             lua["spin"] = () =>
             {
-                Logger.LogTrace("Spinning");
                 spinWait.SpinOnce();
             };
 
-            lua.Execute(@"
-function brick()
-    while (true) do
-        spin()
-    end
-end");
+            lua.Execute("""
+                function brick()
+                    while (true) do
+                        spin()
+                    end
+                end
+                """);
 
             Assert.Throws<LuaException>(() =>
             {
