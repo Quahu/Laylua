@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Qommon;
@@ -59,7 +60,7 @@ public unsafe partial class LuaTable
                 var L = lua.GetStatePointer();
                 var marshaler = lua.Marshaler;
                 var length = (int) luaL_len(L, -1);
-                var list = new List<T>(length);
+                var list = new List<T>(Math.Min(length, 256));
                 lua_pushnil(L);
                 while (lua_next(L, -2))
                 {
@@ -70,7 +71,6 @@ public unsafe partial class LuaTable
                             Throw.InvalidOperationException($"Failed to convert the key {lua.Stack[-2]} to type {typeof(T)}.");
                         }
                     }
-
                     else
                     {
                         Debug.Assert(value != null);

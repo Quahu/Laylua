@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Laylua.Moon;
 using Qommon;
 
 namespace Laylua;
@@ -9,19 +10,19 @@ namespace Laylua;
 public unsafe partial class LuaTable
 {
     /// <summary>
-    ///     Represents a view over the values of a <see cref="LuaTable"/>.
+    ///     Represents a view over the sequence part of a <see cref="LuaTable"/>.
     /// </summary>
-    public readonly struct ValueCollection
+    public readonly struct SequenceCollection
     {
         private readonly LuaTable _table;
 
-        internal ValueCollection(LuaTable table)
+        internal SequenceCollection(LuaTable table)
         {
             _table = table;
         }
 
         /// <summary>
-        ///     Gets an array containing the values of the table.
+        ///     Gets an array containing the values of the sequence part of the table.
         /// </summary>
         /// <remarks>
         ///     <inheritdoc cref="ToList{T}"/>
@@ -38,7 +39,7 @@ public unsafe partial class LuaTable
         }
 
         /// <summary>
-        ///     Gets a list containing the values of the table.
+        ///     Gets a list containing the values of the sequence part of the table.
         /// </summary>
         /// <remarks>
         ///     This method throws for values that cannot be converted to <typeparamref name="T"/>
@@ -61,8 +62,8 @@ public unsafe partial class LuaTable
                 var marshaler = lua.Marshaler;
                 var length = (int) luaL_len(L, -1);
                 var list = new List<T>(Math.Min(length, 256));
-                lua_pushnil(L);
-                while (lua_next(L, -2))
+                var index = 1;
+                while (!lua_geti(L, -1, index++).IsNoneOrNil())
                 {
                     if (!marshaler.TryGetValue<T>(-1, out var value))
                     {
@@ -85,7 +86,7 @@ public unsafe partial class LuaTable
         }
 
         /// <summary>
-        ///     Gets an enumerable lazily yielding the values of the table.
+        ///     Gets an enumerable lazily yielding the values of the sequence part of the table.
         /// </summary>
         /// <remarks>
         ///     This method throws for values that cannot be converted to <typeparamref name="T"/>
@@ -98,13 +99,13 @@ public unsafe partial class LuaTable
         public IEnumerable<T> ToEnumerable<T>(bool throwOnNonConvertible = true)
             where T : notnull
         {
-            foreach (var stackValue in this)
+            foreach (var (_, stackValue) in this)
             {
                 if (!stackValue.TryGetValue<T>(out var value))
                 {
                     if (throwOnNonConvertible)
                     {
-                        Throw.InvalidOperationException($"Failed to convert the value {stackValue} to type {typeof(T)}.");
+                        Throw.InvalidOperationException($"Failed to convert the key {stackValue} to type {typeof(T)}.");
                     }
                 }
 
@@ -113,14 +114,17 @@ public unsafe partial class LuaTable
         }
 
         /// <summary>
-        ///     Returns an enumerator that enumerates values of the table.
+        ///     Returns an enumerator that enumerates the sequence part of the table.
         /// </summary>
         /// <remarks>
+        ///     This basically mimics the behavior of <c>ipairs</c>.<br/>
+        ///     See <a href="https://www.lua.org/manual/5.4/manual.html#pdf-ipairs">Lua manual</a>.
+        ///     <para/>
         ///     The enumerator uses the Lua stack which you should
         ///     keep in mind when pushing your own data onto the stack during enumeration.
         /// </remarks>
         /// <returns>
-        ///     An enumerator wrapping the values of the table.
+        ///     An enumerator wrapping the sequence part of the table.
         /// </returns>
         public Enumerator GetEnumerator()
         {
@@ -128,19 +132,20 @@ public unsafe partial class LuaTable
         }
 
         /// <summary>
-        ///     Represents an enumerator that can be used to enumerate the values of a <see cref="LuaTable"/>.
+        ///     Represents an enumerator that can be used to enumerate the sequence part of a <see cref="LuaTable"/>.
         /// </summary>
-        public struct Enumerator : IEnumerator<LuaStackValue>
+        public struct Enumerator : IEnumerator<KeyValuePair<lua_Integer, LuaStackValue>>
         {
             /// <inheritdoc/>
-            public readonly LuaStackValue Current
+            public readonly KeyValuePair<lua_Integer, LuaStackValue> Current
             {
                 get
                 {
                     if (_moveTop == 0)
                         return default;
 
-                    return _table.Lua.Stack[-1];
+                    var value = _table.Lua.Stack[-1];
+                    return new(_index, value);
                 }
             }
 
@@ -149,6 +154,7 @@ public unsafe partial class LuaTable
             private readonly LuaTable _table;
             private readonly int _initialTop;
             private int _moveTop;
+            private int _index;
 
             internal Enumerator(LuaTable table)
             {
@@ -158,13 +164,13 @@ public unsafe partial class LuaTable
                 var L = _table.Lua.GetStatePointer();
                 _initialTop = lua_gettop(L);
                 _moveTop = 0;
+                _index = 0;
 
                 table.Lua.Stack.EnsureFreeCapacity(2);
 
                 try
                 {
                     PushValue(_table);
-                    lua_pushnil(L);
                 }
                 catch
                 {
@@ -183,10 +189,15 @@ public unsafe partial class LuaTable
                     _moveTop = 0;
                 }
 
-                if (!lua_next(L, -2))
+                if (_index == -1)
+                {
+                    return false;
+                }
+
+                if (lua_geti(L, _initialTop + 1, ++_index).IsNoneOrNil())
                     return false;
 
-                _moveTop = _initialTop + 2;
+                _moveTop = _initialTop + 1;
                 return true;
             }
 
@@ -201,6 +212,7 @@ public unsafe partial class LuaTable
             public void Dispose()
             {
                 _moveTop = 0;
+                _index = 0;
                 var L = _table.Lua.GetStatePointer();
                 lua_settop(L, _initialTop);
             }

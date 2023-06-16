@@ -64,7 +64,7 @@ namespace Laylua.Tests
                 lua_pushglobaltable(L);
                 using (var globals = lua.Marshaler.PopValue<LuaTable>()!)
                 {
-                    foreach (var (key, _) in globals.EnumeratePairs())
+                    foreach (var (key, _) in globals)
                     {
                         CollectionAssert.Contains(library.Globals, key.GetValue<string>());
                     }

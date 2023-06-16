@@ -232,18 +232,18 @@ namespace Laylua.Tests
             var values = new List<object>();
 
             // Act
-            using (var enumerator = table.EnumeratePairs())
+            using (var enumerator = table.GetEnumerator())
             {
                 for (var i = 0; i < 3; i++)
                 {
-                    Assert.That(enumerator.MoveNext(), $"{nameof(LuaTable.PairsEnumerator)} yielded too few key/value pairs.");
+                    Assert.That(enumerator.MoveNext(), $"{typeof(LuaTable.Enumerator)} yielded too few key/value pairs.");
 
                     var current = enumerator.Current;
                     keys.Add(current.Key.GetValue<object>()!);
                     values.Add(current.Value.GetValue<object>()!);
                 }
 
-                Assert.That(!enumerator.MoveNext(), $"{nameof(LuaTable.PairsEnumerator)} yielded too many key/value pairs.");
+                Assert.That(!enumerator.MoveNext(), $"{typeof(LuaTable.Enumerator)} yielded too many key/value pairs.");
             }
 
             // Assert

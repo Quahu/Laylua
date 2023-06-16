@@ -29,17 +29,22 @@ public unsafe partial class LuaTable : LuaReference
     public ValueCollection Values => new(this);
 
     /// <summary>
-    ///     Gets the sequence length of this table.
+    ///     Gets a view over the sequence part of this table.
+    /// </summary>
+    public SequenceCollection Sequence => new(this);
+
+    /// <summary>
+    ///     Gets the length of this table.
     /// </summary>
     /// <remarks>
+    ///     <b>If you want to get the amount of key/value pairs in the table,
+    ///     use <see cref="Count"/> instead, as it works for all keys.</b>
+    ///     <para/>
     ///     If the keys of the table are not consecutive integers
     ///     or if there are holes in the sequence,
     ///     this may not return the expected result.
     ///     <br/>
     ///     See <a href="https://www.lua.org/manual/5.4/manual.html#3.4.7">Lua manual</a>.
-    ///     <para/>
-    ///     To reliably get the amount of items in the table use <see cref="Count"/> instead,
-    ///     which works for all tables.
     /// </remarks>
     public lua_Integer Length
     {
@@ -540,7 +545,7 @@ public unsafe partial class LuaTable : LuaReference
         where TKey : notnull
         where TValue : notnull
     {
-        foreach (var (keyStackValue, valueStackValue) in EnumeratePairs())
+        foreach (var (keyStackValue, valueStackValue) in this)
         {
             if (!keyStackValue.TryGetValue<TKey>(out var key))
             {
@@ -574,27 +579,7 @@ public unsafe partial class LuaTable : LuaReference
     /// <returns>
     ///     An enumerator wrapping this table.
     /// </returns>
-    public PairsEnumerator EnumeratePairs()
-    {
-        ThrowIfInvalid();
-
-        return new(this);
-    }
-
-    /// <summary>
-    ///     Returns an enumerator that lazily produces values
-    ///     up to the first absent sequence index of this table.
-    /// </summary>
-    /// <remarks>
-    ///     This basically mimics the behavior of <c>ipairs</c>.<br/>
-    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#pdf-ipairs">Lua manual</a>.
-    ///
-    ///     <inheritdoc cref="EnumeratePairs"/>
-    /// </remarks>
-    /// <returns>
-    ///     An enumerator wrapping this table.
-    /// </returns>
-    public SequenceEnumerator EnumerateSequence()
+    public Enumerator GetEnumerator()
     {
         ThrowIfInvalid();
 
@@ -604,7 +589,7 @@ public unsafe partial class LuaTable : LuaReference
     /// <summary>
     ///     Represents an enumerator that can be used to enumerate the <see cref="LuaTable"/>.
     /// </summary>
-    public struct PairsEnumerator : IEnumerator<KeyValuePair<LuaStackValue, LuaStackValue>>
+    public struct Enumerator : IEnumerator<KeyValuePair<LuaStackValue, LuaStackValue>>
     {
         /// <inheritdoc/>
         public readonly KeyValuePair<LuaStackValue, LuaStackValue> Current
@@ -626,7 +611,7 @@ public unsafe partial class LuaTable : LuaReference
         private readonly int _initialTop;
         private int _moveTop;
 
-        internal PairsEnumerator(LuaTable table)
+        internal Enumerator(LuaTable table)
         {
             table.ThrowIfInvalid();
 
@@ -647,17 +632,6 @@ public unsafe partial class LuaTable : LuaReference
                 lua_settop(L, _initialTop);
                 throw;
             }
-        }
-
-        /// <summary>
-        ///     Returns this enumerator instance.
-        /// </summary>
-        /// <returns>
-        ///     This enumerator instance.
-        /// </returns>
-        public readonly PairsEnumerator GetEnumerator()
-        {
-            return this;
         }
 
         /// <inheritdoc/>
@@ -681,111 +655,13 @@ public unsafe partial class LuaTable : LuaReference
         public void Reset()
         {
             Dispose();
-            this = new PairsEnumerator(_table);
+            this = new Enumerator(_table);
         }
 
         /// <inheritdoc/>
         public void Dispose()
         {
             _moveTop = 0;
-            var L = _table.Lua.GetStatePointer();
-            lua_settop(L, _initialTop);
-        }
-    }
-
-    /// <summary>
-    ///     Represents an enumerator that can be used to enumerate the <see cref="LuaTable"/>.
-    /// </summary>
-    public struct SequenceEnumerator : IEnumerator<LuaStackValue>
-    {
-        /// <inheritdoc/>
-        public readonly LuaStackValue Current
-        {
-            get
-            {
-                if (_moveTop == 0)
-                    return default;
-
-                var value = _table.Lua.Stack[-1];
-                return value;
-            }
-        }
-
-        object IEnumerator.Current => Current;
-
-        private readonly LuaTable _table;
-        private readonly int _initialTop;
-        private int _moveTop;
-        private int _index;
-
-        internal SequenceEnumerator(LuaTable table)
-        {
-            table.ThrowIfInvalid();
-
-            _table = table;
-            var L = _table.Lua.GetStatePointer();
-            _initialTop = lua_gettop(L);
-            _moveTop = 0;
-            _index = 0;
-
-            table.Lua.Stack.EnsureFreeCapacity(2);
-
-            try
-            {
-                PushValue(_table);
-            }
-            catch
-            {
-                lua_settop(L, _initialTop);
-                throw;
-            }
-        }
-
-        /// <summary>
-        ///     Returns this enumerator instance.
-        /// </summary>
-        /// <returns>
-        ///     This enumerator instance.
-        /// </returns>
-        public readonly SequenceEnumerator GetEnumerator()
-        {
-            return this;
-        }
-
-        /// <inheritdoc/>
-        public bool MoveNext()
-        {
-            var L = _table.Lua.GetStatePointer();
-            if (_moveTop != 0)
-            {
-                lua_settop(L, _moveTop);
-                _moveTop = 0;
-            }
-
-            if (_index == -1)
-            {
-                return false;
-            }
-
-            if (lua_geti(L, _initialTop + 1, ++_index).IsNoneOrNil())
-                return false;
-
-            _moveTop = _initialTop + 1;
-            return true;
-        }
-
-        /// <inheritdoc/>
-        public void Reset()
-        {
-            Dispose();
-            this = new SequenceEnumerator(_table);
-        }
-
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            _moveTop = 0;
-            _index = 0;
             var L = _table.Lua.GetStatePointer();
             lua_settop(L, _initialTop);
         }
