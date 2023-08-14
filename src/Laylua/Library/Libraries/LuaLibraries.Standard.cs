@@ -17,20 +17,20 @@ public unsafe partial class LuaLibraries
     ///     <para/>
     ///     Freely load all libraries (by using <see cref="EnumerateAll"/> or <see cref="LuaExtensions.OpenStandardLibraries"/>) if the Lua code you are executing
     ///     is exclusively your own code and you know it is safe.
-    ///     Otherwise ensure the standard libraries you are loading are safe.
+    ///     Otherwise, you should ensure the standard libraries you are loading are safe.
     ///     <para/>
     ///     List of standard libraries that are safe (or almost safe) by themselves:
     ///     <list type="bullet">
     ///         <item>
-    ///             <term> Coroutine </term>
+    ///             <term> <see cref="Coroutine"/> </term>
     ///             <description> provides coroutine management. </description>
     ///         </item>
     ///         <item>
-    ///             <term> Table </term>
+    ///             <term> <see cref="Table"/> </term>
     ///             <description> provides table management. </description>
     ///         </item>
     ///         <item>
-    ///             <term> String </term>
+    ///             <term> <see cref="String"/> </term>
     ///             <description>
     ///                 provides string management.
     ///                 <para> Contains a possibly unsafe <a href="https://www.lua.org/manual/5.4/manual.html#pdf-string.dump"><c>string.dump()</c></a>
@@ -38,11 +38,11 @@ public unsafe partial class LuaLibraries
     ///             </description>
     ///         </item>
     ///         <item>
-    ///             <term> Utf8 </term>
+    ///             <term> <see cref="UTF8"/> </term>
     ///             <description> provides UTF8 character management. </description>
     ///         </item>
     ///         <item>
-    ///             <term> Math </term>
+    ///             <term> <see cref="Math"/> </term>
     ///             <description> provides mathematical functions. </description>
     ///         </item>
     ///     </list>
