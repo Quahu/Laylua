@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -290,7 +290,7 @@ namespace Laylua
                     lua.Execute("print(#mixed)");
 
                     var mixedTable = lua.GetGlobal<LuaTable>("mixed")!;
-                    foreach (var kvp in mixedTable.EnumeratePairs())
+                    foreach (var kvp in mixedTable)
                     {
                         Console.WriteLine("[{0}] = {1}", kvp.Key, kvp.Value);
                     }
