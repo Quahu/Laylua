@@ -6,6 +6,34 @@ namespace Laylua.Tests
     public class LuaTableTests : LuaFixture
     {
         [Test]
+        public void IsEmpty_EmptyTable_ReturnsTrue()
+        {
+            // Arrange
+            lua.Execute("table = { }");
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Act
+            var isEmpty = table.IsEmpty;
+
+            // Assert
+            Assert.That(isEmpty, Is.True);
+        }
+
+        [Test]
+        public void IsEmpty_NonEmptyTable_ReturnsFalse()
+        {
+            // Arrange
+            lua.Execute("table = { 'one', 'two', 'three' }");
+            using var table = lua.GetGlobal<LuaTable>("table");
+
+            // Act
+            var isEmpty = table.IsEmpty;
+
+            // Assert
+            Assert.That(isEmpty, Is.False);
+        }
+
+        [Test]
         public void ToEnumerable_YieldsValidKeyValuePairs()
         {
             // Arrange

@@ -34,6 +34,25 @@ public unsafe partial class LuaTable : LuaReference
     public SequenceCollection Sequence => new(this);
 
     /// <summary>
+    ///     Gets whether this table is empty.
+    /// </summary>
+    public bool IsEmpty
+    {
+        get
+        {
+            ThrowIfInvalid();
+
+            using (Lua.Stack.SnapshotCount())
+            {
+                PushValue(this);
+                var L = Lua.GetStatePointer();
+                lua_pushnil(L);
+                return !lua_next(L, -2);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Gets the length of this table.
     /// </summary>
     /// <remarks>
