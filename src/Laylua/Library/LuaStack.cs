@@ -13,7 +13,7 @@ namespace Laylua;
 ///     See <a href="https://www.lua.org/manual/5.4/manual.html#4.1">Lua manual</a> for information
 ///     on how the stack works.
 /// </remarks>
-public unsafe class LuaStack : IReadOnlyCollection<LuaStackValue>
+public unsafe class LuaStack
 {
     /// <summary>
     ///     Gets whether the stack is empty.
@@ -319,16 +319,6 @@ public unsafe class LuaStack : IReadOnlyCollection<LuaStackValue>
     public Enumerator GetEnumerator()
     {
         return new(_lua, Count);
-    }
-
-    IEnumerator<LuaStackValue> IEnumerable<LuaStackValue>.GetEnumerator()
-    {
-        return GetEnumerator();
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
     }
 
     /// <summary>
