@@ -388,6 +388,7 @@ public abstract unsafe class LuaReference : IEquatable<LuaReference>, IDisposabl
     /// </returns>
     public static bool IsAlive(LuaReference reference)
     {
-        return reference._lua != null && !reference._isDisposed;
+        var lua = reference._lua;
+        return lua != null && !lua.IsDisposed && !reference._isDisposed;
     }
 }
