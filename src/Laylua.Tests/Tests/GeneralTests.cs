@@ -31,12 +31,12 @@ namespace Laylua.Tests
             };
 
             lua.Execute("""
-                function brick()
-                    while (true) do
-                        spin()
-                    end
-                end
-                """);
+                        function brick()
+                            while (true) do
+                                spin()
+                            end
+                        end
+                        """);
 
             Assert.Throws<LuaException>(() =>
             {

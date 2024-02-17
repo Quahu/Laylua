@@ -27,10 +27,11 @@ namespace Laylua.Tests
         {
             lua.OpenLibrary(LuaLibraries.Standard.Base);
 
-            const string code = @"
-return function()
-    error('problem?')
-end";
+            const string code = """
+                                return function()
+                                    error('problem?')
+                                end
+                                """;
 
             using (var function = lua.Evaluate<LuaFunction>(code)!)
             {
@@ -194,10 +195,11 @@ end";
         [Test]
         public void CallLuaFunctionWithNull()
         {
-            lua.Execute(@"
-function func(x)
-    return x
-end");
+            lua.Execute("""
+                        function func(x)
+                            return x
+                        end
+                        """);
 
             using (var function = lua.GetGlobal<LuaFunction>("func")!)
             using (var results = function.Call())
@@ -210,10 +212,11 @@ end");
         [Test]
         public void CallMultiReturnLuaFunction()
         {
-            lua.Execute(@"
-function func(x, y, z)
-    return z, y, x
-end");
+            lua.Execute("""
+                        function func(x, y, z)
+                            return z, y, x
+                        end
+                        """);
 
             using (var function = lua.GetGlobal<LuaFunction>("func")!)
             using (var results = function.Call(3, 2, 1))
@@ -234,11 +237,12 @@ end");
         [Test]
         public void CallVariadicLuaFunction()
         {
-            lua.Execute(@"
-function func(x, ...)
-    local temp = { ... }
-    return x, #temp
-end");
+            lua.Execute("""
+                        function func(x, ...)
+                            local temp = { ... }
+                            return x, #temp
+                        end
+                        """);
 
             using (var function = lua.GetGlobal<LuaFunction>("func")!)
             using (var results = function.Call(42, 1, 2, 3))
@@ -260,10 +264,11 @@ end");
         [Test]
         public void CallTableLuaFunction()
         {
-            lua.Execute(@"
-function func(table)
-    return table
-end");
+            lua.Execute("""
+                        function func(table)
+                            return table
+                        end
+                        """);
 
             using (var function = lua.GetGlobal<LuaFunction>("func")!)
             using (var results = function.Call(new[] { 1, 2, 3 }))
