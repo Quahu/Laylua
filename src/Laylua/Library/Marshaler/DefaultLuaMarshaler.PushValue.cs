@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Laylua.Moon;
@@ -144,7 +145,19 @@ public unsafe partial class DefaultLuaMarshaler
                             return;
                         }
 
-                        handle = new UserDataHandle<T>(Lua, obj, descriptor);
+                        Type clrType;
+                        if (typeof(T).IsSealed || (clrType = obj.GetType()) == typeof(T))
+                        {
+                            handle = new UserDataHandle<T>(Lua, obj, descriptor);
+                        }
+                        else
+                        {
+                            // TODO: possibly improve this in the future, but it doesn't really matter as we reach this case only when the non-generic accessors are used.
+                            var userDataHandleType = typeof(UserDataHandle<>).MakeGenericType(clrType);
+                            var constructor = userDataHandleType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
+                            handle = (UserDataHandle) constructor.Invoke([Lua, obj, descriptor]);
+                        }
+
                         handle.Push();
                         _userDataHandleCache[(obj, descriptor)] = handle;
                         return;

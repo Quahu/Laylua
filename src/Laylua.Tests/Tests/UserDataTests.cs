@@ -50,4 +50,21 @@ public class UserDataTests : LuaFixture
         // Assert
         Assert.That(ud, Is.InstanceOf<StrictUserData1>());
     }
+
+    [Test]
+    public void UserDataWithDescriptor_MarshaledAsObjectType_MarshalsCorrectly()
+    {
+        // Arrange
+        lua.Marshaler.UserDataDescriptorProvider.SetDescriptor<StrictUserData1>(
+            new InstanceTypeUserDataDescriptor(typeof(StrictUserData1), TypeMemberProvider.Strict));
+
+        var ud = new StrictUserData1();
+        lua["ud"] = ud;
+
+        // Act
+        var udAsObject = lua["ud"];
+
+        // Assert
+        Assert.That(udAsObject, Is.EqualTo(ud));
+    }
 }

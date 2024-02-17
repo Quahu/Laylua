@@ -8,7 +8,7 @@ namespace Laylua.Marshaling;
 public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
 {
     private readonly Dictionary<Type, UserDataDescriptor?> _descriptorDictionary;
-    private readonly List<(Type, UserDataDescriptor?)> _descriptorList;
+    private readonly List<(Type Type, UserDataDescriptor? Descriptor)> _descriptorList;
     private readonly DelegateUserDataDescriptor _delegateDescriptor;
 
     public DefaultUserDataDescriptorProvider()
@@ -73,9 +73,9 @@ public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
         for (var i = 0; i < _descriptorList.Count; i++)
         {
             var tuple = _descriptorList[i];
-            if (tuple.Item1.IsAssignableFrom(objType))
+            if (tuple.Type.IsAssignableFrom(objType))
             {
-                descriptor = tuple.Item2;
+                descriptor = tuple.Descriptor;
                 return descriptor != null;
             }
         }
