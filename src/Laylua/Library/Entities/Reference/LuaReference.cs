@@ -23,7 +23,7 @@ namespace Laylua;
 ///     This type is not thread-safe; operations on it are not thread-safe.
 ///     Ensure neither you nor Lua modify the object concurrently.
 /// </remarks>
-public abstract unsafe class LuaReference : IEquatable<LuaReference>, IDisposable
+public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, IDisposable
 {
     /// <summary>
     ///     Gets the <see cref="Laylua.Lua"/> instance this object is bound to.
@@ -186,19 +186,6 @@ public abstract unsafe class LuaReference : IEquatable<LuaReference>, IDisposabl
         }
     }
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!IsAlive(this))
-            return;
-
-        var L = Lua.GetStatePointer();
-        if (L == null)
-            return;
-
-        luaL_unref(L, LuaRegistry.Index, _reference);
-        _isDisposed = true;
-    }
-
     /// <summary>
     ///     Disposes this <see cref="LuaReference"/>,
     ///     dereferencing the Lua object.
@@ -212,135 +199,17 @@ public abstract unsafe class LuaReference : IEquatable<LuaReference>, IDisposabl
         Dispose(true);
     }
 
-    /// <summary>
-    ///     Disposes the specified object
-    ///     if it is a <see cref="LuaReference"/>.
-    /// </summary>
-    /// <param name="possibleReference"> The possible reference. </param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Dispose<T>(T possibleReference)
-        where T : class
+    protected virtual void Dispose(bool disposing)
     {
-        if (possibleReference is LuaReference reference)
-        {
-            reference.Dispose();
-        }
-    }
-
-    /// <summary>
-    ///     Disposes the specified objects
-    ///     if they are <see cref="LuaReference"/>s.
-    /// </summary>
-    /// <param name="possibleReferences"> The possible references. </param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Dispose<T>(T[]? possibleReferences)
-        where T : class
-    {
-        if (possibleReferences == null)
+        if (!IsAlive(this))
             return;
 
-        foreach (var possibleReference in possibleReferences)
-        {
-            if (possibleReference is LuaReference reference)
-            {
-                reference.Dispose();
-            }
-        }
-    }
-
-    /// <summary>
-    ///     Disposes the specified objects
-    ///     if they are <see cref="LuaReference"/>s.
-    /// </summary>
-    /// <param name="possibleReferences"> The possible references. </param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Dispose<T>(List<T>? possibleReferences)
-        where T : class
-    {
-        if (possibleReferences == null)
+        var L = Lua.GetStatePointer();
+        if (L == null)
             return;
 
-        var possibleReferenceCount = possibleReferences.Count;
-        for (var i = 0; i < possibleReferenceCount; i++)
-        {
-            var possibleReference = possibleReferences[i];
-            if (possibleReference is LuaReference reference)
-            {
-                reference.Dispose();
-            }
-        }
-    }
-
-    /// <summary>
-    ///     Disposes the specified objects
-    ///     if they are <see cref="LuaReference"/>s.
-    /// </summary>
-    /// <param name="possibleReferences"> The possible references. </param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Dispose<T>(IEnumerable<T>? possibleReferences)
-        where T : class
-    {
-        if (possibleReferences == null)
-            return;
-
-        foreach (var possibleReference in possibleReferences)
-        {
-            if (possibleReference is LuaReference reference)
-            {
-                reference.Dispose();
-            }
-        }
-    }
-
-    /// <summary>
-    ///     Disposes the specified keys and values
-    ///     if they are <see cref="LuaReference"/>s.
-    /// </summary>
-    /// <param name="possibleReferences"> The possible references. </param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Dispose<TKey, TValue>(Dictionary<TKey, TValue>? possibleReferences)
-        where TKey : notnull
-    {
-        if (possibleReferences == null)
-            return;
-
-        foreach (var (possibleReferenceKey, possibleReferenceValue) in possibleReferences)
-        {
-            if (possibleReferenceKey is LuaReference referenceKey)
-            {
-                referenceKey.Dispose();
-            }
-
-            if (possibleReferenceValue is LuaReference referenceValue)
-            {
-                referenceValue.Dispose();
-            }
-        }
-    }
-
-    /// <summary>
-    ///     Disposes the specified keys and values
-    ///     if they are <see cref="LuaReference"/>s.
-    /// </summary>
-    /// <param name="possibleReferences"> The possible references. </param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Dispose<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>>? possibleReferences)
-    {
-        if (possibleReferences == null)
-            return;
-
-        foreach (var (possibleReferenceKey, possibleReferenceValue) in possibleReferences)
-        {
-            if (possibleReferenceKey is LuaReference referenceKey)
-            {
-                referenceKey.Dispose();
-            }
-
-            if (possibleReferenceValue is LuaReference referenceValue)
-            {
-                referenceValue.Dispose();
-            }
-        }
+        luaL_unref(L, LuaRegistry.Index, _reference);
+        _isDisposed = true;
     }
 
     public static int GetReference(LuaReference reference)
