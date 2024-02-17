@@ -280,7 +280,7 @@ public static class UserDataDescriptorUtilities
                     Expression.Call(
                         luaParameterExpression,
                         nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
-                        Expression.Constant(i + (isColonInvoker ? 4 : 3)), Expression.Constant(parameterType.ToTypeString())));
+                        argumentIndexExpression, Expression.Constant(parameterType.ToTypeString())));
 
                 if (i >= requiredParameterCount)
                 {
