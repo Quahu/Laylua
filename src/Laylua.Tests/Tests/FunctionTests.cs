@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests
 {
-    public unsafe class FunctionTests : LuaFixture
+    public unsafe class FunctionTests : LuaTestBase
     {
         [Test]
         public void CallLuaFunctionWithLongJmp()

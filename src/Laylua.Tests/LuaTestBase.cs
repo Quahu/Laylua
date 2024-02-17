@@ -13,7 +13,7 @@ namespace Laylua.Tests
 {
     [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
     [SingleThreaded]
-    public abstract unsafe class LuaFixture
+    public abstract unsafe class LuaTestBase
     {
         protected TestContext Context = null!;
         protected ILogger Logger = null!;
@@ -23,11 +23,11 @@ namespace Laylua.Tests
 
         protected TestComparer Comparer = null!;
 
-        protected WeakReference? _wo;
+        protected WeakReference? _weakReference;
 
         protected static readonly ILoggerFactory LoggerFactory;
 
-        static LuaFixture()
+        static LuaTestBase()
         {
             var serilogLogger = new LoggerConfiguration()
                 .MinimumLevel.Verbose()
@@ -37,26 +37,8 @@ namespace Laylua.Tests
             LoggerFactory = new SerilogLoggerFactory(serilogLogger);
         }
 
-        protected LuaFixture()
+        protected LuaTestBase()
         { }
-
-        protected virtual LuaAllocator CreateLuaAllocator()
-        {
-            var allocator = new NativeMemoryLuaAllocator();
-
-#if DEBUG
-            NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger("Alloc"));
-#endif
-            return allocator;
-        }
-
-        protected virtual Lua CreateLua(LuaAllocator allocator)
-        {
-            return new Lua(CultureInfo.InvariantCulture, allocator)
-            {
-                Id = Context.Test.Name
-            };
-        }
 
         [SetUp]
         public virtual void Setup()
@@ -71,26 +53,12 @@ namespace Laylua.Tests
             Comparer = new TestComparer(lua.Comparer);
         }
 
-        protected virtual void AssertStackCount(int expected)
-        {
-            var top = lua_gettop(L);
-            try
-            {
-                Assert.AreEqual(expected, top, "Stack count mismatch.");
-            }
-            catch
-            {
-                lua.DumpStack(Context.Test.Name);
-                throw;
-            }
-        }
-
         [TearDown]
         public virtual void Teardown()
         {
-            if (_wo != null)
+            if (_weakReference != null)
             {
-                Logger.LogInformation("Weak reference: {0}", _wo.IsAlive ? "alive" : "dead");
+                Logger.LogInformation("Weak reference: {0}", _weakReference.IsAlive ? "alive" : "dead");
             }
 
             GC.Collect();
@@ -113,8 +81,40 @@ namespace Laylua.Tests
 
             if (lua.State.Allocator is NativeMemoryLuaAllocator allocator)
             {
-                Assert.AreEqual(0, (int) allocator.CurrentlyAllocatedBytes, "Lua did not free all its memory.");
+                Assert.That((int) allocator.CurrentlyAllocatedBytes, Is.EqualTo(0), "Lua did not free all its memory.");
                 Logger.LogInformation("Lua allocated {0} times for a total of {1}KiB", allocator.TimesAllocated, Math.Round(allocator.TotalAllocatedBytes / 1024.0, 2));
+            }
+        }
+
+        protected virtual LuaAllocator CreateLuaAllocator()
+        {
+            var allocator = new NativeMemoryLuaAllocator();
+
+#if DEBUG
+            NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger("Alloc"));
+#endif
+            return allocator;
+        }
+
+        protected virtual Lua CreateLua(LuaAllocator allocator)
+        {
+            return new Lua(CultureInfo.InvariantCulture, allocator)
+            {
+                Id = Context.Test.Name
+            };
+        }
+
+        protected virtual void AssertStackCount(int expected)
+        {
+            var top = lua_gettop(L);
+            try
+            {
+                Assert.That(top, Is.EqualTo(expected), "Stack count mismatch.");
+            }
+            catch
+            {
+                lua.DumpStack(Context.Test.Name);
+                throw;
             }
         }
 

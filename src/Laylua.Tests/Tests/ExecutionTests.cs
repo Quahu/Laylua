@@ -3,7 +3,7 @@
 namespace Laylua.Tests
 {
     [Order(-100)]
-    public unsafe class ExecutionTests : LuaFixture
+    public unsafe class ExecutionTests : LuaTestBase
     {
         [Test]
         public void ExecuteCode()

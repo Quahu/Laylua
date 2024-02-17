@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests;
 
-public class LuaReferenceTests : LuaFixture
+public class LuaReferenceTests : LuaTestBase
 {
     [Test]
     public void GetReference_ThrowsObjectDisposedExceptionIfDisposed()

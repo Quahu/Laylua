@@ -2,7 +2,7 @@
 
 namespace Laylua.Tests
 {
-    public unsafe class ExceptionTests : LuaFixture
+    public unsafe class ExceptionTests : LuaTestBase
     {
         [Test]
         public void Execute_IndexingNilGlobal_ThrowsLuaException()

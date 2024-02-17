@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests
 {
-    public class LuaTableTests : LuaFixture
+    public class LuaTableTests : LuaTestBase
     {
         [Test]
         public void IsEmpty_EmptyTable_ReturnsTrue()

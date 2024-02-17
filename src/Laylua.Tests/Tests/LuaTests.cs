@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests
 {
-    public class LuaTests : LuaFixture
+    public class LuaTests : LuaTestBase
     {
         [Test]
         public unsafe void CreateTable_SetsTableInRegistry()

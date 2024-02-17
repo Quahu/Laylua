@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests
 {
-    public class GeneralTests : LuaFixture
+    public class GeneralTests : LuaTestBase
     {
         [Test]
         public void LuaError_LongJmp_GetsCaughtWithLuaPanicException()

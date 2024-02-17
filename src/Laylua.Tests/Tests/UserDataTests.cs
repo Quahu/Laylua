@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests;
 
-public class UserDataTests : LuaFixture
+public class UserDataTests : LuaTestBase
 {
     [LuaUserData]
     private class StrictUserData1

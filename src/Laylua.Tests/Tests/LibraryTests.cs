@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Laylua.Tests
 {
     [Order(-1)]
-    public class LibraryTests : LuaFixture
+    public class LibraryTests : LuaTestBase
     {
         [Test]
         public void OpenCloseMathLibrary()

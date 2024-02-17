@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Laylua.Tests
 {
-    public class LuaTableKeysTests : LuaFixture
+    public class LuaTableKeysTests : LuaTestBase
     {
         [Test]
         public void GetEnumerator_YieldsCorrectKeys()

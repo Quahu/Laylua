@@ -2,7 +2,7 @@
 
 namespace Laylua.Tests;
 
-public class LuaStackTests : LuaFixture
+public class LuaStackTests : LuaTestBase
 {
     [Test]
     public void LuaStack_Insert_LeavesNoGarbage()
