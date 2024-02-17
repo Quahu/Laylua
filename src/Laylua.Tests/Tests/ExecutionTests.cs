@@ -32,12 +32,6 @@ namespace Laylua.Tests
                     var result = results.First.GetValue<string>();
                     Assert.AreEqual("Hello, World!", result);
                 }
-
-                using (var results = function.Call())
-                {
-                    var result = results.First.GetValue<string>();
-                    Assert.AreEqual("Hello, World!", result);
-                }
             }
         }
     }
