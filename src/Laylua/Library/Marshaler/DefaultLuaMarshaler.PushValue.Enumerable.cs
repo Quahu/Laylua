@@ -252,13 +252,20 @@ public unsafe partial class DefaultLuaMarshaler
                 try
                 {
                     var enumerator = dictionary.GetEnumerator();
-                    while (enumerator.MoveNext())
+                    try
                     {
-                        var entry = enumerator.Entry;
-                        PushValue(entry.Key);
-                        PushValue(entry.Value);
+                        while (enumerator.MoveNext())
+                        {
+                            var entry = enumerator.Entry;
+                            PushValue(entry.Key);
+                            PushValue(entry.Value);
 
-                        lua_rawset(L, tableIndex);
+                            lua_rawset(L, tableIndex);
+                        }
+                    }
+                    finally
+                    {
+                        (enumerator as IDisposable)?.Dispose();
                     }
                 }
                 catch
