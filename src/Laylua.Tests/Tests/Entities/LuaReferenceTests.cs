@@ -63,13 +63,8 @@ public class LuaReferenceTests : LuaTestBase
     public unsafe void NoReferencesToAliveObject_MarshalerFiresLeakedReferenceEvent()
     {
         //Arrange
-        var firedEvent = false;
-        lua.Marshaler.ReferenceLeaked += (sender, e) =>
-        {
-            firedEvent = true;
-        };
-
-        CreateTable(lua, false);
+        var reference = CreateTable();
+        var leakedReference = -1;
 
         // Act
         lua_gc(L, LuaGC.Collect);
@@ -78,17 +73,22 @@ public class LuaReferenceTests : LuaTestBase
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        CreateTable(lua, true);
+        lua.Evaluate<LuaTable>("return {}")!.Dispose();
 
         // Assert
-        Assert.That(firedEvent, Is.True);
+        Assert.That(leakedReference, Is.EqualTo(reference));
         return;
 
-        static void CreateTable(Lua lua, bool dispose)
+        int CreateTable()
         {
             var table = lua.Evaluate<LuaTable>("return {}")!;
-            if (dispose)
-                table.Dispose();
+            var reference = LuaReference.GetReference(table);
+            lua.Marshaler.ReferenceLeaked += (_, e) =>
+            {
+                leakedReference = LuaReference.GetReference(e.Reference);
+            };
+
+            return reference;
         }
     }
 }
