@@ -463,9 +463,10 @@ public unsafe class Lua : IDisposable, ISpanFormattable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (State.IsDisposed)
+        if (IsDisposed)
             return;
 
+        Marshaler.Dispose();
         State.Dispose();
     }
 
