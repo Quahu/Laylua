@@ -61,6 +61,12 @@ namespace Laylua.Tests
                 Logger.LogInformation("Weak reference: {0}", _weakReference.IsAlive ? "alive" : "dead");
             }
 
+            var leakedReferences = 0;
+            lua.Marshaler.ReferenceLeaked += (sender, e) =>
+            {
+                leakedReferences++;
+            };
+
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -78,6 +84,8 @@ namespace Laylua.Tests
             }
 
             lua.Dispose();
+
+            Assert.That(leakedReferences, Is.EqualTo(0), $"There were {leakedReferences} leaked references.");
 
             if (lua.State.Allocator is NativeMemoryLuaAllocator allocator)
             {
