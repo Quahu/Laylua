@@ -20,7 +20,7 @@ public class LuaReferenceTests : LuaTestBase
     }
 
     [Test]
-    public unsafe void NoLuaReferencesToObject_ObjectIsNotGarbageCollected()
+    public unsafe void NoLuaReferencesToAliveObject_ObjectIsNotGarbageCollected()
     {
         // Arrange
         using var reference = lua.Evaluate<LuaTable>("return {}")!;
@@ -39,7 +39,7 @@ public class LuaReferenceTests : LuaTestBase
     }
 
     [Test]
-    public unsafe void NoReferencesToObject_ObjectIsGarbageCollected()
+    public unsafe void NoReferencesToDeadObject_ObjectIsGarbageCollected()
     {
         //Arrange
         var reference = lua.Evaluate<LuaTable>("return {}")!;
@@ -57,5 +57,38 @@ public class LuaReferenceTests : LuaTestBase
         // Note: This isn't checking for nil because Lua changed the structure of the registry
         // after 5.4.2 causing the lookup to return some dummy number at the end instead of nil.
         Assert.That(type, Is.Not.EqualTo(LuaType.Table), "The disposed LuaReference's object was not garbage collected.");
+    }
+
+    [Test]
+    public unsafe void NoReferencesToAliveObject_MarshalerFiresLeakedReferenceEvent()
+    {
+        //Arrange
+        var firedEvent = false;
+        lua.Marshaler.ReferenceLeaked += (sender, e) =>
+        {
+            firedEvent = true;
+        };
+
+        CreateTable(lua, false);
+
+        // Act
+        lua_gc(L, LuaGC.Collect);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        CreateTable(lua, true);
+
+        // Assert
+        Assert.That(firedEvent, Is.True);
+        return;
+
+        static void CreateTable(Lua lua, bool dispose)
+        {
+            var table = lua.Evaluate<LuaTable>("return {}")!;
+            if (dispose)
+                table.Dispose();
+        }
     }
 }
