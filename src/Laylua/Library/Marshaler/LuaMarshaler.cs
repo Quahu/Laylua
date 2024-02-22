@@ -17,6 +17,17 @@ public abstract partial class LuaMarshaler : IDisposable
     /// </summary>
     public UserDataDescriptorProvider UserDataDescriptorProvider { get; }
 
+    /// <summary>
+    ///     Fired when a <see cref="LuaReference"/> is disposed by this marshaler.
+    /// </summary>
+    /// <remarks>
+    ///     You can utilize this to find out if your application is correctly disposing <see cref="LuaReference"/>.
+    ///     <para/>
+    ///     Subscribed event handlers should be as lightweight as possible
+    ///     and must not throw any exceptions.
+    /// </remarks>
+    public event EventHandler<LuaReferenceLeakedEventArgs>? ReferenceLeaked;
+
     private readonly EntityPool _entityPool;
     private readonly ConcurrentStack<LuaReference> _leakedEntities;
 
@@ -101,6 +112,8 @@ public abstract partial class LuaMarshaler : IDisposable
     {
         while (_leakedEntities.TryPop(out var reference))
         {
+            ReferenceLeaked?.Invoke(this, new LuaReferenceLeakedEventArgs(reference));
+
             reference.Dispose();
 
             ResetReference(reference);
@@ -137,15 +150,15 @@ public abstract partial class LuaMarshaler : IDisposable
     /// </summary>
     /// <param name="disposing"> <see langword="true"/> if the marshaler is being disposed. </param>
     protected virtual void Dispose(bool disposing)
-    {
-        DisposeLeakedReferences();
-    }
+    { }
 
     /// <summary>
     ///     Called by <see cref="Laylua.Lua"/> when it is disposed.
     /// </summary>
     public void Dispose()
     {
+        DisposeLeakedReferences();
+
         Dispose(true);
         GC.SuppressFinalize(this);
     }
