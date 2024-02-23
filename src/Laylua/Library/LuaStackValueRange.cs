@@ -9,7 +9,7 @@ namespace Laylua;
 /// <summary>
 ///     Represents a range of values on the Lua stack.
 /// </summary>
-public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
+public readonly struct LuaStackValueRange
 {
     /// <summary>
     ///     Gets an empty range.
@@ -126,16 +126,6 @@ public readonly struct LuaStackValueRange : IEnumerable<LuaStackValue>
     }
 
     public Enumerator GetEnumerator()
-    {
-        return new Enumerator(this);
-    }
-
-    IEnumerator<LuaStackValue> IEnumerable<LuaStackValue>.GetEnumerator()
-    {
-        return new Enumerator(this);
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
     {
         return new Enumerator(this);
     }

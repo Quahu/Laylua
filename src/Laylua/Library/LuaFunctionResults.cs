@@ -16,7 +16,7 @@ namespace Laylua;
 ///     If you remove any of the function results yourself,
 ///     do not dispose of this type and instead remove all results yourself.
 /// </remarks>
-public struct LuaFunctionResults : IEnumerable<LuaStackValue>, IDisposable
+public struct LuaFunctionResults : IDisposable
 {
     /// <inheritdoc cref="LuaStackValueRange.IsEmpty"/>
     public readonly bool IsEmpty
@@ -92,16 +92,6 @@ public struct LuaFunctionResults : IEnumerable<LuaStackValue>, IDisposable
         ThrowIfDisposed();
 
         return new Enumerator(this);
-    }
-
-    IEnumerator<LuaStackValue> IEnumerable<LuaStackValue>.GetEnumerator()
-    {
-        return GetEnumerator();
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
     }
 
     public struct Enumerator : IEnumerator<LuaStackValue>
