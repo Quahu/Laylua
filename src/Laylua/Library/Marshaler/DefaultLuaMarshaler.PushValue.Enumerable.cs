@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using Qommon.Collections.ThreadSafe;
+using System.Runtime.CompilerServices;
 
 namespace Laylua.Marshaling;
 
@@ -11,12 +11,23 @@ public unsafe partial class DefaultLuaMarshaler
 {
     protected delegate void PushGenericEnumerableDelegate(DefaultLuaMarshaler marshaler, IEnumerable enumerable);
 
-    protected static IThreadSafeDictionary<Type, PushGenericEnumerableDelegate?> PushGenericEnumerableActions { get; } = ThreadSafeDictionary.ConcurrentDictionary.Create<Type, PushGenericEnumerableDelegate?>();
+    protected static ConditionalWeakTable<Type, PushGenericEnumerableDelegate?> PushGenericEnumerableDelegateCache { get; } = new();
 
     protected static PushGenericEnumerableDelegate? GetPushGenericEnumerableDelegate(Type enumerableType)
     {
-        return PushGenericEnumerableActions.GetOrAdd(enumerableType, static enumerableType =>
+        return PushGenericEnumerableDelegateCache.GetValue(enumerableType, static enumerableType =>
         {
+            var elementTypes = GetElementTypes(enumerableType);
+            if (elementTypes == null)
+                return null;
+
+            var marshalerParameterExpression = Expression.Parameter(typeof(DefaultLuaMarshaler), "marshaler");
+            var arrayParameterExpression = Expression.Parameter(typeof(IEnumerable), "enumerable");
+            var convertArrayExpression = Expression.Convert(arrayParameterExpression, enumerableType);
+            var callExpression = Expression.Call(typeof(DefaultLuaMarshaler), nameof(PushGenericEnumerable), elementTypes, marshalerParameterExpression, convertArrayExpression);
+            var lambda = Expression.Lambda<PushGenericEnumerableDelegate>(callExpression, marshalerParameterExpression, arrayParameterExpression);
+            return lambda.Compile();
+
             static Type[]? GetElementTypes(Type enumerableType)
             {
                 if (enumerableType.IsArray)
@@ -26,7 +37,7 @@ public unsafe partial class DefaultLuaMarshaler
 
                     var elementType = enumerableType.GetElementType();
                     if (elementType != null && elementType.IsValueType)
-                        return new[] { elementType };
+                        return [elementType];
 
                     return null;
                 }
@@ -42,27 +53,16 @@ public unsafe partial class DefaultLuaMarshaler
                             if (innerType.IsGenericType && innerType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
                             {
                                 var typeArguments = innerType.GenericTypeArguments;
-                                return new[] { typeArguments[0], typeArguments[1] };
+                                return [typeArguments[0], typeArguments[1]];
                             }
 
-                            return new[] { innerType };
+                            return [innerType];
                         }
                     }
                 }
 
                 return null;
             }
-
-            var elementTypes = GetElementTypes(enumerableType);
-            if (elementTypes == null)
-                return null;
-
-            var marshalerParameterExpression = Expression.Parameter(typeof(DefaultLuaMarshaler), "marshaler");
-            var arrayParameterExpression = Expression.Parameter(typeof(IEnumerable), "enumerable");
-            var convertArrayExpression = Expression.Convert(arrayParameterExpression, enumerableType);
-            var callExpression = Expression.Call(typeof(DefaultLuaMarshaler), nameof(PushGenericEnumerable), elementTypes, marshalerParameterExpression, convertArrayExpression);
-            var lambda = Expression.Lambda<PushGenericEnumerableDelegate>(callExpression, marshalerParameterExpression, arrayParameterExpression);
-            return lambda.Compile();
         });
     }
 
