@@ -2,9 +2,11 @@ using System;
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Laylua.Moon;
 using Qommon;
+#if !NET7_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 
 namespace Laylua.Marshaling;
 
