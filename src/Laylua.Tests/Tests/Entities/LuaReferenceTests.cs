@@ -41,7 +41,7 @@ public class LuaReferenceTests : LuaTestBase
     [Test]
     public unsafe void NoReferencesToDeadObject_ObjectIsGarbageCollected()
     {
-        //Arrange
+        // Arrange
         var reference = lua.Evaluate<LuaTable>("return {}")!;
 
         // Act
@@ -62,7 +62,7 @@ public class LuaReferenceTests : LuaTestBase
     [Test]
     public unsafe void NoReferencesToAliveObject_MarshalerFiresLeakedReferenceEvent()
     {
-        //Arrange
+        // Arrange
         var reference = CreateTable();
         var leakedReference = -1;
 
@@ -72,8 +72,6 @@ public class LuaReferenceTests : LuaTestBase
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-
-        lua.Evaluate<LuaTable>("return {}")!.Dispose();
 
         // Assert
         Assert.That(leakedReference, Is.EqualTo(reference));

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 
 namespace Laylua.Marshaling;
 
@@ -11,18 +10,10 @@ public abstract partial class LuaMarshaler
     {
         if (LuaReference.IsAlive(reference))
         {
-            _leakedEntities.Push(reference);
-        }
-        else
-        {
-            ResetReference(reference);
-        }
-    }
+            ReferenceLeaked?.Invoke(this, new LuaReferenceLeakedEventArgs(reference));
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ResetReference(LuaReference reference)
-    {
-        reference.Reset();
+            reference.Dispose();
+        }
 
         if (_entityPool.Return(reference))
         {

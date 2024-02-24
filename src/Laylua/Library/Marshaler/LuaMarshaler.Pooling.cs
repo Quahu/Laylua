@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
 using Qommon.Pooling;
@@ -96,6 +96,7 @@ public abstract partial class LuaMarshaler
 
             public override bool OnReturn(LuaTable obj)
             {
+                obj.Reset();
                 return true;
             }
         }
@@ -114,6 +115,7 @@ public abstract partial class LuaMarshaler
 
             public override bool OnReturn(LuaFunction obj)
             {
+                obj.Reset();
                 return true;
             }
         }
@@ -132,6 +134,7 @@ public abstract partial class LuaMarshaler
 
             public override bool OnReturn(LuaUserData obj)
             {
+                obj.Reset();
                 return true;
             }
         }
@@ -150,6 +153,7 @@ public abstract partial class LuaMarshaler
 
             public override bool OnReturn(LuaThread obj)
             {
+                obj.Reset();
                 return true;
             }
         }
