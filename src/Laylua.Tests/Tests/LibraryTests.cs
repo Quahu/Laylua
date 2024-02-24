@@ -53,9 +53,6 @@ namespace Laylua.Tests
         {
             foreach (var field in typeof(LuaLibraries.Standard).GetProperties(BindingFlags.Public | BindingFlags.Static))
             {
-                if (field.Name == "All")
-                    continue;
-
                 var library = (field.GetValue(null) as LuaLibrary)!;
                 lua.OpenLibrary(library!);
 
