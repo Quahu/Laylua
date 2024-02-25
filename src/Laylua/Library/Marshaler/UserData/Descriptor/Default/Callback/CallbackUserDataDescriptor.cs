@@ -1,4 +1,5 @@
-﻿using Laylua.Moon;
+﻿using System;
+using Laylua.Moon;
 
 namespace Laylua.Marshaling;
 
@@ -57,9 +58,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Pairs(lua, lua.Stack[1]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__pairs);
-                lua_pushcfunction(L, _pairs);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__pairs, _pairs, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Add))
@@ -70,9 +69,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Add(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__add);
-                lua_pushcfunction(L, _add);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__add, _add, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Subtract))
@@ -83,9 +80,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Subtract(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__sub);
-                lua_pushcfunction(L, _subtract);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__sub, _subtract, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Multiply))
@@ -96,9 +91,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Multiply(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__mul);
-                lua_pushcfunction(L, _multiply);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__mul, _multiply, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Modulo))
@@ -109,9 +102,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Modulo(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__mod);
-                lua_pushcfunction(L, _modulo);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__mod, _modulo, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Power))
@@ -122,9 +113,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Power(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__pow);
-                lua_pushcfunction(L, _power);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__pow, _power, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Divide))
@@ -135,9 +124,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Divide(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__div);
-                lua_pushcfunction(L, _divide);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__div, _divide, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.FloorDivide))
@@ -148,9 +135,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return FloorDivide(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__idiv);
-                lua_pushcfunction(L, _floorDivide);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__idiv, _floorDivide, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseAnd))
@@ -161,9 +146,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return BitwiseAnd(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__band);
-                lua_pushcfunction(L, _bitwiseAnd);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__band, _bitwiseAnd, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseOr))
@@ -174,9 +157,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return BitwiseOr(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__bor);
-                lua_pushcfunction(L, _bitwiseOr);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__bor, _bitwiseOr, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseExclusiveOr))
@@ -187,9 +168,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return BitwiseExclusiveOr(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__bxor);
-                lua_pushcfunction(L, _bitwiseExclusiveOr);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__bxor, _bitwiseExclusiveOr, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.ShiftLeft))
@@ -200,9 +179,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return ShiftLeft(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__shl);
-                lua_pushcfunction(L, _shiftLeft);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__shl, _shiftLeft, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.ShiftRight))
@@ -213,9 +190,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return ShiftRight(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__shr);
-                lua_pushcfunction(L, _shiftRight);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__shr, _shiftRight, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Negate))
@@ -226,9 +201,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Negate(lua, lua.Stack[1]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__unm);
-                lua_pushcfunction(L, _negate);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__unm, _negate, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.BitwiseNot))
@@ -239,9 +212,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return BitwiseNot(lua, lua.Stack[1]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__bnot);
-                lua_pushcfunction(L, _bitwiseNot);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__bnot, _bitwiseNot, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Concat))
@@ -252,9 +223,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Concat(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__concat);
-                lua_pushcfunction(L, _concat);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__concat, _concat, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Length))
@@ -265,9 +234,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Length(lua, lua.Stack[1]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__len);
-                lua_pushcfunction(L, _length);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__len, _length, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Equal))
@@ -278,9 +245,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Equal(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__eq);
-                lua_pushcfunction(L, _equal);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__eq, _equal, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.LessThan))
@@ -291,9 +256,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return LessThan(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__lt);
-                lua_pushcfunction(L, _lessThan);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__lt, _lessThan, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.LessThanOrEqual))
@@ -304,9 +267,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return LessThanOrEqual(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__le);
-                lua_pushcfunction(L, _lessThanOrEqual);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__le, _lessThanOrEqual, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Index))
@@ -317,9 +278,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Index(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__index);
-                lua_pushcfunction(L, _index);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__index, _index, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.NewIndex))
@@ -330,9 +289,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return NewIndex(lua, lua.Stack[1], lua.Stack[2], lua.Stack[3]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__newindex);
-                lua_pushcfunction(L, _newIndex);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__newindex, _newIndex, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Call))
@@ -348,9 +305,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Call(lua, lua.Stack[1], arguments);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__call);
-                lua_pushcfunction(L, _call);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__call, _call, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Close))
@@ -361,9 +316,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return Close(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__close);
-                lua_pushcfunction(L, _close);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__close, _close, metatableIndex);
             }
 
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.ToString))
@@ -374,10 +327,17 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     return ToString(lua, lua.Stack[1]);
                 };
 
-                lua_pushstring(L, LuaMetatableKeysUtf8.__tostring);
-                lua_pushcfunction(L, _toString);
-                lua_rawset(L, metatableIndex);
+                SetFunction(L, LuaMetatableKeysUtf8.__tostring, _toString, metatableIndex);
             }
+        }
+
+        return;
+
+        static void SetFunction(lua_State* L, ReadOnlySpan<byte> name, LuaCFunction function, int metatableIndex)
+        {
+            lua_pushstring(L, name);
+            lua_pushcfunction(L, function);
+            lua_rawset(L, metatableIndex);
         }
     }
 }

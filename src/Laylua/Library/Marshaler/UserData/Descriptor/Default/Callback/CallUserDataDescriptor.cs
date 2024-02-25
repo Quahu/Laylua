@@ -21,7 +21,7 @@ public abstract unsafe class CallUserDataDescriptor : UserDataDescriptor
     }
 
     /// <summary>
-    ///     Invoked through the __call metamethod.
+    ///     Invoked through the <c>__call</c> metamethod.
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
     /// <param name="userData"> The user data. </param>
