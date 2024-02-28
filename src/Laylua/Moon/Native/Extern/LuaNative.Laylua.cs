@@ -64,25 +64,6 @@ public static unsafe partial class LuaNative
 
     /*
      *
-     *  Debug utilities
-     *
-     */
-    public static string GetStackDump(lua_State* L)
-    {
-        var top = lua_gettop(L);
-        var sb = new StringBuilder($"Stack ({top} values):\n");
-        for (var i = 1; i <= top; i++)
-        {
-            sb.Append($"@{i} => <{luaL_typename(L, i)}> = {luaL_tostring(L, i).SingleQuoted().ToString()}\n");
-            lua_pop(L);
-        }
-
-        sb.Append($"{new string('=', 20)}\n");
-        return sb.ToString();
-    }
-
-    /*
-     *
      *  String marshaling
      *
      */

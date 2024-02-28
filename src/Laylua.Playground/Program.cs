@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -183,7 +183,18 @@ namespace Laylua
                     LuaCFunction func = L =>
                     {
                         lua_pushinteger(L, 12345678987654321);
-                        Console.WriteLine(GetStackDump(L));
+
+                        var top = lua_gettop(L);
+                        var sb = new StringBuilder($"Stack ({top} values):\n");
+                        for (var i = 1; i <= top; i++)
+                        {
+                            sb.Append($"@{i} => <{luaL_typename(L, i)}> = '{luaL_tostring(L, i).ToString()}'\n");
+                            lua_pop(L);
+                        }
+
+                        sb.Append($"{new string('=', 20)}\n");
+
+                        Console.WriteLine(sb.ToString());
                         return 1;
                     };
 
