@@ -12,13 +12,8 @@ public class DefaultLuaMarshalerProvider : LuaMarshalerProvider
     { }
 
     /// <inheritdoc/>
-    public override LuaMarshaler GetMarshaler(Lua lua)
+    protected override LuaMarshaler CreateCore(Lua lua)
     {
-        return new DefaultLuaMarshaler(lua, GetUserDataDescriptorProvider());
-    }
-
-    protected virtual UserDataDescriptorProvider GetUserDataDescriptorProvider()
-    {
-        return new DefaultUserDataDescriptorProvider();
+        return new DefaultLuaMarshaler(lua);
     }
 }

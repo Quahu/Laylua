@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
 using Qommon.Pooling;
@@ -7,26 +7,21 @@ namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {
-    private sealed class EntityPool
+    internal sealed class LuaReferencePool
     {
-        private const int TablePoolCapacity = 256;
-        private const int FunctionPoolCapacity = 128;
-        private const int UserDataPoolCapacity = 32;
-        private const int ThreadPoolCapacity = 4;
-
         private readonly Lua _lua;
         private readonly ObjectPool<LuaTable> _tables;
         private readonly ObjectPool<LuaFunction> _functions;
         private readonly ObjectPool<LuaUserData> _userData;
         private readonly ObjectPool<LuaThread> _threads;
 
-        public EntityPool(Lua lua)
+        public LuaReferencePool(Lua lua, LuaMarshalerEntityPoolConfiguration configuration)
         {
             _lua = lua;
-            _tables = CreatePool(LuaTableObjectPolicy.Instance, TablePoolCapacity);
-            _functions = CreatePool(LuaFunctionObjectPolicy.Instance, FunctionPoolCapacity);
-            _userData = CreatePool(LuaUserDataObjectPolicy.Instance, UserDataPoolCapacity);
-            _threads = CreatePool(LuaThreadObjectPolicy.Instance, ThreadPoolCapacity);
+            _tables = CreatePool(LuaTableObjectPolicy.Instance, configuration.TablePoolCapacity);
+            _functions = CreatePool(LuaFunctionObjectPolicy.Instance, configuration.FunctionPoolCapacity);
+            _userData = CreatePool(LuaUserDataObjectPolicy.Instance, configuration.UserDataPoolCapacity);
+            _threads = CreatePool(LuaThreadObjectPolicy.Instance, configuration.ThreadPoolCapacity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

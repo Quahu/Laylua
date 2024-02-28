@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -127,7 +127,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         Stack = new LuaStack(this);
         State = state;
         State.State = this;
-        Marshaler = marshalerProvider.GetMarshaler(this);
+        Marshaler = marshalerProvider.Create(this);
         Comparer = new LuaComparer(Culture);
     }
 

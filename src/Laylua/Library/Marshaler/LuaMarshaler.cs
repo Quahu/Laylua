@@ -1,7 +1,8 @@
-using System;
-using System.Collections.Concurrent;
+﻿using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Laylua.Moon;
+using Qommon;
 
 namespace Laylua.Marshaling;
 
@@ -15,7 +16,15 @@ public abstract partial class LuaMarshaler : IDisposable
     /// <summary>
     ///     Gets the user data descriptor provider of this marshaler.
     /// </summary>
-    public UserDataDescriptorProvider UserDataDescriptorProvider { get; }
+    public UserDataDescriptorProvider UserDataDescriptorProvider
+    {
+        get => _userDataDescriptorProvider;
+        set
+        {
+            Guard.IsNotNull(value);
+            _userDataDescriptorProvider = value;
+        }
+    }
 
     /// <summary>
     ///     Fired when a <see cref="LuaReference"/> is disposed by this marshaler.
@@ -30,18 +39,27 @@ public abstract partial class LuaMarshaler : IDisposable
     /// </remarks>
     public event EventHandler<LuaReferenceLeakedEventArgs>? ReferenceLeaked;
 
-    private readonly EntityPool _entityPool;
+    /// <summary>
+    ///     Sets the entity pool configuration determining how many <see cref="LuaReference"/> instances can be pooled.
+    /// </summary>
+    public LuaMarshalerEntityPoolConfiguration EntityPoolConfiguration
+    {
+        set
+        {
+            Guard.IsNotNull(value);
+            Interlocked.Exchange(ref _entityPool, new LuaReferencePool(Lua, value));
+        }
+    }
+
+    private UserDataDescriptorProvider _userDataDescriptorProvider = UserDataDescriptorProvider.Default;
+    private LuaReferencePool _entityPool = null!;
 
     /// <summary>
     ///     Instantiates a new marshaler with the specified Lua instance.
     /// </summary>
-    /// <param name="lua"> The Lua instance. </param>
-    /// <param name="userDataDescriptorProvider"> The user data descriptor provider. </param>
-    protected LuaMarshaler(Lua lua, UserDataDescriptorProvider userDataDescriptorProvider)
+    protected LuaMarshaler(Lua lua)
     {
         Lua = lua;
-        UserDataDescriptorProvider = userDataDescriptorProvider;
-        _entityPool = new EntityPool(lua);
     }
 
     ~LuaMarshaler()

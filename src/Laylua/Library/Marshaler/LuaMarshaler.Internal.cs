@@ -4,7 +4,7 @@ namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {
-    internal abstract void RemoveUserDataHandle(UserDataHandle handle);
+    protected internal abstract void RemoveUserDataHandle(UserDataHandle handle);
 
     internal void ReturnReference(LuaReference reference)
     {
