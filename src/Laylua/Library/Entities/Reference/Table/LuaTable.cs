@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -38,6 +38,7 @@ public unsafe partial class LuaTable : LuaReference
     /// </summary>
     public bool IsEmpty
     {
+        [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
             ThrowIfInvalid();
@@ -67,6 +68,7 @@ public unsafe partial class LuaTable : LuaReference
     /// </remarks>
     public lua_Integer Length
     {
+        [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
             ThrowIfInvalid();
