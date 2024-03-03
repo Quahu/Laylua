@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -548,10 +548,10 @@ public static unsafe partial class LuaNative
     }
 
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_load(lua_State* L, LuaReaderFunction reader, void* dt, [MarshalAs(UnmanagedType.LPUTF8Str)] string chunkname, [MarshalAs(UnmanagedType.LPStr)] string mode);
+    public static extern int lua_dump(lua_State* L, LuaWriterFunction writer, void* data, bool strip);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_dump(lua_State* L, LuaWriterFunction writer, void* data, int strip);
+    public static extern int lua_dump(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writer, void* data, bool strip);
 
     /*
      *
