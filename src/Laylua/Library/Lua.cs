@@ -4,18 +4,16 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Laylua.Marshaling;
 using Laylua.Moon;
 using Qommon;
-using Qommon.Pooling;
 
 namespace Laylua;
 
 /// <summary>
 ///     Represents a high-level Lua state.
 /// </summary>
-public unsafe class Lua : IDisposable, ISpanFormattable
+public unsafe partial class Lua : IDisposable, ISpanFormattable
 {
     /// <summary>
     ///     Gets the ID of this instance.
@@ -311,63 +309,6 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         return false;
     }
 
-    public T? Evaluate<T>(string code, string? chunkName = null)
-    {
-        return Evaluate<T>(code.AsSpan(), chunkName.AsSpan());
-    }
-
-    public T? Evaluate<T>(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
-    {
-        using (var results = Evaluate(code, chunkName))
-        {
-            if (results.Count == 0)
-            {
-                Throw.InvalidOperationException("The evaluation returned no results.");
-            }
-
-            return results.First.GetValue<T>();
-        }
-    }
-
-    public LuaFunctionResults Evaluate(string code, string? chunkName = null)
-    {
-        return Evaluate(code.AsSpan(), chunkName.AsSpan());
-    }
-
-    public LuaFunctionResults Evaluate(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
-    {
-        var top = Stack.Count;
-        LoadString(code, chunkName);
-        return LuaFunction.PCall(this, top, 0);
-    }
-
-    public void Execute(string code, string? chunkName = null)
-    {
-        Execute(code.AsSpan(), chunkName.AsSpan());
-    }
-
-    public void Execute(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
-    {
-        var L = State.L;
-        LoadString(code, chunkName);
-        var status = lua_pcall(L, 0, 0, 0);
-        if (status.IsError())
-        {
-            ThrowLuaException(status);
-        }
-    }
-
-    public LuaFunction Compile(string code, string? chunkName = null)
-    {
-        return Compile(code.AsSpan(), chunkName.AsSpan());
-    }
-
-    public LuaFunction Compile(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
-    {
-        LoadString(code, chunkName);
-        return Marshaler.PopValue<LuaFunction>()!;
-    }
-
     /// <summary>
     ///     Instantiates a new <see cref="LuaTable"/>, referencing it in the Lua registry.
     /// </summary>
@@ -407,26 +348,6 @@ public unsafe class Lua : IDisposable, ISpanFormattable
             var L = this.GetStatePointer();
             _ = lua_newuserdatauv(L, size, userValueCount);
             return Marshaler.PopValue<LuaUserData>()!;
-        }
-    }
-
-    private void LoadString(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName)
-    {
-        Stack.EnsureFreeCapacity(1);
-
-        using (var bytes = RentedArray<byte>.Rent(Encoding.UTF8.GetByteCount(code)))
-        {
-            Encoding.UTF8.GetBytes(code, bytes);
-            LuaStatus status;
-            fixed (byte* bytesPtr = bytes)
-            {
-                status = luaL_loadbuffer(State.L, bytesPtr, (nuint) bytes.Length, chunkName);
-            }
-
-            if (status.IsError())
-            {
-                ThrowLuaException(status);
-            }
         }
     }
 

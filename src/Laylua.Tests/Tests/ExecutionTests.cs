@@ -23,9 +23,9 @@ namespace Laylua.Tests
         }
 
         [Test]
-        public void CompileCode()
+        public void LoadCode()
         {
-            using (var function = lua.Compile("return 'Hello, World!'"))
+            using (var function = lua.Load("return 'Hello, World!'"))
             {
                 using (var results = function.Call())
                 {

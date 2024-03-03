@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -516,6 +516,35 @@ public static unsafe partial class LuaNative
     public static LuaStatus lua_pcall(lua_State* L, int nargs, int nresults, int errfunc)
     {
         return lua_pcallk(L, nargs, nresults, errfunc, null, null);
+    }
+
+    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_load))]
+    private static extern LuaStatus _lua_load(lua_State* L, void* reader, void* data, byte* chunkname, byte* mode);
+
+    public static LuaStatus lua_load(lua_State* L, LuaReaderFunction reader, void* data, ReadOnlySpan<char> chunkname, ReadOnlySpan<char> mode)
+    {
+        using (var chunkNameBytes = ToCString(chunkname))
+        using (var modeBytes = ToCString(mode))
+        {
+            fixed (byte* chunkNamePtr = chunkNameBytes)
+            fixed (byte* modePtr = modeBytes)
+            {
+                return _lua_load(L, (void*) Marshal.GetFunctionPointerForDelegate(reader), data, chunkNamePtr, modePtr);
+            }
+        }
+    }
+
+    public static LuaStatus lua_load(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, void*, nuint*, byte*> reader, void* data, ReadOnlySpan<char> chunkname, ReadOnlySpan<char> mode)
+    {
+        using (var chunkNameBytes = ToCString(chunkname))
+        using (var modeBytes = ToCString(mode))
+        {
+            fixed (byte* chunkNamePtr = chunkNameBytes)
+            fixed (byte* modePtr = modeBytes)
+            {
+                return _lua_load(L, reader, data, chunkNamePtr, modePtr);
+            }
+        }
     }
 
     [DllImport(DllName, CallingConvention = Cdecl)]

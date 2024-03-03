@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Laylua.Moon;
 using NUnit.Framework;
 
@@ -67,6 +72,59 @@ namespace Laylua.Tests
             // Assert
             Assert.That(LuaRegistry.IsPersistentReference(globalsReference), Is.True);
             Assert.That(type, Is.EqualTo(LuaType.Table));
+        }
+
+        private static IEnumerable<TestCaseData> CodeStreams
+        {
+            get
+            {
+                var bytes = "return 42"u8.ToArray();
+                yield return new TestCaseData(new MemoryStream(bytes, 0, bytes.Length, false, true))
+                    .SetArgDisplayNames("PublicBufferMemoryStream");
+
+                yield return new TestCaseData(new MemoryStream(bytes, 0, bytes.Length, false, false))
+                    .SetArgDisplayNames("PrivateBufferMemoryStream");
+            }
+        }
+
+        [Test]
+        [TestCaseSource(nameof(CodeStreams))]
+        public void Load_Stream_LoadsCodeAndReturnsValidFunction(Stream stream)
+        {
+            // Arrange
+            using var function = lua.Load(stream, "streamChunk");
+
+            // Act
+            using var results = function.Call();
+
+            // Assert
+            Assert.That(results.First.GetValue<int>(), Is.EqualTo(42));
+        }
+
+        [Test]
+        [TestCaseSource(nameof(CodeStreams))]
+        public void Load_StreamCustomReader_LoadsCodeAndReturnsValidFunction(Stream stream)
+        {
+            // Arrange
+            using var reader = new MyStreamLuaReader(stream);
+            using var function = lua.Load(reader, "readerChunk");
+
+            // Act
+            using var results = function.Call();
+
+            // Assert
+            Assert.That(results.First.GetValue<int>(), Is.EqualTo(42));
+        }
+
+        private sealed class MyStreamLuaReader(Stream stream) : LuaReader
+        {
+            private readonly byte[] _buffer = GC.AllocateArray<byte>(128, pinned: true);
+
+            protected override unsafe byte* Read(lua_State* L, out nuint bytesRead)
+            {
+                bytesRead = (nuint) stream.Read(_buffer);
+                return (byte*) Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(_buffer));
+            }
         }
     }
 }
