@@ -12,11 +12,11 @@ namespace Laylua;
 public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IConvertible>, IEqualityComparer<object>, IEqualityComparer,
     IComparer<IConvertible>, IComparer<object>, IComparer
 {
-    public CultureInfo CultureInfo { get; set; }
+    public IFormatProvider FormatProvider { get; set; }
 
-    public LuaComparer(CultureInfo cultureInfo)
+    public LuaComparer(IFormatProvider formatProvider)
     {
-        CultureInfo = cultureInfo;
+        FormatProvider = formatProvider;
     }
 
     public int IndexOf(object?[] array, object? value)
@@ -83,17 +83,17 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
         {
             case TypeCode.Char:
             {
-                var xValue = x.ToChar(CultureInfo);
+                var xValue = x.ToChar(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.Char:
                     {
-                        var yValue = y.ToChar(CultureInfo);
+                        var yValue = y.ToChar(FormatProvider);
                         return xValue == yValue;
                     }
                     case TypeCode.String:
                     {
-                        var yValue = y.ToString(CultureInfo);
+                        var yValue = y.ToString(FormatProvider);
                         return yValue.Length == 1 && yValue[1] == xValue;
                     }
                     default:
@@ -104,17 +104,17 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
             }
             case TypeCode.String:
             {
-                var xValue = x.ToString(CultureInfo);
+                var xValue = x.ToString(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.Char:
                     {
-                        var yValue = y.ToChar(CultureInfo);
+                        var yValue = y.ToChar(FormatProvider);
                         return xValue.Length == 1 && xValue[1] == yValue;
                     }
                     case TypeCode.String:
                     {
-                        var yValue = y.ToString(CultureInfo);
+                        var yValue = y.ToString(FormatProvider);
                         return xValue == yValue;
                     }
                     default:
@@ -125,12 +125,12 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
             }
             case TypeCode.Boolean:
             {
-                var xValue = x.ToBoolean(CultureInfo);
+                var xValue = x.ToBoolean(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.Boolean:
                     {
-                        var yValue = y.ToBoolean(CultureInfo);
+                        var yValue = y.ToBoolean(FormatProvider);
                         return xValue == yValue;
                     }
                     default:
@@ -148,7 +148,7 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
             case TypeCode.Int64:
             case TypeCode.UInt64:
             {
-                var xValue = x.ToInt64(CultureInfo);
+                var xValue = x.ToInt64(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.SByte:
@@ -160,7 +160,7 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     case TypeCode.Int64:
                     case TypeCode.UInt64:
                     {
-                        var yValue = y.ToInt64(CultureInfo);
+                        var yValue = y.ToInt64(FormatProvider);
                         return xValue == yValue;
                     }
                     default:
@@ -177,14 +177,14 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     case TypeCode.Single:
                     case TypeCode.Double:
                     {
-                        var xValue = x.ToDouble(CultureInfo);
-                        var yValue = y.ToDouble(CultureInfo);
+                        var xValue = x.ToDouble(FormatProvider);
+                        var yValue = y.ToDouble(FormatProvider);
                         return xValue.Equals(yValue);
                     }
                     case TypeCode.Decimal:
                     {
-                        var xValue = x.ToDecimal(CultureInfo);
-                        var yValue = y.ToDecimal(CultureInfo);
+                        var xValue = x.ToDecimal(FormatProvider);
+                        var yValue = y.ToDecimal(FormatProvider);
                         return xValue.Equals(yValue);
                     }
                     default:
@@ -200,14 +200,14 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     case TypeCode.Single:
                     case TypeCode.Double:
                     {
-                        var xValue = x.ToDouble(CultureInfo);
-                        var yValue = y.ToDouble(CultureInfo);
+                        var xValue = x.ToDouble(FormatProvider);
+                        var yValue = y.ToDouble(FormatProvider);
                         return xValue.Equals(yValue);
                     }
                     case TypeCode.Decimal:
                     {
-                        var xValue = x.ToDecimal(CultureInfo);
-                        var yValue = y.ToDecimal(CultureInfo);
+                        var xValue = x.ToDecimal(FormatProvider);
+                        var yValue = y.ToDecimal(FormatProvider);
                         return xValue.Equals(yValue);
                     }
                     default:
@@ -277,17 +277,17 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
         {
             case TypeCode.Char:
             {
-                var xValue = x.ToChar(CultureInfo);
+                var xValue = x.ToChar(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.Char:
                     {
-                        var yValue = y.ToChar(CultureInfo);
+                        var yValue = y.ToChar(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                     case TypeCode.String:
                     {
-                        var yValue = y.ToString(CultureInfo);
+                        var yValue = y.ToString(FormatProvider);
                         if (yValue.Length == 1)
                             return yValue[1].CompareTo(xValue);
 
@@ -299,12 +299,12 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
             }
             case TypeCode.String:
             {
-                var xValue = x.ToString(CultureInfo);
+                var xValue = x.ToString(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.Char:
                     {
-                        var yValue = y.ToChar(CultureInfo);
+                        var yValue = y.ToChar(FormatProvider);
                         if (xValue.Length == 1)
                             return xValue[1].CompareTo(yValue);
 
@@ -312,8 +312,8 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     }
                     case TypeCode.String:
                     {
-                        var yValue = y.ToString(CultureInfo);
-                        return string.Compare(xValue, yValue, CultureInfo, CompareOptions.None);
+                        var yValue = y.ToString(FormatProvider);
+                        return string.Compare(xValue, yValue, FormatProvider as CultureInfo, CompareOptions.None);
                     }
                 }
 
@@ -321,12 +321,12 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
             }
             case TypeCode.Boolean:
             {
-                var xValue = x.ToBoolean(CultureInfo);
+                var xValue = x.ToBoolean(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.Boolean:
                     {
-                        var yValue = y.ToBoolean(CultureInfo);
+                        var yValue = y.ToBoolean(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                 }
@@ -342,7 +342,7 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
             case TypeCode.Int64:
             case TypeCode.UInt64:
             {
-                var xValue = x.ToInt64(CultureInfo);
+                var xValue = x.ToInt64(FormatProvider);
                 switch (yTypeCode)
                 {
                     case TypeCode.SByte:
@@ -354,7 +354,7 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     case TypeCode.Int64:
                     case TypeCode.UInt64:
                     {
-                        var yValue = y.ToInt64(CultureInfo);
+                        var yValue = y.ToInt64(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                 }
@@ -375,21 +375,21 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     case TypeCode.Int64:
                     case TypeCode.UInt64:
                     {
-                        var xValue = x.ToDouble(CultureInfo);
-                        var yValue = y.ToInt64(CultureInfo);
+                        var xValue = x.ToDouble(FormatProvider);
+                        var yValue = y.ToInt64(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                     case TypeCode.Single:
                     case TypeCode.Double:
                     {
-                        var xValue = x.ToDouble(CultureInfo);
-                        var yValue = y.ToDouble(CultureInfo);
+                        var xValue = x.ToDouble(FormatProvider);
+                        var yValue = y.ToDouble(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                     case TypeCode.Decimal:
                     {
-                        var xValue = x.ToDecimal(CultureInfo);
-                        var yValue = y.ToDecimal(CultureInfo);
+                        var xValue = x.ToDecimal(FormatProvider);
+                        var yValue = y.ToDecimal(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                 }
@@ -409,21 +409,21 @@ public class LuaComparer : IEqualityComparer<LuaReference>, IEqualityComparer<IC
                     case TypeCode.Int64:
                     case TypeCode.UInt64:
                     {
-                        var xValue = x.ToDecimal(CultureInfo);
-                        var yValue = y.ToInt64(CultureInfo);
+                        var xValue = x.ToDecimal(FormatProvider);
+                        var yValue = y.ToInt64(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                     case TypeCode.Single:
                     case TypeCode.Double:
                     {
-                        var xValue = x.ToDouble(CultureInfo);
-                        var yValue = y.ToDouble(CultureInfo);
+                        var xValue = x.ToDouble(FormatProvider);
+                        var yValue = y.ToDouble(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                     case TypeCode.Decimal:
                     {
-                        var xValue = x.ToDecimal(CultureInfo);
-                        var yValue = y.ToDecimal(CultureInfo);
+                        var xValue = x.ToDecimal(FormatProvider);
+                        var yValue = y.ToDecimal(FormatProvider);
                         return xValue.CompareTo(yValue);
                     }
                 }

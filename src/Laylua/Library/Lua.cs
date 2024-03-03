@@ -44,17 +44,17 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     public LuaMarshaler Marshaler { get; }
 
     /// <summary>
-    ///     Gets the culture of this instance.
+    ///     Gets or sets the format provider of this instance.
     /// </summary>
     /// <remarks>
-    ///     This can be used to determine conversion and comparison behavior of values.
+    ///     This is used to determine how conversion and comparison of values is performed.
     ///     <br/>
-    ///     Defaults to <see cref="CultureInfo.CurrentCulture"/> if not specified through the constructor.
+    ///     Defaults to <see cref="CultureInfo.CurrentCulture"/>.
     /// </remarks>
-    public CultureInfo Culture { get; }
+    public IFormatProvider FormatProvider { get; set; } = CultureInfo.CurrentCulture;
 
     /// <summary>
-    ///     Gets the comparer of this instance pre-configured with the <see cref="Culture"/>.
+    ///     Gets the comparer of this instance pre-configured with the <see cref="FormatProvider"/>.
     /// </summary>
     public LuaComparer Comparer { get; }
 
@@ -99,36 +99,26 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     private readonly List<LuaLibrary> _openLibraries = new();
 
     public Lua()
-        : this(CultureInfo.CurrentCulture)
+        : this(new LuaState())
     { }
 
     public Lua(LuaAllocator allocator)
-        : this(CultureInfo.CurrentCulture, new LuaState(allocator))
+        : this(new LuaState(allocator))
     { }
 
-    public Lua(CultureInfo culture)
-        : this(culture, new LuaState())
-    { }
-
-    public Lua(CultureInfo culture, LuaAllocator allocator)
-        : this(culture, new LuaState(allocator))
-    { }
-
-    public Lua(CultureInfo culture, LuaState state)
-        : this(culture, state, LuaMarshalerProvider.Default)
+    public Lua(LuaState state)
+        : this(state, LuaMarshalerProvider.Default)
     { }
 
     public Lua(
-        CultureInfo culture,
         LuaState state,
         LuaMarshalerProvider marshalerProvider)
     {
-        Culture = culture;
         Stack = new LuaStack(this);
         State = state;
         State.State = this;
         Marshaler = marshalerProvider.Create(this);
-        Comparer = new LuaComparer(Culture);
+        Comparer = new LuaComparer(FormatProvider);
     }
 
     ~Lua()

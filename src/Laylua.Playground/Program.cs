@@ -48,7 +48,10 @@ namespace Laylua
             // NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger<NativeMemoryLuaAllocator>());
 
             Logger.LogInformation("Creating Lua...");
-            using (var lua = new Lua(CultureInfo.InvariantCulture, new LuaState(allocator)))
+            using (var lua = new Lua(new LuaState(allocator))
+            {
+                FormatProvider = CultureInfo.InvariantCulture
+            })
             {
                 lua.State.Panicked += (sender, e) =>
                 {

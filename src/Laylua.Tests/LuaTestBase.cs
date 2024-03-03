@@ -106,9 +106,10 @@ namespace Laylua.Tests
 
         protected virtual Lua CreateLua(LuaAllocator allocator)
         {
-            return new Lua(CultureInfo.InvariantCulture, allocator)
+            return new Lua(allocator)
             {
-                Id = Context.Test.Name
+                Id = Context.Test.Name,
+                FormatProvider = CultureInfo.InvariantCulture
             };
         }
 
