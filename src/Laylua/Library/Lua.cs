@@ -286,7 +286,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     {
         foreach (var openlibrary in _openLibraries)
         {
-            if (openlibrary.Name == library.Name)
+            if (string.Equals(openlibrary.Name, library.Name, StringComparison.Ordinal))
                 return false;
         }
 
@@ -300,7 +300,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         for (var i = 0; i < _openLibraries.Count; i++)
         {
             var openlibrary = _openLibraries[i];
-            if (openlibrary.Name == libraryName)
+            if (string.Equals(openlibrary.Name, libraryName, StringComparison.Ordinal))
             {
                 openlibrary.Close(this);
                 _openLibraries.RemoveAt(i);
