@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -433,10 +433,11 @@ public unsafe partial class LuaTable : LuaReference
     /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
     /// <param name="throwOnNonStringKeys"> Whether to throw on non-string keys. </param>
     /// <param name="throwOnNonConvertibleValues"> Whether to throw on non-convertible values. </param>
+    /// <param name="comparer"> The key comparer of the dictionary. </param>
     /// <returns>
     ///     The output dictionary.
     /// </returns>
-    public Dictionary<string, TValue> ToRecordDictionary<TValue>(bool throwOnNonStringKeys = false, bool throwOnNonConvertibleValues = true)
+    public Dictionary<string, TValue> ToRecordDictionary<TValue>(bool throwOnNonStringKeys = false, bool throwOnNonConvertibleValues = true, IEqualityComparer<string>? comparer = null)
         where TValue : notnull
     {
         ThrowIfInvalid();
@@ -444,7 +445,7 @@ public unsafe partial class LuaTable : LuaReference
         var lua = Lua;
         lua.Stack.EnsureFreeCapacity(3);
 
-        var dictionary = new Dictionary<string, TValue>(lua.Comparer);
+        var dictionary = new Dictionary<string, TValue>(comparer);
         using (lua.Stack.SnapshotCount())
         {
             PushValue(this);
@@ -496,10 +497,11 @@ public unsafe partial class LuaTable : LuaReference
     /// <typeparam name="TKey"> The type to convert the keys to. </typeparam>
     /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
     /// <param name="throwOnNonConvertible"> Whether to throw on non-convertible key/value pairs. </param>
+    /// <param name="comparer"> The key comparer of the dictionary. </param>
     /// <returns>
     ///     The output dictionary.
     /// </returns>
-    public Dictionary<TKey, TValue> ToDictionary<TKey, TValue>(bool throwOnNonConvertible = true)
+    public Dictionary<TKey, TValue> ToDictionary<TKey, TValue>(bool throwOnNonConvertible = true, IEqualityComparer<TKey>? comparer = null)
         where TKey : notnull
         where TValue : notnull
     {
@@ -508,7 +510,7 @@ public unsafe partial class LuaTable : LuaReference
         var lua = Lua;
         lua.Stack.EnsureFreeCapacity(3);
 
-        var dictionary = new Dictionary<TKey, TValue>();
+        var dictionary = new Dictionary<TKey, TValue>(comparer);
 
         using (lua.Stack.SnapshotCount())
         {
