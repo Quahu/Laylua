@@ -4,5 +4,4 @@
 ///     Defines existing <see cref="LuaLibrary"/> implementations.
 /// </summary>
 /// <seealso cref="Standard"/>
-public partial class LuaLibraries
-{ }
+public partial class LuaLibraries;

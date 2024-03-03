@@ -10,5 +10,4 @@ namespace Laylua.Moon;
 ///     except for the methods that create a new standalone state.
 /// </remarks>
 [StructLayout(LayoutKind.Sequential, Size = 1)]
-public struct lua_State
-{ }
+public struct lua_State;

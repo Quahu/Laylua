@@ -20,8 +20,7 @@ internal class ErrorExportAttribute : Attribute
 }
 
 [AttributeUsage(AttributeTargets.Method)]
-internal class OptionalExportAttribute : Attribute
-{ }
+internal class OptionalExportAttribute : Attribute;
 
 internal static unsafe partial class LayluaNative
 {

@@ -3,5 +3,4 @@
 namespace Laylua.Marshaling;
 
 [AttributeUsage(AttributeTargets.Class)]
-public class LuaUserDataAttribute : Attribute
-{ }
+public class LuaUserDataAttribute : Attribute;
