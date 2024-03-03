@@ -54,11 +54,6 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     public IFormatProvider FormatProvider { get; set; } = CultureInfo.CurrentCulture;
 
     /// <summary>
-    ///     Gets the comparer of this instance pre-configured with the <see cref="FormatProvider"/>.
-    /// </summary>
-    public LuaComparer Comparer { get; }
-
-    /// <summary>
     ///     Gets the main Lua thread.
     /// </summary>
     /// <remarks>
@@ -116,7 +111,6 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         State = state;
         State.State = this;
         Marshaler = marshalerProvider.Create(this);
-        Comparer = new LuaComparer(FormatProvider);
 
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Globalization;
 using Laylua.Moon;
 using Microsoft.Extensions.Logging;
@@ -20,8 +19,6 @@ namespace Laylua.Tests
 
         protected Lua lua = null!;
         protected lua_State* L;
-
-        protected TestComparer Comparer = null!;
 
         protected WeakReference? _weakReference;
 
@@ -49,8 +46,6 @@ namespace Laylua.Tests
             var allocator = CreateLuaAllocator();
             lua = CreateLua(allocator);
             L = lua.GetStatePointer();
-
-            Comparer = new TestComparer(lua.Comparer);
         }
 
         [TearDown]
@@ -124,21 +119,6 @@ namespace Laylua.Tests
             {
                 lua.DumpStack(Context.Test.Name);
                 throw;
-            }
-        }
-
-        protected class TestComparer : IComparer
-        {
-            private readonly LuaComparer _comparer;
-
-            public TestComparer(LuaComparer comparer)
-            {
-                _comparer = comparer;
-            }
-
-            public int Compare(object? x, object? y)
-            {
-                return _comparer.Equals(x, y) ? 0 : -1;
             }
         }
     }
