@@ -64,7 +64,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     /// <remarks>
     ///     The returned object does not have to be disposed.
     /// </remarks>
-    public LuaThread MainThread => _mainThread ??= LuaThread.CreateMainThread(this);
+    public LuaThread MainThread { get; }
 
     /// <summary>
     ///     Gets the table containing the global variables.
@@ -72,7 +72,7 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     /// <remarks>
     ///     The returned object does not have to be disposed.
     /// </remarks>
-    public LuaTable Globals => _globals ??= LuaTable.CreateGlobalsTable(this);
+    public LuaTable Globals { get; }
 
     /// <summary>
     ///     Gets or sets the value of the global variable with the specified name.
@@ -94,8 +94,6 @@ public unsafe class Lua : IDisposable, ISpanFormattable
     /// </summary>
     public bool IsDisposed => State.IsDisposed;
 
-    private LuaThread? _mainThread;
-    private LuaTable? _globals;
     private readonly List<LuaLibrary> _openLibraries = new();
 
     public Lua()
@@ -119,6 +117,9 @@ public unsafe class Lua : IDisposable, ISpanFormattable
         State.State = this;
         Marshaler = marshalerProvider.Create(this);
         Comparer = new LuaComparer(FormatProvider);
+
+        MainThread = LuaThread.CreateMainThread(this);
+        Globals = LuaTable.CreateGlobalsTable(this);
     }
 
     ~Lua()
