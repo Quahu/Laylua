@@ -31,24 +31,26 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
     {
         lua_getinfo(L, "Sn", ar);
 
-        scoped Span<char> nameSpan;
         char[]? rentedArray = null;
-        if (ar->name != null)
-        {
-            var asciiNameSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(ar->name);
-            var charCount = Encoding.Unicode.GetCharCount(asciiNameSpan);
-            nameSpan = charCount > 256
-                ? (rentedArray = ArrayPool<char>.Shared.Rent(charCount)).AsSpan(0, charCount)
-                : stackalloc char[charCount];
-        }
-        else
-        {
-            nameSpan = Span<char>.Empty;
-        }
-
         string message;
         try
         {
+            scoped Span<char> nameSpan;
+            if (ar->name != null)
+            {
+                var utf8NameSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(ar->name);
+                var charCount = Encoding.UTF8.GetCharCount(utf8NameSpan);
+                nameSpan = charCount > 256
+                    ? (rentedArray = ArrayPool<char>.Shared.Rent(charCount)).AsSpan(0, charCount)
+                    : stackalloc char[charCount];
+
+                Encoding.UTF8.GetChars(utf8NameSpan, nameSpan);
+            }
+            else
+            {
+                nameSpan = Span<char>.Empty;
+            }
+
             message = $"The maximum instruction count of {InstructionCount} was exceeded by {(nameSpan.IsEmpty || MemoryExtensions.IsWhiteSpace(nameSpan) ? "main code" : $"'{nameSpan}'")}.";
         }
         finally
