@@ -70,7 +70,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (LuaRegistry.IsPersistentReference(_reference) || _lua == null)
             return;
 
-        _lua.Marshaler.ReturnReference(this);
+        _lua.Marshaler.OnReferenceCollected(this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

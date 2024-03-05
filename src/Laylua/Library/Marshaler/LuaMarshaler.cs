@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Laylua.Moon;
@@ -34,8 +35,10 @@ public abstract partial class LuaMarshaler : IDisposable
     ///     You can utilize this event to find out if your application
     ///     is failing to correctly dispose all <see cref="LuaReference"/> instances.
     ///     <para/>
-    ///     Subscribed event handlers should be as lightweight as possible
-    ///     and must not throw any exceptions.
+    ///     Subscribed event handlers should be lightweight and must not throw exceptions.
+    ///     <para/>
+    ///     Subscribed handlers must not perform any Lua interactions,
+    ///     as they might corrupt the Lua state.
     /// </remarks>
     public event EventHandler<LuaReferenceLeakedEventArgs>? ReferenceLeaked;
 
@@ -53,6 +56,7 @@ public abstract partial class LuaMarshaler : IDisposable
 
     private UserDataDescriptorProvider _userDataDescriptorProvider = UserDataDescriptorProvider.Default;
     private LuaReferencePool _entityPool = null!;
+    private readonly ConcurrentStack<LuaReference> _leakedReferences = new();
 
     /// <summary>
     ///     Instantiates a new marshaler with the specified Lua instance.
@@ -77,6 +81,7 @@ public abstract partial class LuaMarshaler : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected LuaTable CreateTable(int reference)
     {
+        DisposeLeakedReferences();
         return _entityPool.RentTable(reference);
     }
 
@@ -90,6 +95,7 @@ public abstract partial class LuaMarshaler : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected LuaFunction CreateFunction(int reference)
     {
+        DisposeLeakedReferences();
         return _entityPool.RentFunction(reference);
     }
 
@@ -104,6 +110,7 @@ public abstract partial class LuaMarshaler : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected LuaUserData CreateUserData(int reference, IntPtr ptr)
     {
+        DisposeLeakedReferences();
         return _entityPool.RentUserData(reference, ptr);
     }
 
@@ -118,7 +125,19 @@ public abstract partial class LuaMarshaler : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe LuaThread CreateThread(int reference, lua_State* L)
     {
+        DisposeLeakedReferences();
         return _entityPool.RentThread(reference, L);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void DisposeLeakedReferences()
+    {
+        while (_leakedReferences.TryPop(out var reference))
+        {
+            reference.Dispose();
+
+            ReturnReference(reference);
+        }
     }
 
     /// <summary>
@@ -158,6 +177,8 @@ public abstract partial class LuaMarshaler : IDisposable
     /// </summary>
     public void Dispose()
     {
+        DisposeLeakedReferences();
+
         Dispose(true);
         GC.SuppressFinalize(this);
     }

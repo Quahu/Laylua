@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Laylua.Moon;
 using NUnit.Framework;
 
@@ -75,7 +75,6 @@ public class LuaReferenceTests : LuaTestBase
 
         // Assert
         Assert.That(leakedReference, Is.EqualTo(reference));
-        return;
 
         int CreateTable()
         {
