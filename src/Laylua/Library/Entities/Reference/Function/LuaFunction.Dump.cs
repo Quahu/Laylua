@@ -42,6 +42,8 @@ public unsafe partial class LuaFunction
 
         using (Lua.Stack.SnapshotCount())
         {
+            PushValue(this);
+
             delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writerFunctionPtr;
             if (target is Stream)
             {
@@ -71,9 +73,9 @@ public unsafe partial class LuaFunction
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         static int WriteToStream(lua_State* L, void* p, nuint sz, void* ud)
         {
+            var stream = Unsafe.As<Stream>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
             try
             {
-                var stream = Unsafe.As<Stream>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
                 stream.Write(new Span<byte>(p, (int) sz));
                 return 0;
             }

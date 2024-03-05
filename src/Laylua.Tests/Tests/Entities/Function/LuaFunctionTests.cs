@@ -15,9 +15,10 @@ public class LuaFunctionTests : LuaTestBase
         var ms = new MemoryStream();
 
         // Act
-        function.Dump(ms);
+        var errorCode = function.Dump(ms);
 
         // Assert
+        Assert.That(errorCode, Is.Zero);
         Assert.That(ms.Length, Is.Not.Zero);
     }
 
@@ -30,9 +31,10 @@ public class LuaFunctionTests : LuaTestBase
         using var writer = new MyStreamLuaWriter(ms);
 
         // Act
-        function.Dump(writer);
+        var errorCode = function.Dump(writer);
 
         // Assert
+        Assert.That(errorCode, Is.Zero);
         Assert.That(ms.Length, Is.Not.Zero);
     }
 
@@ -53,13 +55,14 @@ public class LuaFunctionTests : LuaTestBase
         var ms = new MemoryStream();
 
         // Act
-        originalFunction.Dump(ms);
+        var errorCode = originalFunction.Dump(ms);
         ms.Position = 0;
         using var dumpedFunction = lua.Load(ms);
         using var originalResults = originalFunction.Call();
         using var dumpedResults = dumpedFunction.Call();
 
         // Assert
+        Assert.That(errorCode, Is.Zero);
         Assert.That(originalResults.First.GetValue<int>(), Is.EqualTo(dumpedResults.First.GetValue<int>()));
     }
 }
