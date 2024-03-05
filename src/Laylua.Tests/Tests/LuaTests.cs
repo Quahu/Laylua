@@ -106,7 +106,7 @@ namespace Laylua.Tests
         public void Load_StreamCustomReader_LoadsCodeAndReturnsValidFunction(Stream stream)
         {
             // Arrange
-            using var reader = new MyStreamLuaReader(stream);
+            using var reader = new MyStreamLuaChunkReader(stream);
             using var function = lua.Load(reader, "readerChunk");
 
             // Act
@@ -116,7 +116,7 @@ namespace Laylua.Tests
             Assert.That(results.First.GetValue<int>(), Is.EqualTo(42));
         }
 
-        private sealed class MyStreamLuaReader(Stream stream) : LuaReader
+        private sealed class MyStreamLuaChunkReader(Stream stream) : LuaChunkReader
         {
             private readonly byte[] _buffer = GC.AllocateArray<byte>(128, pinned: true);
 

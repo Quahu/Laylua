@@ -28,7 +28,7 @@ public class LuaFunctionTests : LuaTestBase
         // Arrange
         using var function = lua.Load("return 42");
         var ms = new MemoryStream();
-        using var writer = new MyStreamLuaWriter(ms);
+        using var writer = new MyStreamLuaChunkWriter(ms);
 
         // Act
         var errorCode = function.Dump(writer);
@@ -38,7 +38,7 @@ public class LuaFunctionTests : LuaTestBase
         Assert.That(ms.Length, Is.Not.Zero);
     }
 
-    private sealed class MyStreamLuaWriter(Stream stream) : LuaWriter
+    private sealed class MyStreamLuaChunkWriter(Stream stream) : LuaChunkWriter
     {
         protected override unsafe int Write(lua_State* L, byte* data, nuint length)
         {

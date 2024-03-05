@@ -3,12 +3,13 @@
 namespace Laylua.Moon;
 
 /// <summary>
-///     Represents a reader responsible for reading Lua code into blocks of memory.
+///     Represents a type responsible for reading Lua chunks into memory.
+///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a>. </para>
 /// </summary>
-public abstract unsafe class LuaReader : IDisposable
+public abstract unsafe class LuaChunkReader : IDisposable
 {
     /// <summary>
-    ///     Reads a memory block of Lua code.
+    ///     Reads a Lua chunk and returns it as a memory block.
     /// </summary>
     /// <remarks>
     ///     The code must not throw any exceptions.
@@ -17,7 +18,7 @@ public abstract unsafe class LuaReader : IDisposable
     /// <param name="bytesRead"> The size of the returned memory block. </param>
     /// <returns>
     ///     The pointer to the memory block.
-    ///     This memory block must be valid until <see cref="Read"/> is called again or this reader is disposed.
+    ///     The memory block must be valid until <see cref="Read"/> is called again or the reader is disposed.
     /// </returns>
     protected internal abstract byte* Read(lua_State* L, out nuint bytesRead);
 

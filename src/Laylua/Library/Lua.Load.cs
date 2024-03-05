@@ -75,7 +75,7 @@ public unsafe partial class Lua
         return Marshaler.PopValue<LuaFunction>()!;
     }
 
-    public LuaFunction Load(LuaReader reader, ReadOnlySpan<char> chunkName = default)
+    public LuaFunction Load(LuaChunkReader reader, ReadOnlySpan<char> chunkName = default)
     {
         LoadReader(reader, chunkName);
         return Marshaler.PopValue<LuaFunction>()!;
@@ -161,7 +161,7 @@ public unsafe partial class Lua
         }
     }
 
-    private void LoadReader(LuaReader reader, ReadOnlySpan<char> chunkName)
+    private void LoadReader(LuaChunkReader reader, ReadOnlySpan<char> chunkName)
     {
         Guard.IsNotNull(reader);
 
@@ -188,7 +188,7 @@ public unsafe partial class Lua
         static byte* ReadWithCustomReader(lua_State* L, void* ud, nuint* sz)
         {
             ref var size = ref Unsafe.AsRef<nuint>(sz);
-            var reader = Unsafe.As<LuaReader>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
+            var reader = Unsafe.As<LuaChunkReader>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
             return reader.Read(L, out size);
         }
     }

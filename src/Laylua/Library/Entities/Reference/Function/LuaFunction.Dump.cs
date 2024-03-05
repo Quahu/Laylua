@@ -25,15 +25,15 @@ public unsafe partial class LuaFunction
     /// <summary>
     ///     Dumps the binary Lua code of this function to the specified stream.
     /// </summary>
-    /// <param name="writer"> The writer to dump this function with. </param>
+    /// <param name="chunkWriter"> The writer to dump this function with. </param>
     /// <param name="stripDebugInformation"> Whether some debug information should be stripped to save on space. </param>
     /// <returns>
     ///     <see langword="0"/> if the operation succeeded.
     ///     Otherwise, any other value, indicating failure.
     /// </returns>
-    public int Dump(LuaWriter writer, bool stripDebugInformation = false)
+    public int Dump(LuaChunkWriter chunkWriter, bool stripDebugInformation = false)
     {
-        return DumpInternal(writer, stripDebugInformation);
+        return DumpInternal(chunkWriter, stripDebugInformation);
     }
 
     private int DumpInternal(object target, bool stripDebugInformation)
@@ -49,7 +49,7 @@ public unsafe partial class LuaFunction
             {
                 writerFunctionPtr = &WriteToStream;
             }
-            else if (target is LuaWriter)
+            else if (target is LuaChunkWriter)
             {
                 writerFunctionPtr = &WriteToCustomWriter;
             }
@@ -88,7 +88,7 @@ public unsafe partial class LuaFunction
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         static int WriteToCustomWriter(lua_State* L, void* p, nuint sz, void* ud)
         {
-            var writer = Unsafe.As<LuaWriter>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
+            var writer = Unsafe.As<LuaChunkWriter>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
             try
             {
                 return writer.Write(L, (byte*) p, sz);

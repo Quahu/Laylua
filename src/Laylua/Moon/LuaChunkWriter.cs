@@ -3,18 +3,19 @@
 namespace Laylua.Moon;
 
 /// <summary>
-///     Represents a writer responsible for writing binary Lua code into e.g. a file.
+///     Represents a type responsible for writing Lua chunks into an implementation-defined destination.
+///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a>. </para>
 /// </summary>
-public abstract unsafe class LuaWriter : IDisposable
+public abstract unsafe class LuaChunkWriter : IDisposable
 {
     /// <summary>
-    ///     Writes a memory block of Lua code.
+    ///     Writes the specified Lua chunk.
     /// </summary>
     /// <remarks>
     ///     The code must not throw any exceptions.
     /// </remarks>
     /// <param name="L"> The Lua state. </param>
-    /// <param name="data"> The memory block to write. </param>
+    /// <param name="data"> The pointer to the memory block containing the Lua chunk to write. </param>
     /// <param name="length"> The size of the memory block. </param>
     /// <returns>
     ///     <see langword="0"/> if the write operation succeeded.
