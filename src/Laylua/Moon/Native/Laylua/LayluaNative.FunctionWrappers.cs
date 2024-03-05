@@ -9,13 +9,6 @@ internal static unsafe partial class LayluaNative
 {
     private static readonly ConditionalWeakTable<Delegate, Delegate> FunctionWrappers = new();
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Span<byte> AllocFunctionWrapperAsm(out IntPtr asmPtr)
-    {
-        var asmSpan = Alloc(ManagedPanicAsmBytes, out asmPtr);
-        return asmSpan;
-    }
-
     public static IntPtr CreateLuaKFunctionWrapper(LuaKFunction function)
     {
         var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
@@ -260,24 +253,36 @@ internal static unsafe partial class LayluaNative
         return asmPtr;
     }
 
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Span<byte> AllocFunctionWrapperAsm(out IntPtr asmPtr)
+    {
+        var asmSpan = Alloc(ManagedPanicAsmBytes, out asmPtr);
+        return asmSpan;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void WriteFunctionWrapperPointers(Span<byte> asmSpan,
 #if TRACE_PANIC
         IntPtr asmPtr,
 #endif
-        Delegate function, Delegate functionWrapper)
+        Delegate function, Delegate functionWrapper
+#if TRACE_PANIC
+        , [CallerMemberName] string? callerName = null
+#endif
+    )
     {
         var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
         var functionWrapperPtr = Marshal.GetFunctionPointerForDelegate(functionWrapper);
 
-        MemoryMarshal.Write(asmSpan.Slice(21), ref functionPtr);
-        MemoryMarshal.Write(asmSpan.Slice(40), ref functionWrapperPtr);
-        MemoryMarshal.Write(asmSpan.Slice(71), ref getPotentialPanicPtr);
+        // MemoryMarshal.Write(asmSpan.Slice(21), ref functionPtr);
+        MemoryMarshal.Write(asmSpan.Slice(40 - 13), ref functionWrapperPtr);
+        MemoryMarshal.Write(asmSpan.Slice(71 - 13), ref getPotentialPanicPtr);
 
         // Console.WriteLine("Stack State at 0x{0:X}", (IntPtr) stackState);
 
 #if TRACE_PANIC
-        Console.WriteLine("ManagedPanic asmPtr: 0x{0:X}\nGetPotentialPanicPtr: 0x{1:X}\nCallLuaCFunction: 0x{2:X}", asmPtr, getPotentialPanicPtr, functionWrapperPtr);
+        Console.WriteLine("ManagedPanic for {0} asmPtr: 0x{1:X}\nGetPotentialPanicPtr: 0x{2:X}\nCallLuaCFunction: 0x{3:X} (for 0x{4:X})", callerName, asmPtr, getPotentialPanicPtr, functionWrapperPtr, functionPtr);
 #endif
     }
 }
