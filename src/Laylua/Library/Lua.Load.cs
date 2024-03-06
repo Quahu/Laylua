@@ -12,11 +12,22 @@ namespace Laylua;
 
 public unsafe partial class Lua
 {
+    /// <inheritdoc cref="Evaluate{T}(ReadOnlySpan{char},ReadOnlySpan{char})"/>
     public T? Evaluate<T>(string code, string? chunkName = null)
     {
         return Evaluate<T>(code.AsSpan(), chunkName.AsSpan());
     }
 
+    /// <summary>
+    ///     Loads a Lua chunk from the specified string and immediately calls it,
+    ///     converting the first returned value to <typeparamref name="T"/> and and returning it.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="code"> The string containing the Lua chunk. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     The first result of calling the chunk.
+    /// </returns>
     public T? Evaluate<T>(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
     {
         using (var results = Evaluate(code, chunkName))
@@ -30,11 +41,23 @@ public unsafe partial class Lua
         }
     }
 
+    /// <inheritdoc cref="Evaluate(ReadOnlySpan{char},ReadOnlySpan{char})"/>
     public LuaFunctionResults Evaluate(string code, string? chunkName = null)
     {
         return Evaluate(code.AsSpan(), chunkName.AsSpan());
     }
 
+    /// <summary>
+    ///     Loads a Lua chunk from the specified string and immediately calls it,
+    ///     pushing the returned values onto the stack.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="code"> The string containing the Lua chunk. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     The results of calling the chunk.
+    /// </returns>
+    /// <seealso cref="LuaFunctionResults"/>
     public LuaFunctionResults Evaluate(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
     {
         var top = Stack.Count;
@@ -42,11 +65,19 @@ public unsafe partial class Lua
         return LuaFunction.PCall(this, top, 0);
     }
 
+    /// <inheritdoc cref="Execute(ReadOnlySpan{char},ReadOnlySpan{char})"/>
     public void Execute(string code, string? chunkName = null)
     {
         Execute(code.AsSpan(), chunkName.AsSpan());
     }
 
+    /// <summary>
+    ///     Loads a Lua chunk from the specified string and immediately calls it,
+    ///     discarding the returned values.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="code"> The string containing the Lua chunk. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
     public void Execute(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
     {
         var L = State.L;
@@ -58,23 +89,52 @@ public unsafe partial class Lua
         }
     }
 
+    /// <inheritdoc cref="Load(ReadOnlySpan{char},ReadOnlySpan{char})"/>
     public LuaFunction Load(string code, string? chunkName = null)
     {
         return Load(code.AsSpan(), chunkName.AsSpan());
     }
 
+    /// <summary>
+    ///     Loads a Lua chunk from the specified string.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="code"> The string containing the Lua chunk. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
     public LuaFunction Load(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
     {
         LoadString(code, chunkName);
         return Marshaler.PopValue<LuaFunction>()!;
     }
 
-    public LuaFunction Load(Stream code, ReadOnlySpan<char> chunkName = default)
+    /// <summary>
+    ///     Loads a Lua chunk from the specified UTF-8-encoded stream.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="utf8Code"> The UTF-8-encoded stream containing the Lua chunk. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
+    public LuaFunction Load(Stream utf8Code, ReadOnlySpan<char> chunkName = default)
     {
-        LoadStream(code, chunkName);
+        LoadStream(utf8Code, chunkName);
         return Marshaler.PopValue<LuaFunction>()!;
     }
 
+    /// <summary>
+    ///     Loads a Lua chunk using the specified chunk reader.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="reader"> The chunk reader to load the Lua chunk from. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
+    /// <seealso cref="LuaChunkReader"/>
     public LuaFunction Load(LuaChunkReader reader, ReadOnlySpan<char> chunkName = default)
     {
         LoadReader(reader, chunkName);
