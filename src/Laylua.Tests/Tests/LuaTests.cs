@@ -79,11 +79,14 @@ namespace Laylua.Tests
             get
             {
                 var bytes = "return 42"u8.ToArray();
-                yield return new TestCaseData(new MemoryStream(bytes, 0, bytes.Length, false, true))
-                    .SetArgDisplayNames("PublicBufferMemoryStream");
+                yield return MakeMemoryStream(bytes, true);
+                yield return MakeMemoryStream(bytes, false);
 
-                yield return new TestCaseData(new MemoryStream(bytes, 0, bytes.Length, false, false))
-                    .SetArgDisplayNames("PrivateBufferMemoryStream");
+                static TestCaseData MakeMemoryStream(byte[] bytes, bool publiclyVisible)
+                {
+                    return new TestCaseData(new MemoryStream(bytes, 0, bytes.Length, false, publiclyVisible))
+                        .SetArgDisplayNames($"MemoryStream {(publiclyVisible ? "Public" : "Private")}Buffer");
+                }
             }
         }
 
@@ -92,6 +95,7 @@ namespace Laylua.Tests
         public void Load_Stream_LoadsCodeAndReturnsValidFunction(Stream stream)
         {
             // Arrange
+            using var _ = stream;
             using var function = lua.Load(stream, "streamChunk");
 
             // Act
@@ -106,6 +110,7 @@ namespace Laylua.Tests
         public void Load_StreamCustomReader_LoadsCodeAndReturnsValidFunction(Stream stream)
         {
             // Arrange
+            using var _ = stream;
             using var reader = new MyStreamLuaChunkReader(stream);
             using var function = lua.Load(reader, "readerChunk");
 
