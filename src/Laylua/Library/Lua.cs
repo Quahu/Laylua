@@ -332,8 +332,8 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
     /// </summary>
     /// <remarks>
     ///     Note that this creates a native Lua user data,
-    ///     which probably won't be very useful for your application
-    ///     and you should instead let the marshaler handle user data creation
+    ///     which may not be particularly useful for your application.
+    ///     Instead, it is recommended to let the marshaler handle user data creation
     ///     for .NET objects.
     /// </remarks>
     /// <param name="size"> The size of the memory to allocate for this user data. </param>

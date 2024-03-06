@@ -6,15 +6,15 @@ using Qommon;
 namespace Laylua;
 
 /// <summary>
-///     Represents a range of values on the stack
+///     Represents a range of values on the Lua stack
 ///     that are the results of calling a Lua function.
 /// </summary>
 /// <remarks>
-///     After you are done working with the results,
-///     you can dispose of this type to remove the function results from the stack.
+///     After you have finished working with the results,
+///     you can dispose of this object to remove the function results from the stack.
 ///     <para/>
-///     If you remove any of the function results yourself,
-///     do not dispose of this type and instead remove all results yourself.
+///     If you manually remove any of the function results,
+///     do not dispose of this object and instead remove the remaining results manually.
 /// </remarks>
 public struct LuaFunctionResults : IDisposable
 {
@@ -73,7 +73,9 @@ public struct LuaFunctionResults : IDisposable
     private readonly void ThrowIfDisposed()
     {
         if (_isDisposed)
+        {
             Throw.ObjectDisposedException(nameof(LuaStackValueRange));
+        }
     }
 
     /// <inheritdoc/>
