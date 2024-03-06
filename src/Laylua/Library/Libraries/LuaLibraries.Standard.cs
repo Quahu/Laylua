@@ -11,15 +11,15 @@ public unsafe partial class LuaLibraries
     ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#6">Lua manual</a>. </para>
     /// </summary>
     /// <remarks>
-    ///     These libraries provide a ton of functionality out of the box,
-    ///     however a large part of the feature set is unsafe for use with external
-    ///     code that you cannot verify the safety of.
+    ///     These libraries provide a plethora of functionality out of the box.
+    ///     However, a significant portion of the feature set is unsafe for use
+    ///     with external code that you cannot verify the safety of.
     ///     <para/>
-    ///     Freely load all libraries (by using <see cref="EnumerateAll"/> or <see cref="LuaExtensions.OpenStandardLibraries"/>) if the Lua code you are executing
-    ///     is exclusively your own code and you know it is safe.
-    ///     Otherwise, you should ensure the standard libraries you are loading are safe.
+    ///     Load all libraries freely (using <see cref="EnumerateAll"/> or <see cref="LuaExtensions.OpenStandardLibraries"/>)
+    ///     if the Lua code being executed is solely your own and known to be safe.
+    ///     Otherwise, exercise caution by ensuring the standard libraries being loaded are safe.
     ///     <para/>
-    ///     List of standard libraries that are safe (or almost safe) by themselves:
+    ///     List of standard libraries that are safe (or nearly safe) to use with unverified code:
     ///     <list type="bullet">
     ///         <item>
     ///             <term> <see cref="Coroutine"/> </term>
@@ -33,8 +33,8 @@ public unsafe partial class LuaLibraries
     ///             <term> <see cref="String"/> </term>
     ///             <description>
     ///                 provides string management.
-    ///                 <para> Contains a possibly unsafe <a href="https://www.lua.org/manual/5.4/manual.html#pdf-string.dump"><c>string.dump()</c></a>
-    ///                 that allows viewing the binary representation of a function. </para>
+    ///                 <para> Contains a potentially unsafe <a href="https://www.lua.org/manual/5.4/manual.html#pdf-string.dump"><c>string.dump()</c></a> function,
+    ///                 which allows viewing the binary representation of a function. </para>
     ///             </description>
     ///         </item>
     ///         <item>
@@ -46,10 +46,6 @@ public unsafe partial class LuaLibraries
     ///             <description> provides mathematical functions. </description>
     ///         </item>
     ///     </list>
-    ///     The rest of the standard libraries range from possibly unsafe to simply dangerous.
-    ///     <para/>
-    ///     Remember that Lua code can overwrite the global variable(s) a library uses
-    ///     or even overwrite its functionality, possibly creating a security risk.
     /// </remarks>
     public static class Standard
     {
