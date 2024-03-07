@@ -13,6 +13,9 @@ namespace Laylua;
 /// <summary>
 ///     Represents a high-level Lua state.
 /// </summary>
+/// <remarks>
+///     This type is not thread-safe; operations on it are not thread-safe.
+/// </remarks>
 public unsafe partial class Lua : IDisposable, ISpanFormattable
 {
     /// <summary>

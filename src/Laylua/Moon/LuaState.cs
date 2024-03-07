@@ -11,8 +11,9 @@ namespace Laylua.Moon;
 ///     Represents a low-level Lua state.
 /// </summary>
 /// <remarks>
-///     Note that the low-level state features unsafe components
-///     and operations which must be used carefully.
+///     Exercise caution when using the low-level state directly.
+///     <para/>
+///     This type is not thread-safe; it is not suitable for concurrent use.
 /// </remarks>
 public unsafe class LuaState : IDisposable, ISpanFormattable
 {

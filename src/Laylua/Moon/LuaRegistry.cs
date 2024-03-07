@@ -3,7 +3,7 @@
 namespace Laylua.Moon;
 
 /// <summary>
-///     Defines the Lua registry pseudo-indices.
+///     Defines the Lua registry indices and utility methods.
 /// </summary>
 public static class LuaRegistry
 {
