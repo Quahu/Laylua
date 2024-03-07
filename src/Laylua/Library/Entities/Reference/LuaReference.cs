@@ -54,23 +54,24 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         }
     }
 
+    private Lua? _lua;
+
     /// <remarks>
     ///     Ensure you dispose of all <see cref="LuaReference"/>s returned.
     ///     See the remarks on <see cref="LuaReference"/> for details.
     /// </remarks>
     private int _reference;
     private bool _isDisposed;
-    private Lua? _lua;
 
     private protected LuaReference()
     { }
 
     ~LuaReference()
     {
-        if (LuaRegistry.IsPersistentReference(_reference) || _lua == null)
+        if (LuaRegistry.IsPersistentReference(_reference) || !IsAlive(this))
             return;
 
-        _lua.Marshaler.OnReferenceCollected(this);
+        _lua!.Marshaler.OnReferenceCollected(this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -119,7 +120,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         _lua.Stack.EnsureFreeCapacity(1);
 
-        using (Lua.Stack.SnapshotCount())
+        using (_lua.Stack.SnapshotCount())
         {
             PushValue(this);
             return Lua.Marshaler.PopValue<T>()!;
@@ -137,9 +138,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (_reference == other._reference)
             return true;
 
-        Lua.Stack.EnsureFreeCapacity(2);
+        _lua!.Stack.EnsureFreeCapacity(2);
 
-        using (Lua.Stack.SnapshotCount())
+        using (_lua.Stack.SnapshotCount())
         {
             PushValue(this);
             PushValue(other);
@@ -186,11 +187,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     }
 
     /// <summary>
-    ///     Disposes this <see cref="LuaReference"/>,
-    ///     dereferencing the Lua object.
+    ///     Disposes this <see cref="LuaReference"/>, dereferencing the Lua object.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
+#pragma warning disable CA1816 // Destructor is used for entity pooling
     public void Dispose()
+#pragma warning restore CA1816
     {
         if (LuaRegistry.IsPersistentReference(_reference))
             return;
@@ -203,7 +205,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (!IsAlive(this))
             return;
 
-        var L = Lua.GetStatePointer();
+        var L = _lua!.GetStatePointer();
         if (L == null)
             return;
 
@@ -218,19 +220,19 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         return reference._reference;
     }
 
-    public static void PushValue(LuaReference reference)
+    internal static void PushValue(LuaReference reference)
     {
         reference.ThrowIfInvalid();
 
-        var L = reference.Lua.GetStatePointer();
+        var L = reference._lua.GetStatePointer();
         if (lua_rawgeti(L, LuaRegistry.Index, reference._reference).IsNoneOrNil())
         {
             lua_pop(L);
-            reference.Lua.ThrowLuaException("Failed to push the referenced object.");
+            reference._lua.ThrowLuaException("Failed to push the referenced object.");
         }
     }
 
-    public static bool TryCreate(lua_State* L, int stackIndex, out int reference)
+    internal static bool TryCreate(lua_State* L, int stackIndex, out int reference)
     {
         if (!lua_checkstack(L, 1))
         {

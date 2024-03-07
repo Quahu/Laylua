@@ -28,7 +28,7 @@ public class LuaReferenceTests : LuaTestBase
         // Act
         lua_gc(L, LuaGC.Collect);
 
-        LuaReference.PushValue(reference);
+        lua.Stack.Push(reference);
         var type = lua_type(L, -1);
         lua_pop(L);
 

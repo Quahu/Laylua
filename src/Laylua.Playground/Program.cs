@@ -181,7 +181,7 @@ namespace Laylua
 
                 using (var lent = lua.CreateTable())
                 {
-                    LuaReference.PushValue(lent);
+                    lua.Stack.Push(lent);
                     lua_createtable(L, 0, 1);
                     lua_pushstring(L, LuaMetatableKeys.__len);
                     LuaCFunction func = L =>
