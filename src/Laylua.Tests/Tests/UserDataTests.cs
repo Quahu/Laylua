@@ -1,5 +1,4 @@
 ﻿using Laylua.Marshaling;
-using NUnit.Framework;
 
 namespace Laylua.Tests;
 
@@ -22,12 +21,12 @@ public class UserDataTests : LuaTestBase
     public void DescribedUserData_Instance_PropertyFieldMethod_AccessibleFromLua()
     {
         // Arrange
-        lua["ud"] = DescribedUserData.Instance(new StrictUserData1(), TypeMemberProvider.Strict);
+        Lua["ud"] = DescribedUserData.Instance(new StrictUserData1(), TypeMemberProvider.Strict);
 
         // Act
-        var propertyResult = lua.Evaluate<int>("ud.Property = 42 return ud.Property");
-        var fieldResult = lua.Evaluate<int>("ud.Field = 42 return ud.Field");
-        var methodResult = lua.Evaluate<int>("return ud:Method(42)");
+        var propertyResult = Lua.Evaluate<int>("ud.Property = 42 return ud.Property");
+        var fieldResult = Lua.Evaluate<int>("ud.Field = 42 return ud.Field");
+        var methodResult = Lua.Evaluate<int>("return ud:Method(42)");
 
         // Assert
         Assert.Multiple(() =>
@@ -42,10 +41,10 @@ public class UserDataTests : LuaTestBase
     public void DescribedUserData_Instance_GetGlobalAsObjectReturnsUserData()
     {
         // Arrange
-        lua["ud"] = DescribedUserData.Instance(new StrictUserData1(), TypeMemberProvider.Strict);
+        Lua.SetGlobal("ud", DescribedUserData.Instance(new StrictUserData1(), TypeMemberProvider.Strict));
 
         // Act
-        var ud = lua["ud"];
+        var ud = Lua.GetGlobal<object>("ud");
 
         // Assert
         Assert.That(ud, Is.InstanceOf<StrictUserData1>());
@@ -55,14 +54,13 @@ public class UserDataTests : LuaTestBase
     public void UserDataWithDescriptor_MarshaledAsObjectType_MarshalsCorrectly()
     {
         // Arrange
-        lua.Marshaler.UserDataDescriptorProvider.SetDescriptor<StrictUserData1>(
-            new InstanceTypeUserDataDescriptor(typeof(StrictUserData1), TypeMemberProvider.Strict));
+        Lua.Marshaler.UserDataDescriptorProvider.SetInstanceDescriptor<StrictUserData1>(TypeMemberProvider.Strict);
 
         var ud = new StrictUserData1();
-        lua["ud"] = ud;
+        Lua.SetGlobal("ud", ud);
 
         // Act
-        var udAsObject = lua["ud"];
+        var udAsObject = Lua.GetGlobal<object>("ud");
 
         // Assert
         Assert.That(udAsObject, Is.EqualTo(ud));

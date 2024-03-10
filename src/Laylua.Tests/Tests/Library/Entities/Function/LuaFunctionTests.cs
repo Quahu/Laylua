@@ -1,9 +1,4 @@
-﻿using System;
-using System.IO;
-using Laylua.Moon;
-using NUnit.Framework;
-
-namespace Laylua.Tests;
+﻿namespace Laylua.Tests;
 
 public class LuaFunctionTests : LuaTestBase
 {
@@ -11,7 +6,7 @@ public class LuaFunctionTests : LuaTestBase
     public void Dump_Stream_WritesBinaryData()
     {
         // Arrange
-        using var function = lua.Load("return 42");
+        using var function = Lua.Load("return 42");
         var ms = new MemoryStream();
 
         // Act
@@ -26,7 +21,7 @@ public class LuaFunctionTests : LuaTestBase
     public void Dump_Writer_WritesBinaryData()
     {
         // Arrange
-        using var function = lua.Load("return 42");
+        using var function = Lua.Load("return 42");
         var ms = new MemoryStream();
         using var writer = new MyStreamLuaChunkWriter(ms);
 
@@ -51,18 +46,20 @@ public class LuaFunctionTests : LuaTestBase
     public void Dump_Stream_WritesBinaryData_CanBeLoaded()
     {
         // Arrange
-        using var originalFunction = lua.Load("return 42");
+        using var originalFunction = Lua.Load("return 42");
         var ms = new MemoryStream();
 
         // Act
         var errorCode = originalFunction.Dump(ms);
+        Assume.That(errorCode, Is.Zero);
+
         ms.Position = 0;
-        using var dumpedFunction = lua.Load(ms);
-        using var originalResults = originalFunction.Call();
-        using var dumpedResults = dumpedFunction.Call();
+        using var dumpedFunction = Lua.Load(ms);
+        using var originalFunctionResults = originalFunction.Call();
+        using var dumpedFunctionResults = dumpedFunction.Call();
 
         // Assert
         Assert.That(errorCode, Is.Zero);
-        Assert.That(originalResults.First.GetValue<int>(), Is.EqualTo(dumpedResults.First.GetValue<int>()));
+        Assert.That(originalFunctionResults.First.GetValue<int>(), Is.EqualTo(dumpedFunctionResults.First.GetValue<int>()));
     }
 }

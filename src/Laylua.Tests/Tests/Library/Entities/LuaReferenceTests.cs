@@ -1,7 +1,3 @@
-using System;
-using Laylua.Moon;
-using NUnit.Framework;
-
 namespace Laylua.Tests;
 
 public class LuaReferenceTests : LuaTestBase
@@ -10,7 +6,7 @@ public class LuaReferenceTests : LuaTestBase
     public void GetReference_ThrowsObjectDisposedExceptionIfDisposed()
     {
         // Arrange
-        var reference = lua.Evaluate<LuaTable>("return {}")!;
+        var reference = Lua.Evaluate<LuaTable>("return {}")!;
 
         // Act
         reference.Dispose();
@@ -23,12 +19,12 @@ public class LuaReferenceTests : LuaTestBase
     public unsafe void NoLuaReferencesToAliveObject_ObjectIsNotGarbageCollected()
     {
         // Arrange
-        using var reference = lua.Evaluate<LuaTable>("return {}")!;
+        using var reference = Lua.Evaluate<LuaTable>("return {}")!;
 
         // Act
         lua_gc(L, LuaGC.Collect);
 
-        lua.Stack.Push(reference);
+        Lua.Stack.Push(reference);
         var type = lua_type(L, -1);
         lua_pop(L);
 
@@ -42,7 +38,7 @@ public class LuaReferenceTests : LuaTestBase
     public unsafe void NoReferencesToDeadObject_ObjectIsGarbageCollected()
     {
         // Arrange
-        var reference = lua.Evaluate<LuaTable>("return {}")!;
+        var reference = Lua.Evaluate<LuaTable>("return {}")!;
 
         // Act
         var referenceValue = LuaReference.GetReference(reference);
@@ -78,9 +74,9 @@ public class LuaReferenceTests : LuaTestBase
 
         int CreateTable()
         {
-            var table = lua.Evaluate<LuaTable>("return {}")!;
+            var table = Lua.Evaluate<LuaTable>("return {}")!;
             var reference = LuaReference.GetReference(table);
-            lua.Marshaler.ReferenceLeaked += (_, e) =>
+            Lua.Marshaler.ReferenceLeaked += (_, e) =>
             {
                 leakedReference = LuaReference.GetReference(e.Reference);
             };

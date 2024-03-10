@@ -22,10 +22,4 @@
         <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Compile Include="..\Laylua\Globals.cs">
-            <Link>Globals.cs</Link>
-        </Compile>
-    </ItemGroup>
-
 </Project>
