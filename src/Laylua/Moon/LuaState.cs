@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -78,6 +78,18 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         }
     }
     private LuaHook? _hook;
+
+    /// <summary>
+    ///     Gets an object that controls the Lua garbage collector of this state.
+    /// </summary>
+    public LuaGC GC
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return new LuaGC(this);
+        }
+    }
 
     /// <summary>
     ///     Fired when Lua panics.
@@ -288,6 +300,6 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
     public void Dispose()
     {
         Dispose(true);
-        GC.SuppressFinalize(this);
+        System.GC.SuppressFinalize(this);
     }
 }

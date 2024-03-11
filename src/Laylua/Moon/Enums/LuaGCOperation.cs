@@ -1,9 +1,11 @@
-﻿namespace Laylua.Moon;
+﻿using System;
+
+namespace Laylua.Moon;
 
 /// <summary>
 ///     Defines the operation to be performed on the Lua garbage collector.
 /// </summary>
-public enum LuaGC
+public enum LuaGCOperation
 {
     /// <summary>
     ///     Stops the garbage collector.
@@ -32,8 +34,10 @@ public enum LuaGC
 
     Step = 5,
 
+    [Obsolete($"Use {nameof(Incremental)} instead.")]
     SetPause = 6,
 
+    [Obsolete($"Use {nameof(Incremental)} instead.")]
     SetStepMultiplier = 7,
 
     IsRunning = 9,

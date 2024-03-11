@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -602,16 +602,16 @@ public static unsafe partial class LuaNative
      */
     // lua_gc is overloaded because __arglist sucks.
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGC what);
+    public static extern int lua_gc(lua_State* L, LuaGCOperation what);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGC what, int arg1);
+    public static extern int lua_gc(lua_State* L, LuaGCOperation what, int arg1);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGC what, int arg1, int arg2);
+    public static extern int lua_gc(lua_State* L, LuaGCOperation what, int arg1, int arg2);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGC what, int arg1, int arg2, int arg3);
+    public static extern int lua_gc(lua_State* L, LuaGCOperation what, int arg1, int arg2, int arg3);
 
     /*
      *

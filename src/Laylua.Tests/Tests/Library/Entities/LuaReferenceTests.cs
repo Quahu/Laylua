@@ -22,7 +22,7 @@ public class LuaReferenceTests : LuaTestBase
         using var reference = Lua.Evaluate<LuaTable>("return {}")!;
 
         // Act
-        lua_gc(L, LuaGC.Collect);
+        Lua.State.GC.Collect();
 
         Lua.Stack.Push(reference);
         var type = lua_type(L, -1);
@@ -44,7 +44,7 @@ public class LuaReferenceTests : LuaTestBase
         var referenceValue = LuaReference.GetReference(reference);
         reference.Dispose();
 
-        lua_gc(L, LuaGC.Collect);
+        Lua.State.GC.Collect();
 
         var type = lua_rawgeti(L, LuaRegistry.Index, referenceValue);
         lua_pop(L);
@@ -63,7 +63,7 @@ public class LuaReferenceTests : LuaTestBase
         var leakedReference = -1;
 
         // Act
-        lua_gc(L, LuaGC.Collect);
+        Lua.State.GC.Collect();
 
         GC.Collect();
         GC.WaitForPendingFinalizers();
