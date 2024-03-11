@@ -15,13 +15,13 @@ public static class NativeMemoryLuaAllocatorLogging
     public static EventId OutOfMemoryEventId => new(5, "OutOfMemory");
 
     public static readonly Action<ILogger, nuint, IntPtr, Exception?> Alloc = LoggerMessage.Define<nuint, IntPtr>(
-        LogLevel.Trace, AllocEventId, "Lua allocated {ByteCount} bytes at address 0x{Address:X}.");
+        LogLevel.Trace, AllocEventId, "Lua allocated {ByteCount} bytes at address {Address:X8}.");
 
     public static readonly Action<ILogger, nuint, IntPtr, nuint, IntPtr, Exception?> Realloc = LoggerMessage.Define<nuint, IntPtr, nuint, IntPtr>(
-        LogLevel.Trace, ReallocEventId, "Lua reallocated {OldByteCount} bytes at address 0x{OldAddress:X} to {NewByteCount} bytes at address 0x{NewAddress:X}.");
+        LogLevel.Trace, ReallocEventId, "Lua reallocated {OldByteCount} bytes at address {OldAddress:X8} to {NewByteCount} bytes at address {NewAddress:X8}.");
 
     public static readonly Action<ILogger, nuint, IntPtr, Exception?> Free = LoggerMessage.Define<nuint, IntPtr>(
-        LogLevel.Trace, FreeEventId, "Lua freed {ByteCount} bytes at address 0x{Address:X}.");
+        LogLevel.Trace, FreeEventId, "Lua freed {ByteCount} bytes at address {Address:X8}.");
 
     public static readonly Action<ILogger, nuint, Exception?> Deny = LoggerMessage.Define<nuint>(
         LogLevel.Trace, DenyEventId, "Lua was denied {ByteCount} bytes - too much memory allocated.");
