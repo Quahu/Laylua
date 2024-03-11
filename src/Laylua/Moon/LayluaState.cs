@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -110,7 +111,10 @@ internal sealed unsafe class LayluaState : IDisposable
 
     public void Dispose()
     {
-        Guard.IsNull(Panic);
+        if (!_gcHandle.IsAllocated)
+            return;
+
+        Debug.Assert(Panic == null);
 
         PanicPtr = null;
         IsPCall = false;
