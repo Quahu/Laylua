@@ -4,11 +4,15 @@ using System.Runtime.InteropServices;
 namespace Laylua.Moon;
 
 /// <summary>
-///     Represents the default implementation of <see cref="LuaAllocator"/>.
+///     Represents an implementation of <see cref="LuaAllocator"/> using <see cref="NativeMemory"/>.
 /// </summary>
 /// <remarks>
-///     This is a managed equivalent of the default Lua memory allocator
-///     with the addition of a maximum allocation limit and tracking of allocations.
+///     This type serves as a managed counterpart to the default Lua memory allocator.
+///     It includes features such as a maximum allocation limit and allocation tracking.
+///     <para/>
+///     This type is not thread-safe; it is not suitable for concurrent use.
+///     Do not use a single instance of this type with multiple Lua states;
+///     instantiate a new allocator for each Lua state.
 /// </remarks>
 public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
 {
@@ -29,7 +33,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
     public nuint TotalAllocatedBytes => _totalAllocatedBytes;
 
     /// <summary>
-    ///     Gets the total amount of times this allocator allocated memory.
+    ///     Gets the total amount of times this allocator allocated and reallocated memory.
     /// </summary>
     public nuint TimesAllocated => _timesAllocated;
 
@@ -95,10 +99,15 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
         {
             oldSizeOrType = 0;
         }
+        else if (oldSizeOrType == size)
+        {
+            return ptr;
+        }
 
         if (size == 0)
         {
             NativeMemory.Free(ptr);
+
             _currentlyAllocatedBytes -= oldSizeOrType;
 
             if (ptr != null)
@@ -109,7 +118,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
             return null;
         }
 
-        if (MaxBytes != 0 && _currentlyAllocatedBytes + (size - oldSizeOrType) > MaxBytes)
+        if (MaxBytes != 0 && size > oldSizeOrType && _currentlyAllocatedBytes + (size - oldSizeOrType) > MaxBytes)
         {
             MemoryDenied?.Invoke(this, new MemoryDeniedEventArgs(size));
 
@@ -128,8 +137,9 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
             return null;
         }
 
-        _currentlyAllocatedBytes += size - oldSizeOrType;
-        _totalAllocatedBytes += size - oldSizeOrType;
+        var allocatedBytes = (nint) size - (nint) oldSizeOrType;
+        _currentlyAllocatedBytes = (nuint) ((nint) _currentlyAllocatedBytes + allocatedBytes);
+        _totalAllocatedBytes = (nuint) ((nint) _totalAllocatedBytes + allocatedBytes);
         _timesAllocated++;
 
         if (oldPtr == null)
