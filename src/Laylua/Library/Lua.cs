@@ -372,7 +372,7 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (IsDisposed)
+        if (State is null || IsDisposed)
             return;
 
         Marshaler.Dispose();
