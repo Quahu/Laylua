@@ -291,6 +291,7 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
 
         lua_close(_l);
         _l = null;
+        _state.Dispose();
     }
 
     /// <inheritdoc/>
