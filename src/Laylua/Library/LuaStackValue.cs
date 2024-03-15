@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using Laylua.Marshaling;
 using Laylua.Moon;
@@ -120,7 +120,11 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     /// </returns>
     public bool TryGetValue<T>(out T? value)
     {
-        ThrowIfInvalid();
+        if (Type == LuaType.None)
+        {
+            value = default;
+            return false;
+        }
 
         return _lua.Marshaler.TryGetValue(Index, out value);
     }
