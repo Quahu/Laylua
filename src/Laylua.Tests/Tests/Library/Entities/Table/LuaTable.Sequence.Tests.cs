@@ -53,7 +53,7 @@ public class LuaTableSequenceTests : LuaTestBase
         using var table = Lua.Evaluate<LuaTable>("return { 'one', 'two', 'three', four = 'four' }")!;
 
         // Act
-        var values = table.Sequence.ToEnumerable<string>();
+        var values = table.Sequence.AsEnumerable<string>();
 
         // Assert
         Assert.That(values, Is.EqualTo(new[] { "one", "two", "three" }));

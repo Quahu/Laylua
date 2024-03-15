@@ -39,7 +39,7 @@ public class LuaTableValuesTests : LuaTestBase
         using var table = Lua.Evaluate<LuaTable>("return { a = 1, b = 2, c = 3 }")!;
 
         // Act
-        var values = table.Values.ToEnumerable<int>();
+        var values = table.Values.AsEnumerable<int>();
 
         // Assert
         Assert.That(values, Is.EquivalentTo(new[] { 1, 2, 3 }));

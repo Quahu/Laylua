@@ -15,6 +15,9 @@ namespace Laylua;
 /// </summary>
 /// <remarks>
 ///     <inheritdoc cref="LuaReference"/>
+///     <para/>
+///     • When enumerating over <see cref="LuaTable"/>, note the following:
+///     <inheritdoc cref="GetEnumerator"/>
 /// </remarks>
 public unsafe partial class LuaTable : LuaReference
 {
@@ -55,6 +58,7 @@ public unsafe partial class LuaTable : LuaReference
 
     /// <summary>
     ///     Gets the length of this table.
+    ///     This returns the same value as the length operator ()
     /// </summary>
     /// <remarks>
     ///     <b>If you want to get the amount of key/value pairs in the table,
@@ -551,20 +555,22 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
-    ///     Gets an enumerable lazily yielding the key/value pairs of this table.
+    ///     Creates an enumerable lazily yielding the key/value pairs of this table.
     /// </summary>
     /// <remarks>
     ///     This method throws for key/value pairs when either of the two cannot be converted
     ///     to <typeparamref name="TKey"/>/<typeparamref name="TValue"/> respectively
     ///     or skips them if <paramref name="throwOnNonConvertible"/> is <see langword="false"/>.
+    ///     <para/>
+    ///     <inheritdoc cref="GetEnumerator"/>
     /// </remarks>
     /// <typeparam name="TKey"> The type to convert the keys to. </typeparam>
     /// <typeparam name="TValue"> The type to convert the values to. </typeparam>
     /// <param name="throwOnNonConvertible"> Whether to throw on non-convertible key/value pairs. </param>
     /// <returns>
-    ///     The output dictionary.
+    ///     The output enumerable.
     /// </returns>
-    public IEnumerable<KeyValuePair<TKey, TValue>> ToEnumerable<TKey, TValue>(bool throwOnNonConvertible = true)
+    public IEnumerable<KeyValuePair<TKey, TValue>> AsEnumerable<TKey, TValue>(bool throwOnNonConvertible = true)
         where TKey : notnull
         where TValue : notnull
     {
@@ -595,23 +601,24 @@ public unsafe partial class LuaTable : LuaReference
     ///     Returns an enumerator that lazily produces key/value pairs from this table.
     /// </summary>
     /// <remarks>
-    ///     The enumerator uses the Lua stack
-    ///     which you should keep in mind when pushing your own data onto the stack
-    ///     during enumeration.
+    ///     <inheritdoc cref="Enumerator"/>
     /// </remarks>
     /// <returns>
     ///     An enumerator wrapping this table.
     /// </returns>
     public Enumerator GetEnumerator()
     {
-        ThrowIfInvalid();
-
         return new(this);
     }
 
     /// <summary>
     ///     Represents an enumerator that can be used to enumerate the <see cref="LuaTable"/>.
     /// </summary>
+    /// <remarks>
+    ///     The enumerator stores the table and key-value pairs on the Lua stack.
+    ///     Keep this in mind when pushing your own values onto the stack
+    ///     or running other Lua code while the enumerator is alive.
+    /// </remarks>
     public struct Enumerator : IEnumerator<KeyValuePair<LuaStackValue, LuaStackValue>>
     {
         /// <inheritdoc/>

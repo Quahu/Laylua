@@ -11,6 +11,10 @@ public unsafe partial class LuaTable
     /// <summary>
     ///     Represents a view over the values of a <see cref="LuaTable"/>.
     /// </summary>
+    /// <remarks>
+    ///     • When enumerating over <see cref="ValueCollection"/>, note the following:
+    ///     <inheritdoc cref="GetEnumerator"/>
+    /// </remarks>
     public readonly struct ValueCollection
     {
         private readonly LuaTable _table;
@@ -85,17 +89,19 @@ public unsafe partial class LuaTable
         }
 
         /// <summary>
-        ///     Gets an enumerable lazily yielding the values of the table.
+        ///     Creates an enumerable lazily yielding the values of the table.
         /// </summary>
         /// <remarks>
         ///     This method throws for values that cannot be converted to <typeparamref name="T"/>
         ///     or skips them if <paramref name="throwOnNonConvertible"/> is <see langword="false"/>.
+        ///     <para/>
+        ///     <inheritdoc cref="LuaTable.GetEnumerator"/>
         /// </remarks>
         /// <param name="throwOnNonConvertible"> Whether to throw on non-convertible values. </param>
         /// <returns>
         ///     The output enumerable.
         /// </returns>
-        public IEnumerable<T> ToEnumerable<T>(bool throwOnNonConvertible = true)
+        public IEnumerable<T> AsEnumerable<T>(bool throwOnNonConvertible = true)
             where T : notnull
         {
             foreach (var stackValue in this)
@@ -116,8 +122,7 @@ public unsafe partial class LuaTable
         ///     Returns an enumerator that enumerates values of the table.
         /// </summary>
         /// <remarks>
-        ///     The enumerator uses the Lua stack which you should
-        ///     keep in mind when pushing your own data onto the stack during enumeration.
+        ///     <inheritdoc cref="LuaTable.GetEnumerator"/>
         /// </remarks>
         /// <returns>
         ///     An enumerator wrapping the values of the table.
@@ -130,6 +135,9 @@ public unsafe partial class LuaTable
         /// <summary>
         ///     Represents an enumerator that can be used to enumerate the values of a <see cref="LuaTable"/>.
         /// </summary>
+        /// <remarks>
+        ///     <inheritdoc cref="LuaTable.GetEnumerator"/>
+        /// </remarks>
         public struct Enumerator : IEnumerator<LuaStackValue>
         {
             /// <inheritdoc/>

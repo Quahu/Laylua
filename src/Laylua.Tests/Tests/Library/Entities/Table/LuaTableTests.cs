@@ -35,7 +35,7 @@ public class LuaTableTests : LuaTestBase
         using var table = Lua.Evaluate<LuaTable>("return { 'one', 'two', 'three' }")!;
 
         // Act
-        var kvps = table.ToEnumerable<int, string>();
+        var kvps = table.AsEnumerable<int, string>();
 
         // Assert
         Assert.That(kvps, Is.EquivalentTo(new Dictionary<int, string>
