@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace Laylua.Moon;
+﻿namespace Laylua.Moon;
 
 /// <summary>
 ///     Represents a Lua hook, i.e. a type that can trigger on various events based on the <see cref="LuaEventMask"/>.
 /// </summary>
-public abstract unsafe class LuaHook : IDisposable
+public abstract unsafe class LuaHook
 {
     /// <summary>
     ///     Gets the events this hook is subscribed to.
@@ -29,14 +27,4 @@ public abstract unsafe class LuaHook : IDisposable
     /// <param name="L"> The Lua state. </param>
     /// <param name="ar"> The pointer to the debug information. </param>
     protected internal abstract void Execute(lua_State* L, lua_Debug* ar);
-
-    protected virtual void Dispose(bool disposing)
-    { }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
 }

@@ -142,7 +142,7 @@ public class LuaTests : LuaTestBase
     {
         // Arrange
         using var _ = stream;
-        using var reader = new MyStreamLuaChunkReader(stream);
+        var reader = new MyStreamLuaChunkReader(stream);
         using var function = Lua.Load(reader, "readerChunk");
 
         // Act

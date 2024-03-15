@@ -1,12 +1,10 @@
-﻿using System;
-
-namespace Laylua.Moon;
+﻿namespace Laylua.Moon;
 
 /// <summary>
 ///     Represents a type responsible for writing Lua chunks into an implementation-defined destination.
 ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a>. </para>
 /// </summary>
-public abstract unsafe class LuaChunkWriter : IDisposable
+public abstract unsafe class LuaChunkWriter
 {
     /// <summary>
     ///     Writes the specified Lua chunk.
@@ -22,14 +20,4 @@ public abstract unsafe class LuaChunkWriter : IDisposable
     ///     Otherwise, any other value, indicating failure and preventing <see cref="Write"/> from being called again.
     /// </returns>
     protected internal abstract int Write(lua_State* L, byte* data, nuint length);
-
-    protected virtual void Dispose(bool disposing)
-    { }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
 }

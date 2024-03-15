@@ -23,7 +23,7 @@ public class LuaFunctionTests : LuaTestBase
         // Arrange
         using var function = Lua.Load("return 42");
         var ms = new MemoryStream();
-        using var writer = new MyStreamLuaChunkWriter(ms);
+        var writer = new MyStreamLuaChunkWriter(ms);
 
         // Act
         var errorCode = function.Dump(writer);

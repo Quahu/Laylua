@@ -58,11 +58,8 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         set
         {
             if (_hook == value)
-                return;
-
-            if (_hook != null)
             {
-                _hook.Dispose();
+                return;
             }
 
             if (value == null)
