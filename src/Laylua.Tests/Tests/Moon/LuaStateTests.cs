@@ -3,6 +3,19 @@ namespace Laylua.Tests;
 public class LuaStateTests : LuaTestBase
 {
     [Test]
+    public void NativeMemoryLuaAllocator_MaxBytes_DeniesAllocation()
+    {
+        // Arrange
+        using var lua = CreateLua(CreateLuaAllocator(8192));
+
+        // Act
+        var ex = Assert.Throws<LuaPanicException>(() => lua.CreateTable(tableCapacity: 4096).Dispose());
+
+        // Assert
+        Assert.That(ex, Has.Message.Contains("not enough memory"));
+    }
+
+    [Test]
     public void CancellationTokenLuaHook_CancelsExecutionWithError()
     {
         // Arrange

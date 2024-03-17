@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Extensions.Logging;
@@ -80,9 +80,9 @@ public abstract unsafe class LuaTestBase
         }
     }
 
-    protected virtual LuaAllocator CreateLuaAllocator()
+    protected virtual LuaAllocator CreateLuaAllocator(nuint maxBytes = 0)
     {
-        var allocator = new NativeMemoryLuaAllocator();
+        var allocator = new NativeMemoryLuaAllocator(maxBytes);
 
 #if DEBUG
         NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger("Alloc"));
