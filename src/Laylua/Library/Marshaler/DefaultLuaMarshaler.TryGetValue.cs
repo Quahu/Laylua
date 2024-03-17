@@ -460,7 +460,7 @@ public unsafe partial class DefaultLuaMarshaler
                 if (clrType.IsAssignableTo(typeof(LuaReference)) || clrType == typeof(object))
                 {
                     var threadPtr = lua_tothread(L, stackIndex);
-                    if (threadPtr == L)
+                    if (threadPtr == Lua.MainThread.State)
                     {
                         obj = (T) (object) Lua.MainThread;
                         return true;

@@ -154,7 +154,7 @@ public unsafe partial class DefaultLuaMarshaler
                         }
                         else
                         {
-                            // TODO: possibly improve this in the future, but it doesn't really matter as we reach this case only when the non-generic accessors are used.
+                            // TODO: possibly improve this in the future
                             var userDataHandleType = typeof(UserDataHandle<>).MakeGenericType(clrType);
                             var constructor = userDataHandleType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
                             handle = (UserDataHandle) constructor.Invoke([Lua, obj, descriptor]);
