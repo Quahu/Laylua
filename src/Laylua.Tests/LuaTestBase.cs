@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Extensions.Logging;
@@ -46,6 +46,7 @@ public abstract unsafe class LuaTestBase
     [TearDown]
     public virtual void Teardown()
     {
+        var allocator = Lua.State.Allocator;
         using (Lua)
         {
             var leakedReferences = 0;
@@ -73,10 +74,10 @@ public abstract unsafe class LuaTestBase
             Assert.That(leakedReferences, Is.EqualTo(0), $"Leaked {leakedReferences} references.");
         }
 
-        if (Lua.State.Allocator is NativeMemoryLuaAllocator allocator)
+        if (allocator is NativeMemoryLuaAllocator nativeMemoryLuaAllocator)
         {
-            Assert.That((int) allocator.CurrentlyAllocatedBytes, Is.EqualTo(0), "Lua failed to free memory.");
-            Logger.LogInformation("Lua allocated {0} times for a total of {1}KiB", allocator.TimesAllocated, Math.Round(allocator.TotalAllocatedBytes / 1024.0, 2));
+            Assert.That((int) nativeMemoryLuaAllocator.CurrentlyAllocatedBytes, Is.EqualTo(0), "Lua failed to free memory.");
+            Logger.LogInformation("Lua allocated {0} times for a total of {1}KiB", nativeMemoryLuaAllocator.TimesAllocated, Math.Round(nativeMemoryLuaAllocator.TotalAllocatedBytes / 1024.0, 2));
         }
     }
 

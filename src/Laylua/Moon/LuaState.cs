@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Qommon;
@@ -13,7 +13,7 @@ namespace Laylua.Moon;
 ///     <para/>
 ///     This type is not thread-safe; it is not suitable for concurrent use.
 /// </remarks>
-public unsafe class LuaState : IDisposable, ISpanFormattable
+public sealed unsafe class LuaState : ISpanFormattable
 {
     /// <summary>
     ///     Gets the pointer of this state.
@@ -23,28 +23,22 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         get
         {
             ThrowIfDisposed();
-            return _l;
+            return _L;
         }
     }
-    private lua_State* _l;
+    private lua_State* _L;
 
     /// <summary>
-    ///     Gets the pointer to the extra space of the Lua state.
+    ///     Gets the allocator of this state.
     /// </summary>
-    public void* ExtraSpace
+    public LuaAllocator? Allocator
     {
         get
         {
             ThrowIfDisposed();
-            return lua_getextraspace(_l);
+            return _allocator;
         }
     }
-
-    /// <summary>
-    ///     Gets or sets the allocator of this state.
-    /// </summary>
-    public LuaAllocator? Allocator => _allocator;
-
     private readonly LuaAllocator? _allocator;
 
     /// <summary>
@@ -52,9 +46,15 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
     /// </summary>
     public LuaHook? Hook
     {
-        get => _hook;
+        get
+        {
+            ThrowIfDisposed();
+            return _hook;
+        }
         set
         {
+            ThrowIfDisposed();
+
             if (_hook == value)
             {
                 return;
@@ -64,18 +64,18 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
             {
                 _innerHookFunction = null;
                 _safeHookFunction = null;
-                lua_sethook(_l, null, 0, 0);
+                lua_sethook(_L, null, 0, 0);
                 return;
             }
 
-            lua_sethook(_l, WrapHookFunction(value), value.EventMask, value.InstructionCount);
+            lua_sethook(_L, WrapHookFunction(value), value.EventMask, value.InstructionCount);
             _hook = value;
         }
     }
     private LuaHook? _hook;
 
     /// <summary>
-    ///     Gets an object that controls the Lua garbage collector of this state.
+    ///     Gets an object that controls the Lua garbage collector.
     /// </summary>
     public LuaGC GC
     {
@@ -89,80 +89,97 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
     /// <summary>
     ///     Gets whether this instance is disposed.
     /// </summary>
-    public bool IsDisposed => _l == null;
+    public bool IsDisposed => _L == null;
 
     internal object? State
     {
-        get => _state.State;
-        set => _state.State = value;
+        get => _layluaState.State;
+        set => _layluaState.State = value;
     }
 
     private LuaAllocFunction? _safeAllocFunction;
     private LuaHookFunction? _innerHookFunction;
     private LuaHookFunction? _safeHookFunction;
 
-    private LayluaState _state = null!;
+    private LayluaState _layluaState = null!;
+    private readonly int _threadReference;
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaState"/> with
     ///     a new default state from the Lua auxiliary library.
     /// </summary>
-    public LuaState()
-    {
-        _l = luaL_newstate();
-
-        ValidateCtor();
-    }
+    internal LuaState()
+        : this(null)
+    { }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaState"/>
     ///     with a new state created with the specified allocator.
     /// </summary>
     /// <param name="allocator"> The allocator. </param>
-    public LuaState(LuaAllocator allocator)
+    internal LuaState(LuaAllocator? allocator)
     {
-        _l = lua_newstate(WrapAllocFunction(allocator), null /*allocator.UserDataPtr*/);
-        _allocator = allocator;
+        if (allocator == null)
+        {
+            _L = luaL_newstate();
+        }
+        else
+        {
+            _L = lua_newstate(WrapAllocFunction(allocator), null);
+            _allocator = allocator;
+        }
 
-        ValidateCtor();
+        ValidateNewState();
+        InitializeState();
     }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaState"/>
-    ///     with the specified pointer to an existing state.
+    ///     with the specified pointer to a Lua thread.
     /// </summary>
     /// <param name="L"> The state pointer. </param>
-    public LuaState(lua_State* L)
+    /// <param name="threadReference"> The Lua reference to the thread. </param>
+    internal LuaState(lua_State* L, int threadReference)
     {
-        _l = L;
+        _L = L;
+        _threadReference = threadReference;
 
-        ValidateCtor();
+        InitializeState();
     }
 
-    ~LuaState()
+    private void ValidateNewState()
     {
-        Dispose(false);
-    }
-
-    private void ValidateCtor()
-    {
-        if (_l == null)
+        if (_L == null)
+        {
             throw new InvalidOperationException("Failed to create a new Lua state.");
+        }
 
-        var version = lua_version(_l).ToString(CultureInfo.InvariantCulture);
+        var version = lua_version(_L).ToString(CultureInfo.InvariantCulture);
         if (version.Length != 3 || version[0] != LuaVersionMajor[0] || version[2] != LuaVersionMinor[0])
+        {
             throw new InvalidOperationException($"Invalid Lua version loaded. Expected '{LuaVersion}'.");
+        }
+    }
 
-        var panicPtr = LayluaNative.InitializePanic();
-        _state = LayluaState.Create(panicPtr);
-        *(IntPtr*) lua_getextraspace(_l) = _state.GCPtr;
-        lua_atpanic(_l, (delegate* unmanaged[Cdecl]<lua_State*, int>) panicPtr);
+    private void InitializeState()
+    {
+        if (!LayluaState.TryFromExtraSpace(_L, out var state))
+        {
+            var panicPtr = LayluaNative.InitializePanic();
+            state = LayluaState.Create(panicPtr);
+            *(IntPtr*) lua_getextraspace(_L) = state.GCPtr;
+            lua_atpanic(_L, (delegate* unmanaged[Cdecl]<lua_State*, int>) panicPtr);
+        }
+
+        _layluaState = state;
     }
 
     private void ThrowIfDisposed()
     {
-        if (_l == null)
+        if (_L == null)
+        {
             throw new ObjectDisposedException(GetType().FullName);
+        }
     }
 
     internal LuaAllocFunction WrapAllocFunction(LuaAllocator allocator)
@@ -190,14 +207,14 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
     /// <inheritdoc/>
     public override string ToString()
     {
-        return ToString(null, null);
+        return ToString(null, (State as Lua)?.FormatProvider);
     }
 
     /// <inheritdoc/>
     public string ToString(string? format, IFormatProvider? formatProvider)
     {
-        var ptr = (IntPtr) _l;
-        return $"Lua: {ptr.ToString(format, formatProvider)}";
+        var ptr = (IntPtr) _L;
+        return $"Lua: {ptr.ToString(format ?? "X16", formatProvider)}";
     }
 
     bool ISpanFormattable.TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
@@ -208,7 +225,7 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
             return false;
         }
 
-        var ptr = (IntPtr) _l;
+        var ptr = (IntPtr) _L;
         if (!ptr.TryFormat(destination[5..], out charsWritten, format, provider))
         {
             return false;
@@ -219,20 +236,21 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         return true;
     }
 
-    protected virtual void Dispose(bool disposing)
+    internal void Close()
     {
-        if (_l == null)
+        if (_L == null)
             return;
 
-        lua_close(_l);
-        _l = null;
-        _state.Dispose();
-    }
+        if (_threadReference == 0)
+        {
+            lua_close(_L);
+            _layluaState.Dispose();
+        }
+        else
+        {
+            luaL_unref(_L, LuaRegistry.Index, _threadReference);
+        }
 
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        Dispose(true);
-        System.GC.SuppressFinalize(this);
+        _L = null;
     }
 }

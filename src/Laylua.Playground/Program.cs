@@ -46,10 +46,10 @@ namespace Laylua
         {
             var allocator = new NativeMemoryLuaAllocator(1024 * 1024);
 
-            // NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger<NativeMemoryLuaAllocator>());
+            NativeMemoryLuaAllocatorLogging.Hook(allocator, Logger);
 
             Logger.LogInformation("Creating Lua...");
-            using (var lua = new Lua(new LuaState(allocator))
+            using (var lua = new Lua(allocator)
             {
                 FormatProvider = CultureInfo.InvariantCulture
             })

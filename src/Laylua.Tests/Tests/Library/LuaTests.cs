@@ -162,4 +162,54 @@ public class LuaTests : LuaTestBase
             return (byte*) Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(_buffer));
         }
     }
+
+    [Test]
+    public void GetThread_MainThread_ReturnsMainThread()
+    {
+        // Act
+        using var thread = Lua.GetThread();
+
+        // Assert
+        Assert.That(thread, Is.EqualTo(Lua.MainThread));
+    }
+
+    [Test]
+    public unsafe void GetThread_NewThread_ReturnsNewThread()
+    {
+        // Arrange
+        using var newLua = Lua.CreateThread();
+
+        // Act
+        using var oldThread = Lua.GetThread();
+        using var newThread = newLua.GetThread();
+
+        // Assert
+        Assert.That(newThread, Is.Not.EqualTo(oldThread));
+    }
+
+    [Test]
+    public unsafe void GetThread_WorksWithMultipleThreads()
+    {
+        const int ThreadCount = 10;
+
+        // Arrange
+        var luas = new Lua[ThreadCount];
+        for (var i = 0; i < ThreadCount; i++)
+        {
+            luas[i] = Lua.CreateThread();
+        }
+
+        // Act
+        var threads = new LuaThread[ThreadCount];
+        for (var i = 0; i < ThreadCount; i++)
+        {
+            threads[i] = luas[i].GetThread();
+        }
+
+        // Assert
+        for (var i = 0; i < ThreadCount; i++)
+        {
+            Assert.That((IntPtr) threads[i].State, Is.EqualTo((IntPtr) luas[i].State.L));
+        }
+    }
 }

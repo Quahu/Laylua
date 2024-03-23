@@ -21,18 +21,20 @@ public sealed unsafe class LuaThread : LuaReference
         get
         {
             ThrowIfInvalid();
-
             return lua_status(_l);
         }
     }
 
-    internal lua_State* State
+    public lua_State* State
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _l;
-
+        get
+        {
+            ThrowIfInvalid();
+            return _l;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        set
+        internal set
         {
             Debug.Assert(_l == default);
             _l = value;

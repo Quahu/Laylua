@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -16,7 +16,7 @@ namespace Laylua;
 /// <remarks>
 ///     This type is not thread-safe; operations on it are not thread-safe.
 /// </remarks>
-public unsafe partial class Lua : IDisposable, ISpanFormattable
+public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
 {
     /// <summary>
     ///     Gets the stack of this instance.
@@ -82,21 +82,25 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
     /// </summary>
     public bool IsDisposed => State.IsDisposed;
 
-    private readonly List<LuaLibrary> _openLibraries = new();
+    private readonly List<LuaLibrary> _openLibraries;
 
     public Lua()
-        : this(new LuaState())
+        : this(LuaMarshalerProvider.Default)
+    { }
+
+    public Lua(LuaMarshalerProvider marshalerProvider)
+        : this(new LuaState(), marshalerProvider)
     { }
 
     public Lua(LuaAllocator allocator)
-        : this(new LuaState(allocator))
+        : this(allocator, LuaMarshalerProvider.Default)
     { }
 
-    public Lua(LuaState state)
-        : this(state, LuaMarshalerProvider.Default)
+    public Lua(LuaAllocator allocator, LuaMarshalerProvider marshalerProvider)
+        : this(new LuaState(allocator), marshalerProvider)
     { }
 
-    public Lua(
+    private Lua(
         LuaState state,
         LuaMarshalerProvider marshalerProvider)
     {
@@ -105,13 +109,53 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
         State.State = this;
         Marshaler = marshalerProvider.Create(this);
 
+        _openLibraries = new List<LuaLibrary>();
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
     }
 
-    ~Lua()
+    private Lua(
+        Lua parent,
+        lua_State* L,
+        int threadReference)
     {
-        Dispose(false);
+        Stack = new LuaStack(this);
+        State = new LuaState(L, threadReference);
+        Marshaler = LuaMarshalerProvider.Default.Create(this);
+        FormatProvider = parent.FormatProvider;
+
+        _openLibraries = parent._openLibraries;
+        MainThread = parent.MainThread;
+        Globals = parent.Globals;
+    }
+
+    public bool OpenLibrary(LuaLibrary library)
+    {
+        foreach (var openlibrary in _openLibraries)
+        {
+            if (string.Equals(openlibrary.Name, library.Name, StringComparison.Ordinal))
+                return false;
+        }
+
+        library.Open(this, false);
+        _openLibraries.Add(library);
+        return true;
+    }
+
+    public bool CloseLibrary(string libraryName)
+    {
+        for (var i = 0; i < _openLibraries.Count; i++)
+        {
+            var openlibrary = _openLibraries[i];
+            if (string.Equals(openlibrary.Name, libraryName, StringComparison.Ordinal))
+            {
+                openlibrary.Close(this);
+                _openLibraries.RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     [DoesNotReturn]
@@ -275,35 +319,6 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    public bool OpenLibrary(LuaLibrary library)
-    {
-        foreach (var openlibrary in _openLibraries)
-        {
-            if (string.Equals(openlibrary.Name, library.Name, StringComparison.Ordinal))
-                return false;
-        }
-
-        library.Open(this, false);
-        _openLibraries.Add(library);
-        return true;
-    }
-
-    public bool CloseLibrary(string libraryName)
-    {
-        for (var i = 0; i < _openLibraries.Count; i++)
-        {
-            var openlibrary = _openLibraries[i];
-            if (string.Equals(openlibrary.Name, libraryName, StringComparison.Ordinal))
-            {
-                openlibrary.Close(this);
-                _openLibraries.RemoveAt(i);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>
     ///     Instantiates a new <see cref="LuaTable"/>, referencing it in the Lua registry.
     /// </summary>
@@ -346,6 +361,63 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
         }
     }
 
+    /// <summary>
+    ///     Gets the thread of this Lua state.
+    /// </summary>
+    /// <remarks>
+    ///     If this instance is not a state created from another existing state,
+    ///     the returned object can be the same as <see cref="MainThread"/>.
+    /// </remarks>
+    /// <returns>
+    ///     The thread for this instance.
+    /// </returns>
+    public LuaThread GetThread()
+    {
+        var L = this.GetStatePointer();
+        if (L == MainThread.State)
+        {
+            return MainThread;
+        }
+
+        Stack.EnsureFreeCapacity(1);
+
+        using (Stack.SnapshotCount())
+        {
+            _ = lua_pushthread(L);
+            var thread = Marshaler.GetValue<LuaThread>(-1);
+            if (thread == null)
+            {
+                ThrowLuaException("Failed to get the Lua thread.");
+            }
+
+            return thread;
+        }
+    }
+
+    /// <summary>
+    ///     Creates a thread from this Lua state.
+    /// </summary>
+    /// <returns>
+    ///     The created thread.
+    /// </returns>
+    public Lua CreateThread()
+    {
+        Stack.EnsureFreeCapacity(1);
+
+        using (Stack.SnapshotCount())
+        {
+            var L = this.GetStatePointer();
+            var L1 = lua_newthread(L);
+            if (L1 == null || !LuaReference.TryCreate(L, -1, out var threadReference))
+            {
+                ThrowLuaException("Failed to create the Lua thread.");
+                throw null!;
+            }
+
+            return new Lua(this, L1, threadReference);
+        }
+    }
+
     public override string ToString()
     {
         return ToString(null, null);
@@ -362,19 +434,19 @@ public unsafe partial class Lua : IDisposable, ISpanFormattable
         return (State as ISpanFormattable).TryFormat(destination, out charsWritten, format, provider);
     }
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (State is null || IsDisposed)
-            return;
-
-        Marshaler.Dispose();
-        State.Dispose();
-    }
-
     public void Dispose()
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        if (IsDisposed)
+            return;
+
+        try
+        {
+            Marshaler.Dispose();
+        }
+        finally
+        {
+            State.Close();
+        }
     }
 
     public static Lua FromExtraSpace(lua_State* L)
