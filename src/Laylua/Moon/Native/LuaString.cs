@@ -11,7 +11,7 @@ namespace Laylua.Moon;
 /// <remarks>
 ///     For Lua strings that exist on the Lua stack,
 ///     they are valid only as long as they remain on the stack.
-///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#6">Lua manual</a> for other scenarios. </para>
+///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#4.1.3">Lua manual</a>. </para>
 /// </remarks>
 public readonly unsafe struct LuaString : IEquatable<LuaString>
 {
