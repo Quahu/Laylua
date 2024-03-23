@@ -1,7 +1,5 @@
 using System;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Qommon;
 
@@ -87,14 +85,6 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
             return new LuaGC(this);
         }
     }
-
-    /// <summary>
-    ///     Fired when Lua panics.
-    /// </summary>
-    /// <remarks>
-    ///     Subscribed event handlers must not throw any exceptions.
-    /// </remarks>
-    public event EventHandler<LuaPanickedEventArgs>? Panicked;
 
     /// <summary>
     ///     Gets whether this instance is disposed.
@@ -195,61 +185,6 @@ public unsafe class LuaState : IDisposable, ISpanFormattable
         _safeHookFunction = Marshal.GetDelegateForFunctionPointer<LuaHookFunction>(LayluaNative.CreateLuaHookFunctionWrapper(_innerHookFunction));
 
         return _safeHookFunction;
-    }
-
-    // If renamed, rename it in LayluaNative.InitializePanic() as well.
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void* Panic(lua_State* L)
-    {
-        var laylua = LayluaState.FromExtraSpace(L);
-        string? message = null;
-        var hasDupedStackMessage = false;
-        if (lua_isstring(L, -1))
-        {
-            // On Lua compiled with GCC there's some issue here with the error message
-            // appearing twice on the stack, so this code checks for it.
-            if (lua_gettop(L) > 1 && lua_isstring(L, -2) && lua_rawequal(L, -1, -2))
-            {
-                hasDupedStackMessage = true;
-            }
-
-            message = lua_tostring(L, -1).ToString();
-            lua_pop(L, hasDupedStackMessage ? 2 : 1);
-        }
-
-        ExceptionDispatchInfo exception;
-        var lua = laylua.State as Lua;
-        var panic = laylua.Panic;
-
-        message ??= "Unhandled error occurred.";
-
-        if (panic == null)
-        {
-            exception = ExceptionDispatchInfo.Capture(new LuaPanicException(lua!, message));
-        }
-        else
-        {
-            if (panic.Exception == null)
-            {
-                var ex = new LuaPanicException(lua!, message);
-                panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                lua?.State.Panicked?.Invoke(lua.State, new(ex));
-            }
-
-            exception = panic.Exception;
-        }
-
-        if (panic == null)
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                exception.Throw();
-            }
-
-            Environment.FailFast("Lua panicked which would have aborted the process.", exception.SourceException);
-        }
-
-        return panic.StackStatePtr;
     }
 
     /// <inheritdoc/>

@@ -54,11 +54,6 @@ namespace Laylua
                 FormatProvider = CultureInfo.InvariantCulture
             })
             {
-                lua.State.Panicked += (sender, e) =>
-                {
-                    Logger.LogInformation(e.Exception, "Panicked!");
-                };
-
                 var L = lua.GetStatePointer();
 
                 try

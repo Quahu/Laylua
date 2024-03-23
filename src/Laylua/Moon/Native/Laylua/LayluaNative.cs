@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace Laylua.Moon;
@@ -66,12 +67,65 @@ internal static unsafe partial class LayluaNative
 
     private static void* _panicPtr = null;
 
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void* Panic(lua_State* L)
+    {
+        var laylua = LayluaState.FromExtraSpace(L);
+        string? message = null;
+        var hasDupedStackMessage = false;
+        if (lua_isstring(L, -1))
+        {
+            // On Lua compiled with GCC there's some issue here with the error message
+            // appearing twice on the stack, so this code checks for it.
+            if (lua_gettop(L) > 1 && lua_isstring(L, -2) && lua_rawequal(L, -1, -2))
+            {
+                hasDupedStackMessage = true;
+            }
+
+            message = lua_tostring(L, -1).ToString();
+            lua_pop(L, hasDupedStackMessage ? 2 : 1);
+        }
+
+        ExceptionDispatchInfo exception;
+        var lua = laylua.State as Lua;
+        var panic = laylua.Panic;
+
+        message ??= "Unhandled error occurred.";
+
+        if (panic == null)
+        {
+            exception = ExceptionDispatchInfo.Capture(new LuaPanicException(lua!, message));
+        }
+        else
+        {
+            if (panic.Exception == null)
+            {
+                var ex = new LuaPanicException(lua!, message);
+                panic.Exception = ExceptionDispatchInfo.Capture(ex);
+            }
+
+            exception = panic.Exception;
+        }
+
+        if (panic == null)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                exception.Throw();
+            }
+
+            Environment.FailFast("Lua panicked which would have aborted the process.", exception.SourceException);
+        }
+
+        return panic.StackStatePtr;
+    }
+
     [MethodImpl(MethodImplOptions.Synchronized)]
     internal static void* InitializePanic()
     {
         if (_panicPtr == null)
         {
-            var panicMethodHandle = typeof(LuaState).GetMethod("Panic", BindingFlags.Static | BindingFlags.NonPublic)!.MethodHandle;
+            var panicMethodHandle = typeof(LayluaNative).GetMethod(nameof(Panic), BindingFlags.Static | BindingFlags.NonPublic)!.MethodHandle;
             var asmSpan = Alloc(PanicAsmBytes, out var asmPtr);
 
             var returnAddr = asmPtr + 0x1A;
