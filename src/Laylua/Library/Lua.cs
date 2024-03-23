@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -18,14 +18,6 @@ namespace Laylua;
 /// </remarks>
 public unsafe partial class Lua : IDisposable, ISpanFormattable
 {
-    /// <summary>
-    ///     Gets the ID of this instance.
-    /// </summary>
-    /// <remarks>
-    ///     This is purely for developer use.
-    /// </remarks>
-    public string? Id { get; set; }
-
     /// <summary>
     ///     Gets the stack of this instance.
     /// </summary>

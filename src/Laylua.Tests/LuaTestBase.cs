@@ -94,7 +94,6 @@ public abstract unsafe class LuaTestBase
     {
         return new Lua(allocator)
         {
-            Id = Context.Test.Name,
             FormatProvider = CultureInfo.InvariantCulture
         };
     }
