@@ -248,6 +248,14 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         return true;
     }
 
+    internal static void ValidateOwnership(Lua lua, LuaReference reference)
+    {
+        if (lua != reference._lua)
+        {
+            throw new InvalidOperationException($"The given {reference.GetType().Name.SingleQuoted()} is owned by a different Lua state.");
+        }
+    }
+
     /// <summary>
     ///     Checks whether the specified reference is alive,
     ///     i.e. is initialized and not disposed.

@@ -145,4 +145,36 @@ public class LuaMarshalerTests : LuaTestBase
 
         assert(table);
     }
+
+    [Test]
+    public void PushUnownedReference_Throws()
+    {
+        // Arrange
+        using var lua1 = CreateLua();
+        Lua.Stack.PushNewTable();
+        using var table = Lua.Stack[1].GetValue<LuaTable>()!;
+        Lua.Stack.Pop();
+
+        // Act
+        var ex = Assert.Throws<InvalidOperationException>(() => lua1.Stack.Push(table));
+
+        // Assert
+        Assert.That(ex, Has.Message.Contain("owned"));
+    }
+
+    [Test]
+    public void PushUnownedStackValue_Throws()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        using var lua1 = CreateLua();
+        Lua.Stack.PushNewTable();
+        var table = Lua.Stack[1];
+
+        // Act
+        var ex = Assert.Throws<InvalidOperationException>(() => lua1.Stack.Push(table));
+
+        // Assert
+        Assert.That(ex, Has.Message.Contain("owned"));
+    }
 }

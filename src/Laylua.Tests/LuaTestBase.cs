@@ -91,9 +91,9 @@ public abstract unsafe class LuaTestBase
         return allocator;
     }
 
-    protected virtual Lua CreateLua(LuaAllocator allocator)
+    protected virtual Lua CreateLua(LuaAllocator? allocator = null)
     {
-        return new Lua(allocator)
+        return new Lua(allocator ?? CreateLuaAllocator())
         {
             FormatProvider = CultureInfo.InvariantCulture
         };

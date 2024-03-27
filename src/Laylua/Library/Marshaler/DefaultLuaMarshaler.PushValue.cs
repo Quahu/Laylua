@@ -116,11 +116,13 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaStackValue:
             {
+                LuaStackValue.ValidateOwnership(Lua, (LuaStackValue) (object) obj);
                 ((LuaStackValue) (object) obj).PushValue();
                 return;
             }
             case LuaReference:
             {
+                LuaReference.ValidateOwnership(Lua, (LuaReference) (object) obj);
                 LuaReference.PushValue((LuaReference) (object) obj);
                 return;
             }

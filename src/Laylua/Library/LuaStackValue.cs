@@ -85,6 +85,14 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
             throw new InvalidOperationException($"The index of this {nameof(LuaStackValue)} is not valid.");
     }
 
+    internal static void ValidateOwnership(Lua lua, LuaStackValue value)
+    {
+        if (lua != value._lua)
+        {
+            throw new InvalidOperationException($"The given stack value is owned by a different Lua state.");
+        }
+    }
+
     /// <summary>
     ///     Pushes the value of this stack value
     ///     onto the stack.
