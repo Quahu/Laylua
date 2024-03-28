@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Laylua.Moon;
@@ -7,13 +8,8 @@ using Qommon;
 
 namespace Laylua.Marshaling;
 
-public abstract partial class LuaMarshaler : IDisposable
+public abstract partial class LuaMarshaler
 {
-    /// <summary>
-    ///     Gets the Lua instance of this marshaler.
-    /// </summary>
-    public Lua Lua { get; }
-
     /// <summary>
     ///     Gets the user data descriptor provider of this marshaler.
     /// </summary>
@@ -50,89 +46,105 @@ public abstract partial class LuaMarshaler : IDisposable
         set
         {
             Guard.IsNotNull(value);
-            Interlocked.Exchange(ref _entityPool, new LuaReferencePool(Lua, value));
+            Interlocked.Exchange(ref _entityPool, new LuaReferencePool(value));
         }
     }
 
     private UserDataDescriptorProvider _userDataDescriptorProvider = UserDataDescriptorProvider.Default;
     private LuaReferencePool _entityPool = null!;
-    private readonly ConcurrentStack<LuaReference> _leakedReferences = new();
+    private readonly Dictionary<IntPtr, ConcurrentStack<LuaReference>> _leakedReferences = new();
 
     /// <summary>
     ///     Instantiates a new marshaler with the specified Lua instance.
     /// </summary>
-    protected LuaMarshaler(Lua lua)
-    {
-        Lua = lua;
-    }
+    protected LuaMarshaler()
+    { }
 
-    ~LuaMarshaler()
+    /// <summary>
+    ///     Invoked when the specified Lua state is disposed.
+    /// </summary>
+    /// <remarks>
+    ///     This is used to perform necessary cleanup after a state is disposed of.
+    /// </remarks>
+    /// <param name="lua"> The disposed Lua state. </param>
+    protected internal virtual void OnLuaDisposed(Lua lua)
     {
-        Dispose(false);
+        DisposeLeakedReferences(lua);
     }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaTable"/>.
     /// </summary>
+    /// <param name="lua"> The Lua state. </param>
     /// <param name="reference"> The Lua reference. </param>
     /// <returns>
     ///     The created <see cref="LuaTable"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaTable CreateTable(int reference)
+    protected LuaTable CreateTable(Lua lua, int reference)
     {
-        DisposeLeakedReferences();
-        return _entityPool.RentTable(reference);
+        DisposeLeakedReferences(lua);
+        return _entityPool.RentTable(lua, reference);
     }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaFunction"/>.
     /// </summary>
+    /// <param name="lua"> The Lua state. </param>
     /// <param name="reference"> The Lua reference. </param>
     /// <returns>
     ///     The created <see cref="LuaFunction"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaFunction CreateFunction(int reference)
+    protected LuaFunction CreateFunction(Lua lua, int reference)
     {
-        DisposeLeakedReferences();
-        return _entityPool.RentFunction(reference);
+        DisposeLeakedReferences(lua);
+        return _entityPool.RentFunction(lua, reference);
     }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaUserData"/>.
     /// </summary>
+    /// <param name="lua"> The Lua state. </param>
     /// <param name="reference"> The Lua reference. </param>
     /// <param name="ptr"> The pointer to the allocated memory of the user data. </param>
     /// <returns>
     ///     The created <see cref="LuaUserData"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaUserData CreateUserData(int reference, IntPtr ptr)
+    protected LuaUserData CreateUserData(Lua lua, int reference, IntPtr ptr)
     {
-        DisposeLeakedReferences();
-        return _entityPool.RentUserData(reference, ptr);
+        DisposeLeakedReferences(lua);
+        return _entityPool.RentUserData(lua, reference, ptr);
     }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaThread"/>.
     /// </summary>
+    /// <param name="lua"> The Lua state. </param>
     /// <param name="reference"> The Lua reference. </param>
     /// <param name="L"> The Lua state pointer. </param>
     /// <returns>
     ///     The created <see cref="LuaThread"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe LuaThread CreateThread(int reference, lua_State* L)
+    protected unsafe LuaThread CreateThread(Lua lua, int reference, lua_State* L)
     {
-        DisposeLeakedReferences();
-        return _entityPool.RentThread(reference, L);
+        DisposeLeakedReferences(lua);
+        return _entityPool.RentThread(lua, reference, L);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void DisposeLeakedReferences()
+    private unsafe void DisposeLeakedReferences(Lua lua)
     {
-        while (_leakedReferences.TryPop(out var reference))
+        ConcurrentStack<LuaReference>? leakedReferences;
+        lock (_leakedReferences)
+        {
+            if (!_leakedReferences.TryGetValue((IntPtr) lua.MainThread.State, out leakedReferences))
+                return;
+        }
+
+        while (leakedReferences.TryPop(out var reference))
         {
             reference.Dispose();
 
@@ -144,13 +156,14 @@ public abstract partial class LuaMarshaler : IDisposable
     ///     Tries to convert the Lua value at the specified stack index
     ///     to a .NET value of type <typeparamref name="T"/>.
     /// </summary>
+    /// <param name="lua"> The Lua state. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
     /// <param name="obj"> The output value. </param>
     /// <typeparam name="T"> The type of the value. </typeparam>
     /// <returns>
     ///     <see langword="true"/> if successful.
     /// </returns>
-    public abstract bool TryGetValue<T>(int stackIndex, out T? obj);
+    public abstract bool TryGetValue<T>(Lua lua, int stackIndex, out T? obj);
 
     /// <summary>
     ///     Pushes the specified .NET value onto the Lua stack,
@@ -160,26 +173,8 @@ public abstract partial class LuaMarshaler : IDisposable
     ///     The marshaler expects space on the stack for the value to be pushed.
     ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
     /// </remarks>
+    /// <param name="lua"> The Lua state. </param>
     /// <param name="obj"> The value to push. </param>
     /// <typeparam name="T"> The type of the value. </typeparam>
-    public abstract void PushValue<T>(T obj);
-
-    /// <summary>
-    ///     Called by <see cref="Laylua.Lua"/> when it is disposed
-    ///     or by the <see cref="LuaMarshaler"/> finalizer.
-    /// </summary>
-    /// <param name="disposing"> <see langword="true"/> if the marshaler is being disposed. </param>
-    protected virtual void Dispose(bool disposing)
-    { }
-
-    /// <summary>
-    ///     Called by <see cref="Laylua.Lua"/> when it is disposed.
-    /// </summary>
-    public void Dispose()
-    {
-        DisposeLeakedReferences();
-
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
+    public abstract void PushValue<T>(Lua lua, T obj);
 }

@@ -143,7 +143,7 @@ public static class UserDataDescriptorUtilities
         var paramsArgument = new T?[remainingArgumentCount];
         for (var i = 0; i < remainingArgumentCount; i++)
         {
-            if (!lua.Marshaler.TryGetValue<T>(argumentIndex + i, out var convertedArgument))
+            if (!lua.Marshaler.TryGetValue<T>(lua, argumentIndex + i, out var convertedArgument))
             {
                 lua.RaiseArgumentTypeError(argumentIndex + i, typeof(T).Name);
             }
@@ -228,7 +228,7 @@ public static class UserDataDescriptorUtilities
                         Expression.Call(
                             Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
                             _luaMarshalerTryToObjectMethod.MakeGenericMethod(userDataHandleType),
-                            Expression.Constant(2), instanceExpressionVariable)),
+                            luaParameterExpression, Expression.Constant(2), instanceExpressionVariable)),
                     Expression.Call(
                         luaParameterExpression,
                         nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
@@ -276,7 +276,7 @@ public static class UserDataDescriptorUtilities
                         Expression.Call(
                             Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
                             _luaMarshalerTryToObjectMethod.MakeGenericMethod(parameterType),
-                            argumentIndexExpression, argumentVariableExpression)),
+                            luaParameterExpression, argumentIndexExpression, argumentVariableExpression)),
                     Expression.Call(
                         luaParameterExpression,
                         nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,

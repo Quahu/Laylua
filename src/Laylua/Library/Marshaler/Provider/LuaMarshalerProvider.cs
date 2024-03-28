@@ -31,15 +31,14 @@ public abstract class LuaMarshalerProvider
     ///     It will be valid when the creation flow completes and the <see cref="Lua"/>
     ///     instance wrapping it is constructed.
     /// </remarks>
-    /// <param name="lua"> The Lua instance. </param>
     /// <returns>
     ///     The created marshaler.
     /// </returns>
-    protected abstract LuaMarshaler CreateCore(Lua lua);
+    protected abstract LuaMarshaler CreateCore();
 
-    internal LuaMarshaler Create(Lua lua)
+    internal LuaMarshaler Create()
     {
-        var marshaler = CreateCore(lua);
+        var marshaler = CreateCore();
 
         marshaler.EntityPoolConfiguration = EntityPoolConfiguration ?? new();
 

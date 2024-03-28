@@ -11,10 +11,10 @@ namespace Laylua.Marshaling;
 public unsafe partial class DefaultLuaMarshaler
 {
     /// <inheritdoc/>
-    public override bool TryGetValue<T>(int stackIndex, out T? obj)
+    public override bool TryGetValue<T>(Lua lua, int stackIndex, out T? obj)
         where T : default
     {
-        var L = Lua.GetStatePointer();
+        var L = lua.GetStatePointer();
         var luaType = lua_type(L, stackIndex);
         if (luaType == LuaType.None)
         {
@@ -146,7 +146,7 @@ public unsafe partial class DefaultLuaMarshaler
 
                     if (clrType == typeof(string))
                     {
-                        obj = (T) (object) longValue.ToString(Lua.FormatProvider);
+                        obj = (T) (object) longValue.ToString(lua.FormatProvider);
                         return true;
                     }
                 }
@@ -221,7 +221,7 @@ public unsafe partial class DefaultLuaMarshaler
 
                     if (clrType == typeof(string))
                     {
-                        obj = (T) (object) doubleValue.ToString(Lua.FormatProvider);
+                        obj = (T) (object) doubleValue.ToString(lua.FormatProvider);
                         return true;
                     }
                 }
@@ -254,133 +254,133 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     nativeStringValue.GetChars(charSpan);
 #if NET7_0_OR_GREATER
-                    if (clrType == typeof(int) && int.TryParse(charSpan, Lua.FormatProvider, out var intValue))
+                    if (clrType == typeof(int) && int.TryParse(charSpan, lua.FormatProvider, out var intValue))
                     {
                         obj = (T) (object) intValue;
                         return true;
                     }
 
-                    if (clrType == typeof(uint) && uint.TryParse(charSpan, Lua.FormatProvider, out var uintValue))
+                    if (clrType == typeof(uint) && uint.TryParse(charSpan, lua.FormatProvider, out var uintValue))
                     {
                         obj = (T) (object) uintValue;
                         return true;
                     }
 
-                    if (clrType == typeof(long) && long.TryParse(charSpan, Lua.FormatProvider, out var longValue))
+                    if (clrType == typeof(long) && long.TryParse(charSpan, lua.FormatProvider, out var longValue))
                     {
                         obj = (T) (object) longValue;
                         return true;
                     }
 
-                    if (clrType == typeof(ulong) && ulong.TryParse(charSpan, Lua.FormatProvider, out var ulongValue))
+                    if (clrType == typeof(ulong) && ulong.TryParse(charSpan, lua.FormatProvider, out var ulongValue))
                     {
                         obj = (T) (object) ulongValue;
                         return true;
                     }
 
-                    if (clrType == typeof(double) && double.TryParse(charSpan, Lua.FormatProvider, out var doubleValue))
+                    if (clrType == typeof(double) && double.TryParse(charSpan, lua.FormatProvider, out var doubleValue))
                     {
                         obj = (T) (object) doubleValue;
                         return true;
                     }
 
-                    if (clrType == typeof(float) && float.TryParse(charSpan, Lua.FormatProvider, out var floatValue))
+                    if (clrType == typeof(float) && float.TryParse(charSpan, lua.FormatProvider, out var floatValue))
                     {
                         obj = (T) (object) floatValue;
                         return true;
                     }
 
-                    if (clrType == typeof(sbyte) && sbyte.TryParse(charSpan, Lua.FormatProvider, out var sbyteValue))
+                    if (clrType == typeof(sbyte) && sbyte.TryParse(charSpan, lua.FormatProvider, out var sbyteValue))
                     {
                         obj = (T) (object) sbyteValue;
                         return true;
                     }
 
-                    if (clrType == typeof(byte) && byte.TryParse(charSpan, Lua.FormatProvider, out var byteValue))
+                    if (clrType == typeof(byte) && byte.TryParse(charSpan, lua.FormatProvider, out var byteValue))
                     {
                         obj = (T) (object) byteValue;
                         return true;
                     }
 
-                    if (clrType == typeof(short) && short.TryParse(charSpan, Lua.FormatProvider, out var shortValue))
+                    if (clrType == typeof(short) && short.TryParse(charSpan, lua.FormatProvider, out var shortValue))
                     {
                         obj = (T) (object) shortValue;
                         return true;
                     }
 
-                    if (clrType == typeof(ushort) && ushort.TryParse(charSpan, Lua.FormatProvider, out var ushortValue))
+                    if (clrType == typeof(ushort) && ushort.TryParse(charSpan, lua.FormatProvider, out var ushortValue))
                     {
                         obj = (T) (object) ushortValue;
                         return true;
                     }
 
-                    if (clrType == typeof(decimal) && decimal.TryParse(charSpan, Lua.FormatProvider, out var decimalValue))
+                    if (clrType == typeof(decimal) && decimal.TryParse(charSpan, lua.FormatProvider, out var decimalValue))
                     {
                         obj = (T) (object) decimalValue;
                         return true;
                     }
 #else
-                    if (clrType == typeof(int) && int.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var intValue))
+                    if (clrType == typeof(int) && int.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var intValue))
                     {
                         obj = (T) (object) intValue;
                         return true;
                     }
 
-                    if (clrType == typeof(uint) && uint.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var uintValue))
+                    if (clrType == typeof(uint) && uint.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var uintValue))
                     {
                         obj = (T) (object) uintValue;
                         return true;
                     }
 
-                    if (clrType == typeof(long) && long.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var longValue))
+                    if (clrType == typeof(long) && long.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var longValue))
                     {
                         obj = (T) (object) longValue;
                         return true;
                     }
 
-                    if (clrType == typeof(ulong) && ulong.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var ulongValue))
+                    if (clrType == typeof(ulong) && ulong.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var ulongValue))
                     {
                         obj = (T) (object) ulongValue;
                         return true;
                     }
 
-                    if (clrType == typeof(double) && double.TryParse(charSpan, NumberStyles.Float | NumberStyles.AllowThousands, Lua.FormatProvider, out var doubleValue))
+                    if (clrType == typeof(double) && double.TryParse(charSpan, NumberStyles.Float | NumberStyles.AllowThousands, lua.FormatProvider, out var doubleValue))
                     {
                         obj = (T) (object) doubleValue;
                         return true;
                     }
 
-                    if (clrType == typeof(float) && float.TryParse(charSpan, NumberStyles.Float | NumberStyles.AllowThousands, Lua.FormatProvider, out var floatValue))
+                    if (clrType == typeof(float) && float.TryParse(charSpan, NumberStyles.Float | NumberStyles.AllowThousands, lua.FormatProvider, out var floatValue))
                     {
                         obj = (T) (object) floatValue;
                         return true;
                     }
 
-                    if (clrType == typeof(sbyte) && sbyte.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var sbyteValue))
+                    if (clrType == typeof(sbyte) && sbyte.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var sbyteValue))
                     {
                         obj = (T) (object) sbyteValue;
                         return true;
                     }
 
-                    if (clrType == typeof(byte) && byte.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var byteValue))
+                    if (clrType == typeof(byte) && byte.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var byteValue))
                     {
                         obj = (T) (object) byteValue;
                         return true;
                     }
 
-                    if (clrType == typeof(short) && short.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var shortValue))
+                    if (clrType == typeof(short) && short.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var shortValue))
                     {
                         obj = (T) (object) shortValue;
                         return true;
                     }
 
-                    if (clrType == typeof(ushort) && ushort.TryParse(charSpan, NumberStyles.Integer, Lua.FormatProvider, out var ushortValue))
+                    if (clrType == typeof(ushort) && ushort.TryParse(charSpan, NumberStyles.Integer, lua.FormatProvider, out var ushortValue))
                     {
                         obj = (T) (object) ushortValue;
                         return true;
                     }
 
-                    if (clrType == typeof(decimal) && decimal.TryParse(charSpan, NumberStyles.Number, Lua.FormatProvider, out var decimalValue))
+                    if (clrType == typeof(decimal) && decimal.TryParse(charSpan, NumberStyles.Number, lua.FormatProvider, out var decimalValue))
                     {
                         obj = (T) (object) decimalValue;
                         return true;
@@ -404,7 +404,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (LuaReference.TryCreate(L, stackIndex, out var reference))
                     {
-                        obj = (T) (object) CreateTable(reference);
+                        obj = (T) (object) CreateTable(lua, reference);
                         return true;
                     }
                 }
@@ -418,7 +418,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (LuaReference.TryCreate(L, stackIndex, out var reference))
                     {
-                        obj = (T) (object) CreateFunction(reference);
+                        obj = (T) (object) CreateFunction(lua, reference);
                         return true;
                     }
                 }
@@ -447,7 +447,7 @@ public unsafe partial class DefaultLuaMarshaler
                     var ptr = lua_touserdata(L, stackIndex);
                     if (ptr != null && LuaReference.TryCreate(L, stackIndex, out var reference))
                     {
-                        obj = (T) (object) CreateUserData(reference, (IntPtr) ptr);
+                        obj = (T) (object) CreateUserData(lua, reference, (IntPtr) ptr);
                         return true;
                     }
                 }
@@ -460,15 +460,15 @@ public unsafe partial class DefaultLuaMarshaler
                 if (clrType.IsAssignableTo(typeof(LuaReference)) || clrType == typeof(object))
                 {
                     var threadPtr = lua_tothread(L, stackIndex);
-                    if (threadPtr == Lua.MainThread.State)
+                    if (threadPtr == lua.MainThread.State)
                     {
-                        obj = (T) (object) Lua.MainThread;
+                        obj = (T) (object) lua.MainThread;
                         return true;
                     }
 
                     if (LuaReference.TryCreate(L, stackIndex, out var reference))
                     {
-                        obj = (T) (object) CreateThread(reference, threadPtr);
+                        obj = (T) (object) CreateThread(lua, reference, threadPtr);
                         return true;
                     }
                 }

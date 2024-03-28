@@ -107,7 +107,7 @@ public unsafe partial class Lua
     public LuaFunction Load(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
     {
         LoadString(code, chunkName);
-        return Marshaler.PopValue<LuaFunction>()!;
+        return Marshaler.PopValue<LuaFunction>(this)!;
     }
 
     /// <summary>
@@ -122,7 +122,7 @@ public unsafe partial class Lua
     public LuaFunction Load(Stream utf8Code, ReadOnlySpan<char> chunkName = default)
     {
         LoadStream(utf8Code, chunkName);
-        return Marshaler.PopValue<LuaFunction>()!;
+        return Marshaler.PopValue<LuaFunction>(this)!;
     }
 
     /// <summary>
@@ -138,7 +138,7 @@ public unsafe partial class Lua
     public LuaFunction Load(LuaChunkReader reader, ReadOnlySpan<char> chunkName = default)
     {
         LoadReader(reader, chunkName);
-        return Marshaler.PopValue<LuaFunction>()!;
+        return Marshaler.PopValue<LuaFunction>(this)!;
     }
 
     private void LoadString(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName)

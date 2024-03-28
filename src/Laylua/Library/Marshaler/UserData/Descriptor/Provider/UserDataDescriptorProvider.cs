@@ -5,6 +5,9 @@ namespace Laylua.Marshaling;
 
 public abstract class UserDataDescriptorProvider
 {
+    /// <summary>
+    ///     Gets the default shared instance of <see cref="DefaultUserDataDescriptorProvider"/>.
+    /// </summary>
     public static UserDataDescriptorProvider Default { get; } = new DefaultUserDataDescriptorProvider();
 
     public abstract void SetDescriptor(Type type, UserDataDescriptor? descriptor);

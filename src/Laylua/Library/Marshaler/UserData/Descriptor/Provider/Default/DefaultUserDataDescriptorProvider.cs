@@ -21,31 +21,37 @@ public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
     /// <inheritdoc/>
     public override void SetDescriptor(Type type, UserDataDescriptor? descriptor)
     {
-        _descriptorDictionary[type] = descriptor;
-
-        var existingIndex = _descriptorList.IndexOf((type, descriptor));
-        if (existingIndex == -1)
+        lock (_descriptorDictionary)
         {
-            _descriptorList.Add((type, descriptor));
-            _descriptorList.Sort(static (a, b) =>
-            {
-                var aType = a.Item1;
-                var bType = b.Item1;
-                if (aType == bType)
-                    return 0;
-
-                if (aType.IsAssignableFrom(bType))
-                    return -1;
-
-                if (bType.IsAssignableFrom(aType))
-                    return 1;
-
-                return 0;
-            });
+            _descriptorDictionary[type] = descriptor;
         }
-        else
+
+        lock (_descriptorList)
         {
-            _descriptorList[existingIndex] = (type, descriptor);
+            var existingIndex = _descriptorList.IndexOf((type, descriptor));
+            if (existingIndex == -1)
+            {
+                _descriptorList.Add((type, descriptor));
+                _descriptorList.Sort(static (a, b) =>
+                {
+                    var aType = a.Item1;
+                    var bType = b.Item1;
+                    if (aType == bType)
+                        return 0;
+
+                    if (aType.IsAssignableFrom(bType))
+                        return -1;
+
+                    if (bType.IsAssignableFrom(aType))
+                        return 1;
+
+                    return 0;
+                });
+            }
+            else
+            {
+                _descriptorList[existingIndex] = (type, descriptor);
+            }
         }
     }
 
@@ -65,18 +71,24 @@ public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
         }
 
         var objType = obj!.GetType();
-        if (_descriptorDictionary.TryGetValue(objType, out descriptor))
+        lock (_descriptorDictionary)
         {
-            return descriptor != null;
+            if (_descriptorDictionary.TryGetValue(objType, out descriptor))
+            {
+                return descriptor != null;
+            }
         }
 
-        for (var i = 0; i < _descriptorList.Count; i++)
+        lock (_descriptorList)
         {
-            var tuple = _descriptorList[i];
-            if (tuple.Type.IsAssignableFrom(objType))
+            for (var i = 0; i < _descriptorList.Count; i++)
             {
-                descriptor = tuple.Descriptor;
-                return descriptor != null;
+                var tuple = _descriptorList[i];
+                if (tuple.Type.IsAssignableFrom(objType))
+                {
+                    descriptor = tuple.Descriptor;
+                    return descriptor != null;
+                }
             }
         }
 

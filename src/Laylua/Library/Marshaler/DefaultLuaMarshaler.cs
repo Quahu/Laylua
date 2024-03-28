@@ -1,22 +1,37 @@
+using System;
 using System.Collections.Generic;
 
 namespace Laylua.Marshaling;
 
 public partial class DefaultLuaMarshaler : LuaMarshaler
 {
-    private readonly Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle> _userDataHandleCache;
+    private readonly Dictionary<IntPtr, Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>> _userDataHandleCaches;
 
-    public DefaultLuaMarshaler(Lua lua)
-        : base(lua)
+    public DefaultLuaMarshaler()
     {
-        _userDataHandleCache = new();
+        _userDataHandleCaches = new();
     }
 
-    protected internal sealed override void RemoveUserDataHandle(UserDataHandle handle)
+    protected internal override unsafe void OnLuaDisposed(Lua lua)
     {
+        lock (_userDataHandleCaches)
+        {
+            _userDataHandleCaches.Remove((IntPtr) lua.MainThread.State);
+        }
+    }
+
+    protected internal sealed override unsafe void RemoveUserDataHandle(UserDataHandle handle)
+    {
+        Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>? userDataHandleCache;
+        lock (_userDataHandleCaches)
+        {
+            if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.Lua.MainThread.State, out userDataHandleCache))
+                return;
+        }
+
         if (!handle.TryGetType(out var type) || type.IsValueType || !handle.TryGetValue<object>(out var value))
             return;
 
-        _userDataHandleCache.Remove((value, handle.Descriptor));
+        userDataHandleCache.Remove((value, handle.Descriptor));
     }
 }

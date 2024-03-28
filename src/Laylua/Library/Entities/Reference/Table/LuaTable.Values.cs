@@ -68,7 +68,7 @@ public unsafe partial class LuaTable
                 lua_pushnil(L);
                 while (lua_next(L, -2))
                 {
-                    if (!marshaler.TryGetValue<T>(-1, out var value))
+                    if (!marshaler.TryGetValue<T>(lua, -1, out var value))
                     {
                         if (throwOnNonConvertible)
                         {

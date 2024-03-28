@@ -107,7 +107,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Stack = new LuaStack(this);
         State = state;
         State.State = this;
-        Marshaler = marshalerProvider.Create(this);
+        Marshaler = marshalerProvider.Create();
 
         _openLibraries = new List<LuaLibrary>();
         MainThread = LuaThread.CreateMainThread(this);
@@ -121,7 +121,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         Stack = new LuaStack(this);
         State = new LuaState(L, threadReference);
-        Marshaler = LuaMarshalerProvider.Default.Create(this);
+        Marshaler = LuaMarshalerProvider.Default.Create();
         FormatProvider = parent.FormatProvider;
 
         _openLibraries = parent._openLibraries;
@@ -260,7 +260,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         using (Stack.SnapshotCount())
         {
             var L = this.GetStatePointer();
-            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Marshaler.TryGetValue(-1, out value))
+            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Marshaler.TryGetValue(this, -1, out value))
             {
                 Debug.Assert(value != null);
                 return true;
@@ -296,7 +296,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
                 Throw.KeyNotFoundException();
             }
 
-            return Marshaler.GetValue<TValue>(-1)!;
+            return Marshaler.GetValue<TValue>(this, -1)!;
         }
     }
 
@@ -313,7 +313,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
 
         using (Stack.SnapshotCount())
         {
-            Marshaler.PushValue(value);
+            Marshaler.PushValue(this, value);
             var L = this.GetStatePointer();
             lua_rawsetglobal(L, name);
         }
@@ -333,7 +333,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         {
             var L = this.GetStatePointer();
             lua_createtable(L, sequenceCapacity, tableCapacity);
-            return Marshaler.PopValue<LuaTable>()!;
+            return Marshaler.PopValue<LuaTable>(this)!;
         }
     }
 
@@ -357,7 +357,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         {
             var L = this.GetStatePointer();
             _ = lua_newuserdatauv(L, size, userValueCount);
-            return Marshaler.PopValue<LuaUserData>()!;
+            return Marshaler.PopValue<LuaUserData>(this)!;
         }
     }
 
@@ -384,7 +384,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         using (Stack.SnapshotCount())
         {
             _ = lua_pushthread(L);
-            var thread = Marshaler.GetValue<LuaThread>(-1);
+            var thread = Marshaler.GetValue<LuaThread>(this, -1);
             if (thread == null)
             {
                 ThrowLuaException("Failed to get the Lua thread.");
@@ -439,14 +439,8 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         if (IsDisposed)
             return;
 
-        try
-        {
-            Marshaler.Dispose();
-        }
-        finally
-        {
-            State.Close();
-        }
+        State.Close();
+        Marshaler.OnLuaDisposed(this);
     }
 
     public static Lua FromExtraSpace(lua_State* L)

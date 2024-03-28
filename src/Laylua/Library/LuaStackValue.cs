@@ -116,7 +116,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     {
         ThrowIfInvalid();
 
-        return _lua.Marshaler.GetValue<T>(Index);
+        return _lua.Marshaler.GetValue<T>(_lua, Index);
     }
 
     /// <summary>
@@ -134,7 +134,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
             return false;
         }
 
-        return _lua.Marshaler.TryGetValue(Index, out value);
+        return _lua.Marshaler.TryGetValue(_lua, Index, out value);
     }
 
     /// <summary>
@@ -147,7 +147,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
 
         _lua.Stack.EnsureFreeCapacity(1);
 
-        _lua.Marshaler.PushValue(value);
+        _lua.Marshaler.PushValue(_lua, value);
         lua_replace(_lua.GetStatePointer(), Index);
     }
 

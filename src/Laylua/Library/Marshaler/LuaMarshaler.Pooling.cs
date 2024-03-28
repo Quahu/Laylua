@@ -7,17 +7,15 @@ namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {
-    internal sealed class LuaReferencePool
+    internal sealed class LuaReferencePool : IDisposable
     {
-        private readonly Lua _lua;
-        private readonly ObjectPool<LuaTable> _tables;
-        private readonly ObjectPool<LuaFunction> _functions;
-        private readonly ObjectPool<LuaUserData> _userData;
-        private readonly ObjectPool<LuaThread> _threads;
+        private ObjectPool<LuaTable> _tables;
+        private ObjectPool<LuaFunction> _functions;
+        private ObjectPool<LuaUserData> _userData;
+        private ObjectPool<LuaThread> _threads;
 
-        public LuaReferencePool(Lua lua, LuaMarshalerEntityPoolConfiguration configuration)
+        public LuaReferencePool(LuaMarshalerEntityPoolConfiguration configuration)
         {
-            _lua = lua;
             _tables = CreatePool(LuaTableObjectPolicy.Instance, configuration.TablePoolCapacity);
             _functions = CreatePool(LuaFunctionObjectPolicy.Instance, configuration.FunctionPoolCapacity);
             _userData = CreatePool(LuaUserDataObjectPolicy.Instance, configuration.UserDataPoolCapacity);
@@ -31,35 +29,35 @@ public abstract partial class LuaMarshaler
             return new DefaultObjectPool<T>(policy, capacity);
         }
 
-        public LuaTable RentTable(int reference)
+        public LuaTable RentTable(Lua lua, int reference)
         {
             var table = _tables.Rent();
-            table.Lua = _lua;
+            table.Lua = lua;
             table.Reference = reference;
             return table;
         }
 
-        public LuaFunction RentFunction(int reference)
+        public LuaFunction RentFunction(Lua lua, int reference)
         {
             var function = _functions.Rent();
-            function.Lua = _lua;
+            function.Lua = lua;
             function.Reference = reference;
             return function;
         }
 
-        public LuaUserData RentUserData(int reference, IntPtr ptr)
+        public LuaUserData RentUserData(Lua lua, int reference, IntPtr ptr)
         {
             var userData = _userData.Rent();
-            userData.Lua = _lua;
+            userData.Lua = lua;
             userData.Reference = reference;
             userData.Pointer = ptr;
             return userData;
         }
 
-        public unsafe LuaThread RentThread(int reference, lua_State* L)
+        public unsafe LuaThread RentThread(Lua lua, int reference, lua_State* L)
         {
             var thread = _threads.Rent();
-            thread.Lua = _lua;
+            thread.Lua = lua;
             thread.Reference = reference;
             thread.State = L;
             return thread;
@@ -75,6 +73,14 @@ public abstract partial class LuaMarshaler
                 LuaThread thread => _threads.Return(thread),
                 _ => false
             };
+        }
+
+        public void Dispose()
+        {
+            _tables = null!;
+            _functions = null!;
+            _userData = null!;
+            _threads = null!;
         }
 
         private sealed class LuaTableObjectPolicy : PooledObjectPolicy<LuaTable>

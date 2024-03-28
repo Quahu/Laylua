@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
@@ -14,9 +15,9 @@ public unsafe partial class DefaultLuaMarshaler
 {
     /// <inheritdoc/>
     [SkipLocalsInit]
-    public override void PushValue<T>(T obj)
+    public override void PushValue<T>(Lua lua, T obj)
     {
-        var L = Lua.GetStatePointer();
+        var L = lua.GetStatePointer();
         switch (obj)
         {
             case null:
@@ -116,13 +117,13 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaStackValue:
             {
-                LuaStackValue.ValidateOwnership(Lua, (LuaStackValue) (object) obj);
+                LuaStackValue.ValidateOwnership(lua, (LuaStackValue) (object) obj);
                 ((LuaStackValue) (object) obj).PushValue();
                 return;
             }
             case LuaReference:
             {
-                LuaReference.ValidateOwnership(Lua, (LuaReference) (object) obj);
+                LuaReference.ValidateOwnership(lua, (LuaReference) (object) obj);
                 LuaReference.PushValue((LuaReference) (object) obj);
                 return;
             }
@@ -135,7 +136,7 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if (obj is DescribedUserData)
                 {
-                    (obj as DescribedUserData)!.CreateUserDataHandle(Lua).Push();
+                    (obj as DescribedUserData)!.CreateUserDataHandle(lua).Push();
                     return;
                 }
 
@@ -143,7 +144,16 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        if (_userDataHandleCache.TryGetValue((obj, descriptor), out var handle))
+                        Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>? userDataHandleCache;
+                        lock (_userDataHandleCaches)
+                        {
+                            if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.State, out userDataHandleCache))
+                            {
+                                _userDataHandleCaches[(IntPtr) lua.MainThread.State] = userDataHandleCache = new();
+                            }
+                        }
+
+                        if (userDataHandleCache.TryGetValue((obj, descriptor), out var handle))
                         {
                             handle.Push();
                             return;
@@ -152,18 +162,18 @@ public unsafe partial class DefaultLuaMarshaler
                         Type clrType;
                         if (typeof(T).IsSealed || (clrType = obj.GetType()) == typeof(T))
                         {
-                            handle = new UserDataHandle<T>(Lua, obj, descriptor);
+                            handle = new UserDataHandle<T>(lua, obj, descriptor);
                         }
                         else
                         {
                             // TODO: possibly improve this in the future
                             var userDataHandleType = typeof(UserDataHandle<>).MakeGenericType(clrType);
                             var constructor = userDataHandleType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
-                            handle = (UserDataHandle) constructor.Invoke([Lua, obj, descriptor]);
+                            handle = (UserDataHandle) constructor.Invoke([lua, obj, descriptor]);
                         }
 
                         handle.Push();
-                        _userDataHandleCache[(obj, descriptor)] = handle;
+                        userDataHandleCache[(obj, descriptor)] = handle;
                         return;
                     }
                 }
@@ -171,7 +181,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        new UserDataHandle<T>(Lua, obj, descriptor).Push();
+                        new UserDataHandle<T>(lua, obj, descriptor).Push();
                         return;
                     }
                 }
@@ -193,7 +203,7 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                     case IEnumerable:
                     {
-                        PushEnumerable((IEnumerable) obj);
+                        PushEnumerable(lua, (IEnumerable) obj);
                         return;
                     }
                     case IConvertible:
@@ -202,7 +212,7 @@ public unsafe partial class DefaultLuaMarshaler
                         {
                             case TypeCode.Boolean:
                             {
-                                lua_pushboolean(L, ((IConvertible) obj).ToBoolean(Lua.FormatProvider));
+                                lua_pushboolean(L, ((IConvertible) obj).ToBoolean(lua.FormatProvider));
                                 return;
                             }
                             case TypeCode.SByte:
@@ -214,7 +224,7 @@ public unsafe partial class DefaultLuaMarshaler
                             case TypeCode.Int64:
                             case TypeCode.UInt64:
                             {
-                                lua_pushinteger(L, ((IConvertible) obj).ToInt64(Lua.FormatProvider));
+                                lua_pushinteger(L, ((IConvertible) obj).ToInt64(lua.FormatProvider));
                                 return;
                             }
                             case TypeCode.Single:
@@ -223,18 +233,18 @@ public unsafe partial class DefaultLuaMarshaler
                             {
                                 if (typeof(lua_Number) == typeof(double))
                                 {
-                                    lua_pushnumber(L, ((IConvertible) obj).ToDouble(Lua.FormatProvider));
+                                    lua_pushnumber(L, ((IConvertible) obj).ToDouble(lua.FormatProvider));
                                 }
                                 else
                                 {
-                                    lua_pushnumber(L, (lua_Number) ((IConvertible) obj).ToType(typeof(lua_Number), Lua.FormatProvider));
+                                    lua_pushnumber(L, (lua_Number) ((IConvertible) obj).ToType(typeof(lua_Number), lua.FormatProvider));
                                 }
 
                                 return;
                             }
                             case TypeCode.Char:
                             {
-                                var charValue = ((IConvertible) obj).ToChar(Lua.FormatProvider);
+                                var charValue = ((IConvertible) obj).ToChar(lua.FormatProvider);
 #if NET7_0_OR_GREATER
                                 lua_pushstring(L, new ReadOnlySpan<char>(in charValue));
 #else
@@ -244,7 +254,7 @@ public unsafe partial class DefaultLuaMarshaler
                             }
                             case TypeCode.String:
                             {
-                                lua_pushstring(L, ((IConvertible) obj).ToString(Lua.FormatProvider));
+                                lua_pushstring(L, ((IConvertible) obj).ToString(lua.FormatProvider));
                                 return;
                             }
                             default:

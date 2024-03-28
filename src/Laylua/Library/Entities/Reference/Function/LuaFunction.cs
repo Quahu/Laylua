@@ -81,7 +81,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Marshaler.PushValue(argument);
+            Lua.Marshaler.PushValue(Lua, argument);
 
             return PCall(Lua, top, 1);
         }
@@ -110,8 +110,8 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Marshaler.PushValue(argument1);
-            Lua.Marshaler.PushValue(argument2);
+            Lua.Marshaler.PushValue(Lua, argument1);
+            Lua.Marshaler.PushValue(Lua, argument2);
 
             return PCall(Lua, top, 2);
         }
@@ -142,9 +142,9 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Marshaler.PushValue(argument1);
-            Lua.Marshaler.PushValue(argument2);
-            Lua.Marshaler.PushValue(argument3);
+            Lua.Marshaler.PushValue(Lua, argument1);
+            Lua.Marshaler.PushValue(Lua, argument2);
+            Lua.Marshaler.PushValue(Lua, argument3);
 
             return PCall(Lua, top, 3);
         }
@@ -177,10 +177,10 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Marshaler.PushValue(argument1);
-            Lua.Marshaler.PushValue(argument2);
-            Lua.Marshaler.PushValue(argument3);
-            Lua.Marshaler.PushValue(argument4);
+            Lua.Marshaler.PushValue(Lua, argument1);
+            Lua.Marshaler.PushValue(Lua, argument2);
+            Lua.Marshaler.PushValue(Lua, argument3);
+            Lua.Marshaler.PushValue(Lua, argument4);
 
             return PCall(Lua, top, 4);
         }
@@ -210,7 +210,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         {
             foreach (var argument in arguments)
             {
-                Lua.Marshaler.PushValue(argument);
+                Lua.Marshaler.PushValue(Lua, argument);
             }
 
             return PCall(Lua, top, argumentCount);

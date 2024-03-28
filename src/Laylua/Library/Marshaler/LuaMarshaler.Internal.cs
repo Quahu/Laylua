@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 
 namespace Laylua.Marshaling;
 
@@ -6,13 +7,20 @@ public abstract partial class LuaMarshaler
 {
     protected internal abstract void RemoveUserDataHandle(UserDataHandle handle);
 
-    internal void OnReferenceCollected(LuaReference reference)
+    internal unsafe void OnReferenceCollected(LuaReference reference)
     {
         if (LuaReference.IsAlive(reference))
         {
             ReferenceLeaked?.Invoke(this, new LuaReferenceLeakedEventArgs(reference));
 
-            _leakedReferences.Push(reference);
+            ConcurrentStack<LuaReference>? leakedReferences;
+            lock (_leakedReferences)
+            {
+                if (!_leakedReferences.TryGetValue((IntPtr) reference.Lua.MainThread.State, out leakedReferences))
+                    return;
+            }
+
+            leakedReferences.Push(reference);
         }
         else
         {

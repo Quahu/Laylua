@@ -123,7 +123,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         using (_lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            return Lua.Marshaler.PopValue<T>()!;
+            return Lua.Marshaler.PopValue<T>(_lua)!;
         }
     }
 
