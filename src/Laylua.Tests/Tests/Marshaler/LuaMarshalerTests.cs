@@ -23,6 +23,7 @@ public class LuaMarshalerTests : LuaTestBase
             typeof(double),
         };
 
+#if NET7_0_OR_GREATER
         var createNumberMethod = typeof(LuaMarshalerTests).GetMethod(nameof(CreateNumber), BindingFlags.NonPublic | BindingFlags.Static)!;
         var createFloatingPointMethod = typeof(LuaMarshalerTests).GetMethod(nameof(CreateFloatingPoint), BindingFlags.NonPublic | BindingFlags.Static)!;
         foreach (var type in types)
@@ -38,8 +39,19 @@ public class LuaMarshalerTests : LuaTestBase
                 yield return testCaseData;
             }
         }
+#else
+        foreach (var type in types)
+        {
+            yield return new TestCaseData(Convert.ChangeType(0, type))
+                .SetArgDisplayNames($"({type.Name}) 0");
+
+            yield return new TestCaseData(Convert.ChangeType(1, type))
+                .SetArgDisplayNames($"({type.Name}) 1");
+        }
+#endif
     }
 
+#if NET7_0_OR_GREATER
     private static IEnumerable<TestCaseData> CreateNumber<T>()
         where T : INumberBase<T>, IMinMaxValue<T>
     {
@@ -76,6 +88,7 @@ public class LuaMarshalerTests : LuaTestBase
         yield return new TestCaseData(T.Tau)
             .SetArgDisplayNames($"{typeof(T).Name}.{nameof(T.Tau)}");
     }
+#endif
 
     [Test]
     [TestCaseSource(nameof(SameValues))]
@@ -92,24 +105,31 @@ public class LuaMarshalerTests : LuaTestBase
 
     private static IEnumerable<TestCaseData> CollectionValues()
     {
+        // Array
         yield return MakeData(new[] { 1, 2, 3 },
             static collection => table => Assert.That(table.Values.ToArray<int>(), Is.EqualTo(collection)));
 
+        // List<>
         yield return MakeData(new List<int> { 1, 2, 3 },
             static collection => table => Assert.That(table.Values.ToArray<int>(), Is.EqualTo(collection)));
 
+        // Dictionary<,>
         yield return MakeData(new Dictionary<string, int> { ["one"] = 1, ["two"] = 2, ["three"] = 3 },
             static collection => table => Assert.That(table.ToDictionary<string, int>(), Is.EquivalentTo(collection)));
 
+        // IEnumerable<>
         yield return MakeData(YieldNumbers(),
             static collection => table => Assert.That(table.Values.ToArray<int>(), Is.EqualTo(collection)), nameof(YieldNumbers));
 
+        // IEnumerable<KeyValuePair<,>>
         yield return MakeData(YieldKvps(),
             static collection => table => Assert.That(table.ToDictionary<string, int>(), Is.EquivalentTo(collection)), nameof(YieldKvps));
 
+        // ArrayList
         yield return MakeData(new ArrayList { 1, 2, 3 },
             static collection => table => Assert.That(table.Values.ToArray<int>(), Is.EqualTo(collection)));
 
+        // Hashtable
         yield return MakeData(new Hashtable { ["one"] = 1, ["two"] = 2, ["three"] = 3 },
             static collection => table => Assert.That(table.ToDictionary<string, int>(), Is.EquivalentTo(collection.Cast<DictionaryEntry>().ToDictionary(entry => (string) entry.Key, entry => (int) entry.Value!))));
 
