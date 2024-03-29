@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Extensions.Logging;
@@ -49,16 +49,6 @@ public abstract unsafe class LuaTestBase
         var allocator = Lua.State.Allocator;
         using (Lua)
         {
-            var leakedReferences = 0;
-            Lua.Marshaler.ReferenceLeaked += (_, _) =>
-            {
-                leakedReferences++;
-            };
-
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
             if (Context.Result.FailCount == 0)
             {
                 try
@@ -70,8 +60,6 @@ public abstract unsafe class LuaTestBase
                     throw new AssertionException("Garbage on the Lua stack.", ex);
                 }
             }
-
-            Assert.That(leakedReferences, Is.EqualTo(0), $"Leaked {leakedReferences} references.");
         }
 
         if (allocator is NativeMemoryLuaAllocator nativeMemoryLuaAllocator)

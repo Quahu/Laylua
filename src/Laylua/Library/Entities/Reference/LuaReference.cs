@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Laylua.Marshaling;
@@ -29,29 +28,26 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     /// </summary>
     public Lua Lua
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
             ThrowIfInvalid();
             return _lua;
         }
-        internal set
-        {
-            Debug.Assert(_lua == default);
-            _lua = value;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal set => _lua = value;
     }
 
     internal int Reference
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _reference;
+        set => _reference = value;
+    }
 
+    internal bool PoolOnDispose
+    {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        set
-        {
-            Debug.Assert(_reference == default);
-            _reference = value;
-        }
+        set => _poolOnDispose = value;
     }
 
     private Lua? _lua;
@@ -62,30 +58,17 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     /// </remarks>
     private int _reference;
     private bool _isDisposed;
+    private bool _poolOnDispose;
 
     private protected LuaReference()
     { }
 
-    ~LuaReference()
-    {
-        if (LuaRegistry.IsPersistentReference(_reference) || !IsAlive(this))
-            return;
-
-        _lua!.Marshaler.OnReferenceCollected(this);
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Reset()
     {
-        _lua = default;
-        _reference = default;
         _isDisposed = default;
-
-        ResetFields();
+        _poolOnDispose = default;
     }
-
-    internal virtual void ResetFields()
-    { }
 
     [MemberNotNull(nameof(_lua))]
     protected void ThrowIfInvalid()
@@ -197,11 +180,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (LuaRegistry.IsPersistentReference(_reference))
             return;
 
-        Dispose(true);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
         if (!IsAlive(this))
             return;
 
@@ -211,6 +189,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         luaL_unref(L, LuaRegistry.Index, _reference);
         _isDisposed = true;
+
+        var marshaler = _lua!.Marshaler;
+        if (_poolOnDispose)
+        {
+            marshaler.ReturnReference(this);
+        }
     }
 
     public static int GetReference(LuaReference reference)

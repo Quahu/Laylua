@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using Qommon;
 
 namespace Laylua.Marshaling;
 
@@ -7,32 +6,19 @@ public abstract partial class LuaMarshaler
 {
     protected internal abstract void RemoveUserDataHandle(UserDataHandle handle);
 
-    internal unsafe void OnReferenceCollected(LuaReference reference)
+    /// <summary>
+    ///     Returns a <see cref="LuaReference"/> to the entity pool of this marshaler.
+    /// </summary>
+    /// <param name="reference"> The Lua reference to return. </param>
+    internal void ReturnReference(LuaReference reference)
     {
+#if DEBUG
         if (LuaReference.IsAlive(reference))
         {
-            ReferenceLeaked?.Invoke(this, new LuaReferenceLeakedEventArgs(reference));
-
-            ConcurrentStack<LuaReference>? leakedReferences;
-            lock (_leakedReferences)
-            {
-                if (!_leakedReferences.TryGetValue((IntPtr) reference.Lua.MainThread.State, out leakedReferences))
-                    return;
-            }
-
-            leakedReferences.Push(reference);
+            Throw.ArgumentException($"The given {reference.GetType().Name.SingleQuoted()} is alive and cannot be returned to the pool.", nameof(reference));
         }
-        else
-        {
-            ReturnReference(reference);
-        }
-    }
+#endif
 
-    private void ReturnReference(LuaReference reference)
-    {
-        if (_entityPool.Return(reference))
-        {
-            GC.ReRegisterForFinalize(reference);
-        }
+        _entityPool?.Return(reference);
     }
 }

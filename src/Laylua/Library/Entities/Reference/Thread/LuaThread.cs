@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Laylua.Moon;
 
 namespace Laylua;
@@ -25,7 +23,7 @@ public sealed unsafe class LuaThread : LuaReference
         }
     }
 
-    public lua_State* State
+    public lua_State* L
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
@@ -34,11 +32,7 @@ public sealed unsafe class LuaThread : LuaReference
             return _l;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal set
-        {
-            Debug.Assert(_l == default);
-            _l = value;
-        }
+        internal set => _l = value;
     }
 
     private lua_State* _l;
@@ -57,16 +51,7 @@ public sealed unsafe class LuaThread : LuaReference
         thread._l = lua_tothread(L, -1);
         lua_pop(L);
 
-#pragma warning disable CA1816
-        GC.SuppressFinalize(thread);
-#pragma warning restore CA1816
-
         return thread;
-    }
-
-    internal override void ResetFields()
-    {
-        _l = default;
     }
 
     /// <inheritdoc cref="LuaReference.Clone{T}"/>

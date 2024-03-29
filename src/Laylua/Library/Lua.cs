@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -374,7 +374,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     public LuaThread GetThread()
     {
         var L = this.GetStatePointer();
-        if (L == MainThread.State)
+        if (L == MainThread.L)
         {
             return MainThread;
         }
@@ -439,8 +439,14 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         if (IsDisposed)
             return;
 
-        State.Close();
-        Marshaler.OnLuaDisposed(this);
+        try
+        {
+            Marshaler.OnLuaDisposing(this);
+        }
+        finally
+        {
+            State.Close();
+        }
     }
 
     public static Lua FromExtraSpace(lua_State* L)

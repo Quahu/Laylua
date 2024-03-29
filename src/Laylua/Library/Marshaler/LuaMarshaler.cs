@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Laylua.Moon;
@@ -29,35 +27,27 @@ public abstract partial class LuaMarshaler
     }
 
     /// <summary>
-    ///     Fired when a <see cref="LuaReference"/> is disposed by this marshaler.
-    ///     This happens when your application does not have any references to an alive <see cref="LuaReference"/>.
+    ///     Sets the entity pool configuration determining how many <see cref="LuaReference"/> instances can be pooled.
+    ///     Setting <see langword="null"/> indicates entity pooling is disabled. Defaults to <see langword="null"/>.
     /// </summary>
     /// <remarks>
-    ///     You can utilize this event to find out if your application
-    ///     is failing to correctly dispose all <see cref="LuaReference"/> instances.
-    ///     <para/>
-    ///     Subscribed event handlers should be lightweight and must not throw exceptions.
-    ///     <para/>
-    ///     Subscribed handlers must not perform any Lua interactions,
-    ///     as they might corrupt the Lua state.
+    ///     When entity pooling is enabled, once you have disposed of a <see cref="LuaReference"/>,
+    ///     you must not continue using that same object instance - it will be pooled and used for other entities.
     /// </remarks>
-    public event EventHandler<LuaReferenceLeakedEventArgs>? ReferenceLeaked;
-
-    /// <summary>
-    ///     Sets the entity pool configuration determining how many <see cref="LuaReference"/> instances can be pooled.
-    /// </summary>
-    public LuaMarshalerEntityPoolConfiguration EntityPoolConfiguration
+    public LuaMarshalerEntityPoolConfiguration? EntityPoolConfiguration
     {
         set
         {
-            Guard.IsNotNull(value);
-            Interlocked.Exchange(ref _entityPool, new LuaReferencePool(value));
+            var pool = value != null
+                ? new LuaReferencePool(value)
+                : null;
+
+            Interlocked.Exchange(ref _entityPool, pool);
         }
     }
 
     private UserDataDescriptorProvider _userDataDescriptorProvider = UserDataDescriptorProvider.Default;
-    private LuaReferencePool _entityPool = null!;
-    private readonly Dictionary<IntPtr, ConcurrentStack<LuaReference>> _leakedReferences = new();
+    private LuaReferencePool? _entityPool;
 
     /// <summary>
     ///     Instantiates a new marshaler with the specified Lua instance.
@@ -66,16 +56,11 @@ public abstract partial class LuaMarshaler
     { }
 
     /// <summary>
-    ///     Invoked when the specified Lua state is disposed.
+    ///     Invoked when the specified Lua state is being disposed.
     /// </summary>
-    /// <remarks>
-    ///     This is used to perform necessary cleanup after a state is disposed of.
-    /// </remarks>
-    /// <param name="lua"> The disposed Lua state. </param>
-    protected internal virtual void OnLuaDisposed(Lua lua)
-    {
-        DisposeLeakedReferences(lua);
-    }
+    /// <param name="lua"> The Lua state. </param>
+    protected internal virtual void OnLuaDisposing(Lua lua)
+    { }
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaTable"/>.
@@ -88,8 +73,10 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected LuaTable CreateTable(Lua lua, int reference)
     {
-        DisposeLeakedReferences(lua);
-        return _entityPool.RentTable(lua, reference);
+        var table = _entityPool?.RentTable() ?? new();
+        table.Lua = lua;
+        table.Reference = reference;
+        return table;
     }
 
     /// <summary>
@@ -103,8 +90,10 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected LuaFunction CreateFunction(Lua lua, int reference)
     {
-        DisposeLeakedReferences(lua);
-        return _entityPool.RentFunction(lua, reference);
+        var function = _entityPool?.RentFunction() ?? new();
+        function.Lua = lua;
+        function.Reference = reference;
+        return function;
     }
 
     /// <summary>
@@ -112,15 +101,18 @@ public abstract partial class LuaMarshaler
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
     /// <param name="reference"> The Lua reference. </param>
-    /// <param name="ptr"> The pointer to the allocated memory of the user data. </param>
+    /// <param name="pointer"> The pointer to the allocated memory of the user data. </param>
     /// <returns>
     ///     The created <see cref="LuaUserData"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaUserData CreateUserData(Lua lua, int reference, IntPtr ptr)
+    protected LuaUserData CreateUserData(Lua lua, int reference, IntPtr pointer)
     {
-        DisposeLeakedReferences(lua);
-        return _entityPool.RentUserData(lua, reference, ptr);
+        var userData = _entityPool?.RentUserData() ?? new();
+        userData.Lua = lua;
+        userData.Reference = reference;
+        userData.Pointer = pointer;
+        return userData;
     }
 
     /// <summary>
@@ -135,26 +127,11 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe LuaThread CreateThread(Lua lua, int reference, lua_State* L)
     {
-        DisposeLeakedReferences(lua);
-        return _entityPool.RentThread(lua, reference, L);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private unsafe void DisposeLeakedReferences(Lua lua)
-    {
-        ConcurrentStack<LuaReference>? leakedReferences;
-        lock (_leakedReferences)
-        {
-            if (!_leakedReferences.TryGetValue((IntPtr) lua.MainThread.State, out leakedReferences))
-                return;
-        }
-
-        while (leakedReferences.TryPop(out var reference))
-        {
-            reference.Dispose();
-
-            ReturnReference(reference);
-        }
+        var thread = _entityPool?.RentThread() ?? new();
+        thread.Lua = lua;
+        thread.Reference = reference;
+        thread.L = L;
+        return thread;
     }
 
     /// <summary>

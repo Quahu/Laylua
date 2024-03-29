@@ -12,12 +12,14 @@ public partial class DefaultLuaMarshaler : LuaMarshaler
         _userDataHandleCaches = new();
     }
 
-    protected internal override unsafe void OnLuaDisposed(Lua lua)
+    protected internal override unsafe void OnLuaDisposing(Lua lua)
     {
         lock (_userDataHandleCaches)
         {
-            _userDataHandleCaches.Remove((IntPtr) lua.MainThread.State);
+            _userDataHandleCaches.Remove((IntPtr) lua.MainThread.L);
         }
+
+        base.OnLuaDisposing(lua);
     }
 
     protected internal sealed override unsafe void RemoveUserDataHandle(UserDataHandle handle)
@@ -25,7 +27,7 @@ public partial class DefaultLuaMarshaler : LuaMarshaler
         Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>? userDataHandleCache;
         lock (_userDataHandleCaches)
         {
-            if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.Lua.MainThread.State, out userDataHandleCache))
+            if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.Lua.MainThread.L, out userDataHandleCache))
                 return;
         }
 

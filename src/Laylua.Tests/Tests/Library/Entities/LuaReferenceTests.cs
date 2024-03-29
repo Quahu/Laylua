@@ -54,34 +54,4 @@ public class LuaReferenceTests : LuaTestBase
         // after 5.4.2 causing the lookup to return some dummy number at the end instead of nil.
         Assert.That(type, Is.Not.EqualTo(LuaType.Table), "The disposed LuaReference's object was not garbage collected.");
     }
-
-    [Test]
-    public unsafe void NoReferencesToAliveObject_MarshalerFiresLeakedReferenceEvent()
-    {
-        // Arrange
-        var reference = CreateTable();
-        var leakedReference = -1;
-
-        // Act
-        Lua.State.GC.Collect();
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-
-        // Assert
-        Assert.That(leakedReference, Is.EqualTo(reference));
-
-        int CreateTable()
-        {
-            var table = Lua.Evaluate<LuaTable>("return {}")!;
-            var reference = LuaReference.GetReference(table);
-            Lua.Marshaler.ReferenceLeaked += (_, e) =>
-            {
-                leakedReference = LuaReference.GetReference(e.Reference);
-            };
-
-            return reference;
-        }
-    }
 }

@@ -1,18 +1,16 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using Laylua.Moon;
+﻿using System.Runtime.CompilerServices;
 using Qommon.Pooling;
 
 namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {
-    internal sealed class LuaReferencePool : IDisposable
+    internal sealed class LuaReferencePool
     {
-        private ObjectPool<LuaTable> _tables;
-        private ObjectPool<LuaFunction> _functions;
-        private ObjectPool<LuaUserData> _userData;
-        private ObjectPool<LuaThread> _threads;
+        private readonly ObjectPool<LuaTable>? _tables;
+        private readonly ObjectPool<LuaFunction>? _functions;
+        private readonly ObjectPool<LuaUserData>? _userData;
+        private readonly ObjectPool<LuaThread>? _threads;
 
         public LuaReferencePool(LuaMarshalerEntityPoolConfiguration configuration)
         {
@@ -23,67 +21,48 @@ public abstract partial class LuaMarshaler
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ObjectPool<T> CreatePool<T>(PooledObjectPolicy<T> policy, int capacity)
+        private static ObjectPool<T>? CreatePool<T>(PooledObjectPolicy<T> policy, int capacity)
             where T : LuaReference
         {
+            if (capacity == 0)
+                return null;
+
             return new DefaultObjectPool<T>(policy, capacity);
         }
 
-        public LuaTable RentTable(Lua lua, int reference)
+        public LuaTable RentTable()
         {
-            var table = _tables.Rent();
-            table.Lua = lua;
-            table.Reference = reference;
-            return table;
+            return _tables?.Rent() ?? new();
         }
 
-        public LuaFunction RentFunction(Lua lua, int reference)
+        public LuaFunction RentFunction()
         {
-            var function = _functions.Rent();
-            function.Lua = lua;
-            function.Reference = reference;
-            return function;
+            return _functions?.Rent() ?? new();
         }
 
-        public LuaUserData RentUserData(Lua lua, int reference, IntPtr ptr)
+        public LuaUserData RentUserData()
         {
-            var userData = _userData.Rent();
-            userData.Lua = lua;
-            userData.Reference = reference;
-            userData.Pointer = ptr;
-            return userData;
+            return _userData?.Rent() ?? new();
         }
 
-        public unsafe LuaThread RentThread(Lua lua, int reference, lua_State* L)
+        public LuaThread RentThread()
         {
-            var thread = _threads.Rent();
-            thread.Lua = lua;
-            thread.Reference = reference;
-            thread.State = L;
-            return thread;
+            return _threads?.Rent() ?? new();
         }
 
         public bool Return(LuaReference reference)
         {
             return reference switch
             {
-                LuaUserData userData => _userData.Return(userData),
-                LuaTable table => _tables.Return(table),
-                LuaFunction function => _functions.Return(function),
-                LuaThread thread => _threads.Return(thread),
+                LuaUserData userData => _userData?.Return(userData) ?? false,
+                LuaTable table => _tables?.Return(table) ?? false,
+                LuaFunction function => _functions?.Return(function) ?? false,
+                LuaThread thread => _threads?.Return(thread) ?? false,
                 _ => false
             };
         }
 
-        public void Dispose()
-        {
-            _tables = null!;
-            _functions = null!;
-            _userData = null!;
-            _threads = null!;
-        }
-
-        private sealed class LuaTableObjectPolicy : PooledObjectPolicy<LuaTable>
+        private sealed class LuaTableObjectPolicy : LuaReferenceObjectPolicy<LuaTable>
         {
             public static readonly LuaTableObjectPolicy Instance = new();
 
@@ -94,15 +73,9 @@ public abstract partial class LuaMarshaler
             {
                 return new LuaTable();
             }
-
-            public override bool OnReturn(LuaTable obj)
-            {
-                obj.Reset();
-                return true;
-            }
         }
 
-        private sealed class LuaFunctionObjectPolicy : PooledObjectPolicy<LuaFunction>
+        private sealed class LuaFunctionObjectPolicy : LuaReferenceObjectPolicy<LuaFunction>
         {
             public static readonly LuaFunctionObjectPolicy Instance = new();
 
@@ -113,15 +86,9 @@ public abstract partial class LuaMarshaler
             {
                 return new LuaFunction();
             }
-
-            public override bool OnReturn(LuaFunction obj)
-            {
-                obj.Reset();
-                return true;
-            }
         }
 
-        private sealed class LuaUserDataObjectPolicy : PooledObjectPolicy<LuaUserData>
+        private sealed class LuaUserDataObjectPolicy : LuaReferenceObjectPolicy<LuaUserData>
         {
             public static readonly LuaUserDataObjectPolicy Instance = new();
 
@@ -132,15 +99,9 @@ public abstract partial class LuaMarshaler
             {
                 return new LuaUserData();
             }
-
-            public override bool OnReturn(LuaUserData obj)
-            {
-                obj.Reset();
-                return true;
-            }
         }
 
-        private sealed class LuaThreadObjectPolicy : PooledObjectPolicy<LuaThread>
+        private sealed class LuaThreadObjectPolicy : LuaReferenceObjectPolicy<LuaThread>
         {
             public static readonly LuaThreadObjectPolicy Instance = new();
 
@@ -151,10 +112,14 @@ public abstract partial class LuaMarshaler
             {
                 return new LuaThread();
             }
+        }
 
-            public override bool OnReturn(LuaThread obj)
+        private abstract class LuaReferenceObjectPolicy<TReference> : PooledObjectPolicy<TReference>
+            where TReference : LuaReference
+        {
+            public override bool OnReturn(TReference reference)
             {
-                obj.Reset();
+                reference.Reset();
                 return true;
             }
         }

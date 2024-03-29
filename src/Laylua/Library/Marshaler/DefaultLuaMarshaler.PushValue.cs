@@ -147,9 +147,9 @@ public unsafe partial class DefaultLuaMarshaler
                         Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>? userDataHandleCache;
                         lock (_userDataHandleCaches)
                         {
-                            if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.State, out userDataHandleCache))
+                            if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.L, out userDataHandleCache))
                             {
-                                _userDataHandleCaches[(IntPtr) lua.MainThread.State] = userDataHandleCache = new();
+                                _userDataHandleCaches[(IntPtr) lua.MainThread.L] = userDataHandleCache = new();
                             }
                         }
 

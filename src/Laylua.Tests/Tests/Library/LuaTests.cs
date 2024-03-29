@@ -209,7 +209,7 @@ public class LuaTests : LuaTestBase
         // Assert
         for (var i = 0; i < ThreadCount; i++)
         {
-            Assert.That((IntPtr) threads[i].State, Is.EqualTo((IntPtr) luas[i].State.L));
+            Assert.That((IntPtr) threads[i].L, Is.EqualTo((IntPtr) luas[i].State.L));
         }
     }
 }

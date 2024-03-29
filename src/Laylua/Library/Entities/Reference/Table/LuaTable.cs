@@ -116,10 +116,6 @@ public unsafe partial class LuaTable : LuaReference
         table.Lua = lua;
         table.Reference = LuaRegistry.Indices.Globals;
 
-#pragma warning disable CA1816
-        GC.SuppressFinalize(table);
-#pragma warning restore CA1816
-
         return table;
     }
 

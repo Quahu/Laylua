@@ -53,11 +53,6 @@ public sealed unsafe class LuaUserData : LuaTable
     internal LuaUserData()
     { }
 
-    internal override void ResetFields()
-    {
-        _ptr = default;
-    }
-
     /// <inheritdoc cref="LuaReference.Clone{T}"/>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public override LuaUserData Clone()
