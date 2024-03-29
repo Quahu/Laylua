@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Numerics;
 using System.Reflection;
+using Laylua.Marshaling;
 using Qommon;
 
 namespace Laylua.Tests;
@@ -196,5 +197,24 @@ public class LuaMarshalerTests : LuaTestBase
 
         // Assert
         Assert.That(ex, Has.Message.Contain("owned"));
+    }
+
+    [Test]
+    public void LuaReference_PoolOnDispose_PoolsInstance()
+    {
+        // Arrange
+        using var lua1 = new Lua(new DefaultLuaMarshaler
+        {
+            EntityPoolConfiguration = new()
+        });
+
+        var reference = lua1.Evaluate<LuaTable>("return {}")!;
+
+        // Act
+        reference.PoolOnDispose().Dispose();
+        var newReference = lua1.Evaluate<LuaTable>("return {}")!;
+
+        // Assert
+        Assert.That(newReference, Is.SameAs(reference));
     }
 }
