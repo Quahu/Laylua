@@ -11,6 +11,11 @@ namespace Laylua.Marshaling;
 public abstract partial class LuaMarshaler
 {
     /// <summary>
+    ///     Gets the default shared instance of <see cref="LuaMarshaler"/>.
+    /// </summary>
+    public static LuaMarshaler Default { get; } = new DefaultLuaMarshaler();
+
+    /// <summary>
     ///     Gets the user data descriptor provider of this marshaler.
     /// </summary>
     public UserDataDescriptorProvider UserDataDescriptorProvider

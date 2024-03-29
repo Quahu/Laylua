@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -85,29 +85,29 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     private readonly List<LuaLibrary> _openLibraries;
 
     public Lua()
-        : this(LuaMarshalerProvider.Default)
+        : this(LuaMarshaler.Default)
     { }
 
-    public Lua(LuaMarshalerProvider marshalerProvider)
-        : this(new LuaState(), marshalerProvider)
+    public Lua(LuaMarshaler marshaler)
+        : this(new LuaState(), marshaler)
     { }
 
     public Lua(LuaAllocator allocator)
-        : this(allocator, LuaMarshalerProvider.Default)
+        : this(allocator, LuaMarshaler.Default)
     { }
 
-    public Lua(LuaAllocator allocator, LuaMarshalerProvider marshalerProvider)
-        : this(new LuaState(allocator), marshalerProvider)
+    public Lua(LuaAllocator allocator, LuaMarshaler marshaler)
+        : this(new LuaState(allocator), marshaler)
     { }
 
     private Lua(
         LuaState state,
-        LuaMarshalerProvider marshalerProvider)
+        LuaMarshaler marshaler)
     {
         Stack = new LuaStack(this);
         State = state;
         State.State = this;
-        Marshaler = marshalerProvider.Create();
+        Marshaler = marshaler;
 
         _openLibraries = new List<LuaLibrary>();
         MainThread = LuaThread.CreateMainThread(this);
@@ -121,7 +121,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         Stack = new LuaStack(this);
         State = new LuaState(L, threadReference);
-        Marshaler = LuaMarshalerProvider.Default.Create();
+        Marshaler = parent.Marshaler;
         FormatProvider = parent.FormatProvider;
 
         _openLibraries = parent._openLibraries;
