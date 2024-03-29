@@ -23,9 +23,9 @@ public unsafe partial class LuaFunction
     }
 
     /// <summary>
-    ///     Dumps the binary Lua code of this function to the specified stream.
+    ///     Dumps the binary Lua code of this function using the specified chunk writer.
     /// </summary>
-    /// <param name="chunkWriter"> The writer to dump this function with. </param>
+    /// <param name="chunkWriter"> The chunk writer to dump this function with. </param>
     /// <param name="stripDebugInformation"> Whether some debug information should be stripped to save on space. </param>
     /// <returns>
     ///     <see langword="0"/> if the operation succeeded.
