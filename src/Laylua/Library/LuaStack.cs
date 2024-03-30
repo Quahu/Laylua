@@ -307,22 +307,6 @@ public unsafe class LuaStack
     }
 
     /// <summary>
-    ///     Replaces the stack value at the given index with the specified value.
-    /// </summary>
-    /// <param name="index"> The index on the stack. </param>
-    /// <param name="value"> The value to set. </param>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public void Replace<T>(int index, T value)
-    {
-        ValidateIndex(index);
-
-        var L = _lua.GetStatePointer();
-        index = lua_absindex(L, index);
-        Push(value);
-        lua_replace(L, index);
-    }
-
-    /// <summary>
     ///     Returns an enumerator that can be used to enumerate the stack.
     /// </summary>
     /// <returns>
