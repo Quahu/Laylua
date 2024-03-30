@@ -54,13 +54,15 @@ public class UserDataTests : LuaTestBase
     public void UserDataWithDescriptor_MarshaledAsObjectType_MarshalsCorrectly()
     {
         // Arrange
-        Lua.Marshaler.UserDataDescriptorProvider.SetInstanceDescriptor<StrictUserData1>(TypeMemberProvider.Strict);
+        var descriptorProvider = new DefaultUserDataDescriptorProvider();
+        descriptorProvider.SetInstanceDescriptor<StrictUserData1>(TypeMemberProvider.Strict);
+        using var lua1 = new Lua(new DefaultLuaMarshaler(descriptorProvider));
 
         var ud = new StrictUserData1();
-        Lua.SetGlobal("ud", ud);
+        lua1.SetGlobal("ud", ud);
 
         // Act
-        var udAsObject = Lua.GetGlobal<object>("ud");
+        var udAsObject = lua1.GetGlobal<object>("ud");
 
         // Assert
         Assert.That(udAsObject, Is.EqualTo(ud));

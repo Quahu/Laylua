@@ -205,7 +205,7 @@ public class LuaMarshalerTests : LuaTestBase
     public void LuaReference_PoolOnDispose_PoolsInstance()
     {
         // Arrange
-        using var lua1 = new Lua(new DefaultLuaMarshaler
+        using var lua1 = new Lua(new DefaultLuaMarshaler(UserDataDescriptorProvider.Default)
         {
             EntityPoolConfiguration = new()
         });

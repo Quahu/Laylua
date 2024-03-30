@@ -212,7 +212,7 @@ public unsafe partial class DefaultLuaMarshaler
                         {
                             case TypeCode.Boolean:
                             {
-                                lua_pushboolean(L, ((IConvertible) obj).ToBoolean(lua.FormatProvider));
+                                lua_pushboolean(L, ((IConvertible) obj).ToBoolean(FormatProvider));
                                 return;
                             }
                             case TypeCode.SByte:
@@ -224,7 +224,7 @@ public unsafe partial class DefaultLuaMarshaler
                             case TypeCode.Int64:
                             case TypeCode.UInt64:
                             {
-                                lua_pushinteger(L, ((IConvertible) obj).ToInt64(lua.FormatProvider));
+                                lua_pushinteger(L, ((IConvertible) obj).ToInt64(FormatProvider));
                                 return;
                             }
                             case TypeCode.Single:
@@ -233,18 +233,18 @@ public unsafe partial class DefaultLuaMarshaler
                             {
                                 if (typeof(lua_Number) == typeof(double))
                                 {
-                                    lua_pushnumber(L, ((IConvertible) obj).ToDouble(lua.FormatProvider));
+                                    lua_pushnumber(L, ((IConvertible) obj).ToDouble(FormatProvider));
                                 }
                                 else
                                 {
-                                    lua_pushnumber(L, (lua_Number) ((IConvertible) obj).ToType(typeof(lua_Number), lua.FormatProvider));
+                                    lua_pushnumber(L, (lua_Number) ((IConvertible) obj).ToType(typeof(lua_Number), FormatProvider));
                                 }
 
                                 return;
                             }
                             case TypeCode.Char:
                             {
-                                var charValue = ((IConvertible) obj).ToChar(lua.FormatProvider);
+                                var charValue = ((IConvertible) obj).ToChar(FormatProvider);
 #if NET7_0_OR_GREATER
                                 lua_pushstring(L, new ReadOnlySpan<char>(in charValue));
 #else
@@ -254,7 +254,7 @@ public unsafe partial class DefaultLuaMarshaler
                             }
                             case TypeCode.String:
                             {
-                                lua_pushstring(L, ((IConvertible) obj).ToString(lua.FormatProvider));
+                                lua_pushstring(L, ((IConvertible) obj).ToString(FormatProvider));
                                 return;
                             }
                             default:

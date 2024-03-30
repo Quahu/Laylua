@@ -2,29 +2,15 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Laylua.Moon;
-using Qommon;
 
 namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {
     /// <summary>
-    ///     Gets the default shared instance of <see cref="LuaMarshaler"/>.
+    ///     Gets the default shared instance of <see cref="DefaultLuaMarshaler"/>.
     /// </summary>
-    public static LuaMarshaler Default { get; } = new DefaultLuaMarshaler();
-
-    /// <summary>
-    ///     Gets the user data descriptor provider of this marshaler.
-    /// </summary>
-    public UserDataDescriptorProvider UserDataDescriptorProvider
-    {
-        get => _userDataDescriptorProvider;
-        set
-        {
-            Guard.IsNotNull(value);
-            _userDataDescriptorProvider = value;
-        }
-    }
+    public static DefaultLuaMarshaler Default { get; } = new(UserDataDescriptorProvider.Default);
 
     /// <summary>
     ///     Sets the entity pool configuration determining how many <see cref="LuaReference"/> instances can be pooled.
@@ -60,7 +46,6 @@ public abstract partial class LuaMarshaler
         }
     }
 
-    private UserDataDescriptorProvider _userDataDescriptorProvider = UserDataDescriptorProvider.Default;
     private LuaReferencePool? _entityPool;
 
     /// <summary>

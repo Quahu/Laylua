@@ -207,7 +207,7 @@ public sealed unsafe class LuaState : ISpanFormattable
     /// <inheritdoc/>
     public override string ToString()
     {
-        return ToString(null, (State as Lua)?.FormatProvider);
+        return ToString(null, null);
     }
 
     /// <inheritdoc/>

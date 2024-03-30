@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Laylua.Marshaling;
 using Laylua.Moon;
@@ -30,21 +29,6 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     ///     Gets the low-level state of this instance.
     /// </summary>
     public LuaState State { get; }
-
-    /// <summary>
-    ///     Gets the marshaler of this instance.
-    /// </summary>
-    public LuaMarshaler Marshaler { get; }
-
-    /// <summary>
-    ///     Gets or sets the format provider of this instance.
-    /// </summary>
-    /// <remarks>
-    ///     This is used to determine how conversion and comparison of values is performed.
-    ///     <br/>
-    ///     Defaults to <see cref="CultureInfo.CurrentCulture"/>.
-    /// </remarks>
-    public IFormatProvider FormatProvider { get; set; } = CultureInfo.CurrentCulture;
 
     /// <summary>
     ///     Gets the main Lua thread.
@@ -81,6 +65,8 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     ///     Gets whether this instance is disposed.
     /// </summary>
     public bool IsDisposed => State.IsDisposed;
+
+    internal LuaMarshaler Marshaler { get; }
 
     private readonly List<LuaLibrary> _openLibraries;
 
@@ -122,7 +108,6 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Stack = new LuaStack(this);
         State = new LuaState(L, threadReference);
         Marshaler = parent.Marshaler;
-        FormatProvider = parent.FormatProvider;
 
         _openLibraries = parent._openLibraries;
         MainThread = parent.MainThread;

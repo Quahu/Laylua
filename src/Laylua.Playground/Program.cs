@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using Laylua.Marshaling;
 using Laylua.Moon;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -48,11 +49,9 @@ namespace Laylua
 
             NativeMemoryLuaAllocatorLogging.Hook(allocator, Logger);
 
+            LuaMarshaler.Default.FormatProvider = CultureInfo.InvariantCulture;
             Logger.LogInformation("Creating Lua...");
-            using (var lua = new Lua(allocator)
-            {
-                FormatProvider = CultureInfo.InvariantCulture
-            })
+            using (var lua = new Lua(allocator))
             {
                 var L = lua.GetStatePointer();
 

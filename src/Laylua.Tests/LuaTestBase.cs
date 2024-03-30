@@ -1,4 +1,5 @@
 using System.Globalization;
+using Laylua.Marshaling;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Extensions.Logging;
@@ -27,6 +28,8 @@ public abstract unsafe class LuaTestBase
             .CreateLogger();
 
         LoggerFactory = new SerilogLoggerFactory(serilogLogger);
+
+        LuaMarshaler.Default.FormatProvider = CultureInfo.InvariantCulture;
     }
 
     protected LuaTestBase()
@@ -81,10 +84,7 @@ public abstract unsafe class LuaTestBase
 
     protected virtual Lua CreateLua(LuaAllocator? allocator = null)
     {
-        return new Lua(allocator ?? CreateLuaAllocator())
-        {
-            FormatProvider = CultureInfo.InvariantCulture
-        };
+        return new Lua(allocator ?? CreateLuaAllocator());
     }
 
     protected virtual void AssertStackCount(int expected)

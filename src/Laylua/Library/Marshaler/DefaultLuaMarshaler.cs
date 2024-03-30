@@ -1,14 +1,31 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Laylua.Marshaling;
 
 public partial class DefaultLuaMarshaler : LuaMarshaler
 {
+    /// <summary>
+    ///     Gets or sets the format provider of this marshaler.
+    /// </summary>
+    /// <remarks>
+    ///     This is used to determine how conversion and comparison of values is performed.
+    ///     <br/>
+    ///     Defaults to <see cref="CultureInfo.CurrentCulture"/>.
+    /// </remarks>
+    public IFormatProvider FormatProvider { get; set; } = CultureInfo.CurrentCulture;
+
+    /// <summary>
+    ///     Gets the user data descriptor provider of this marshaler.
+    /// </summary>
+    protected UserDataDescriptorProvider UserDataDescriptorProvider { get; }
+
     private readonly Dictionary<IntPtr, Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>> _userDataHandleCaches;
 
-    public DefaultLuaMarshaler()
+    public DefaultLuaMarshaler(UserDataDescriptorProvider userDataDescriptorProvider)
     {
+        UserDataDescriptorProvider = userDataDescriptorProvider;
         _userDataHandleCaches = new();
     }
 
