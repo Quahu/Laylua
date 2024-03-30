@@ -1,8 +1,10 @@
 ﻿using System.Collections;
-using System.Numerics;
-using System.Reflection;
 using Laylua.Marshaling;
 using Qommon;
+#if NET7_0_OR_GREATER
+using System.Numerics;
+using System.Reflection;
+#endif
 
 namespace Laylua.Tests;
 
