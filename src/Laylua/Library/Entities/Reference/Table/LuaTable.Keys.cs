@@ -58,17 +58,16 @@ public unsafe partial class LuaTable
             var lua = _table.Lua;
             lua.Stack.EnsureFreeCapacity(3);
 
+            var L = lua.GetStatePointer();
             using (_table.Lua.Stack.SnapshotCount())
             {
                 PushValue(_table);
-                var L = lua.GetStatePointer();
-                var marshaler = lua.Marshaler;
                 var length = (int) luaL_len(L, -1);
                 var list = new List<T>(Math.Min(length, 256));
                 lua_pushnil(L);
                 while (lua_next(L, -2))
                 {
-                    if (!marshaler.TryGetValue<T>(lua, -2, out var value))
+                    if (!lua.Stack[-2].TryGetValue<T>(out var value))
                     {
                         if (throwOnNonConvertible)
                         {

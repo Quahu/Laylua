@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Laylua.Marshaling;
 using Laylua.Moon;
 using Qommon;
 
@@ -46,10 +45,10 @@ public unsafe partial class LuaTable : LuaReference
         {
             ThrowIfInvalid();
 
+            var L = Lua.GetStatePointer();
             using (Lua.Stack.SnapshotCount())
             {
                 PushValue(this);
-                var L = Lua.GetStatePointer();
                 lua_pushnil(L);
                 return !lua_next(L, -2);
             }
@@ -140,14 +139,14 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(2);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = Lua.GetStatePointer();
             var hasMetatable = lua_getmetatable(L, -1);
             if (hasMetatable)
             {
-                metatable = Lua.Marshaler.GetValue<LuaTable>(Lua, -1)!;
+                metatable = Lua.Stack[-1].GetValue<LuaTable>()!;
                 return true;
             }
 
@@ -182,11 +181,11 @@ public unsafe partial class LuaTable : LuaReference
     {
         ThrowIfInvalid();
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = Lua.GetStatePointer();
-            Lua.Marshaler.PushValue(Lua, metatable);
+            Lua.Stack.Push(metatable);
             lua_setmetatable(L, -2);
         }
     }
@@ -202,10 +201,10 @@ public unsafe partial class LuaTable : LuaReference
         Lua.Stack.EnsureFreeCapacity(3);
 
         var count = 0;
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = Lua.GetStatePointer();
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -230,11 +229,11 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(2);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushValue(Lua, key);
-            var L = Lua.GetStatePointer();
+            Lua.Stack.Push(key);
             return lua_gettable(L, -2) > LuaType.Nil;
         }
     }
@@ -252,11 +251,11 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(4);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             Lua.Marshaler.PushValue(Lua, value);
             PushValue(this);
-            var L = Lua.GetStatePointer();
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -287,12 +286,12 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(2);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushValue(Lua, key);
-            var L = Lua.GetStatePointer();
-            if (!lua_gettable(L, -2).IsNoneOrNil() && Lua.Marshaler.TryGetValue(Lua, -1, out value))
+            Lua.Stack.Push(key);
+            if (!lua_gettable(L, -2).IsNoneOrNil() && Lua.Stack[-1].TryGetValue(out value))
             {
                 Debug.Assert(value != null);
                 return true;
@@ -322,17 +321,17 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(2);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushValue(Lua, key);
-            var L = Lua.GetStatePointer();
+            Lua.Stack.Push(key);
             if (lua_gettable(L, -2).IsNoneOrNil())
             {
                 Throw.KeyNotFoundException();
             }
 
-            return Lua.Marshaler.GetValue<TValue>(Lua, -1)!;
+            return Lua.Stack[-1].GetValue<TValue>()!;
         }
     }
 
@@ -351,12 +350,12 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(3);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            Lua.Marshaler.PushValue(Lua, key);
-            Lua.Marshaler.PushValue(Lua, value);
-            var L = Lua.GetStatePointer();
+            Lua.Stack.Push(key);
+            Lua.Stack.Push(value);
             lua_settable(L, -3);
         }
     }
@@ -371,10 +370,10 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(4);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = Lua.GetStatePointer();
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -400,12 +399,12 @@ public unsafe partial class LuaTable : LuaReference
 
         Lua.Stack.EnsureFreeCapacity(5);
 
+        var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
         {
             PushValue(table);
             PushValue(this);
 
-            var L = Lua.GetStatePointer();
             if (lua_rawequal(L, -2, -1))
             {
                 Throw.ArgumentException("The target table must be a different table.", nameof(table));
@@ -448,11 +447,10 @@ public unsafe partial class LuaTable : LuaReference
         lua.Stack.EnsureFreeCapacity(3);
 
         var dictionary = new Dictionary<string, TValue>(comparer);
+        var L = lua.GetStatePointer();
         using (lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = lua.GetStatePointer();
-            var marshaler = lua.Marshaler;
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -465,7 +463,7 @@ public unsafe partial class LuaTable : LuaReference
                 }
                 else
                 {
-                    if (!marshaler.TryGetValue<TValue>(Lua, -1, out var value))
+                    if (!Lua.Stack[-1].TryGetValue<TValue>(out var value))
                     {
                         if (throwOnNonConvertibleValues)
                         {
@@ -474,7 +472,7 @@ public unsafe partial class LuaTable : LuaReference
                     }
                     else
                     {
-                        var key = marshaler.GetValue<string>(Lua, -2);
+                        var key = Lua.Stack[-2].GetValue<string>();
                         Debug.Assert(key != null);
                         Debug.Assert(value != null);
                         dictionary[key] = value;
@@ -513,23 +511,21 @@ public unsafe partial class LuaTable : LuaReference
         lua.Stack.EnsureFreeCapacity(3);
 
         var dictionary = new Dictionary<TKey, TValue>(comparer);
-
+        var L = lua.GetStatePointer();
         using (lua.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = lua.GetStatePointer();
-            var marshaler = lua.Marshaler;
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
-                if (!marshaler.TryGetValue<TKey>(Lua, -2, out var key))
+                if (!lua.Stack[-2].TryGetValue<TKey>(out var key))
                 {
                     if (throwOnNonConvertible)
                     {
                         Throw.InvalidOperationException($"Failed to convert the key {lua.Stack[-2]} to type {typeof(TKey)}.");
                     }
                 }
-                else if (!marshaler.TryGetValue<TValue>(Lua, -1, out var value))
+                else if (!lua.Stack[-1].TryGetValue<TValue>(out var value))
                 {
                     if (throwOnNonConvertible)
                     {

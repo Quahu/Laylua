@@ -3,7 +3,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using Laylua.Marshaling;
 using Laylua.Moon;
 using Qommon;
 using Qommon.Pooling;
@@ -106,8 +105,11 @@ public unsafe partial class Lua
     /// </returns>
     public LuaFunction Load(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName = default)
     {
-        LoadString(code, chunkName);
-        return Marshaler.PopValue<LuaFunction>(this)!;
+        using (Stack.SnapshotCount())
+        {
+            LoadString(code, chunkName);
+            return Stack[-1].GetValue<LuaFunction>()!;
+        }
     }
 
     /// <summary>
@@ -121,8 +123,11 @@ public unsafe partial class Lua
     /// </returns>
     public LuaFunction Load(Stream utf8Code, ReadOnlySpan<char> chunkName = default)
     {
-        LoadStream(utf8Code, chunkName);
-        return Marshaler.PopValue<LuaFunction>(this)!;
+        using (Stack.SnapshotCount())
+        {
+            LoadStream(utf8Code, chunkName);
+            return Stack[-1].GetValue<LuaFunction>()!;
+        }
     }
 
     /// <summary>
@@ -137,8 +142,11 @@ public unsafe partial class Lua
     /// <seealso cref="LuaChunkReader"/>
     public LuaFunction Load(LuaChunkReader reader, ReadOnlySpan<char> chunkName = default)
     {
-        LoadReader(reader, chunkName);
-        return Marshaler.PopValue<LuaFunction>(this)!;
+        using (Stack.SnapshotCount())
+        {
+            LoadReader(reader, chunkName);
+            return Stack[-1].GetValue<LuaFunction>()!;
+        }
     }
 
     private void LoadString(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName)

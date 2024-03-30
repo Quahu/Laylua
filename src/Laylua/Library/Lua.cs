@@ -257,10 +257,10 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     public bool TryGetGlobal<TValue>(ReadOnlySpan<char> name, [MaybeNullWhen(false)] out TValue value)
         where TValue : notnull
     {
+        var L = this.GetStatePointer();
         using (Stack.SnapshotCount())
         {
-            var L = this.GetStatePointer();
-            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Marshaler.TryGetValue(this, -1, out value))
+            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Stack[-1].TryGetValue(out value))
             {
                 Debug.Assert(value != null);
                 return true;
@@ -288,15 +288,15 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     public TValue GetGlobal<TValue>(ReadOnlySpan<char> name)
         where TValue : notnull
     {
+        var L = this.GetStatePointer();
         using (Stack.SnapshotCount())
         {
-            var L = this.GetStatePointer();
             if (lua_rawgetglobal(L, name).IsNoneOrNil())
             {
                 Throw.KeyNotFoundException();
             }
 
-            return Marshaler.GetValue<TValue>(this, -1)!;
+            return Stack[-1].GetValue<TValue>()!;
         }
     }
 
@@ -311,10 +311,10 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         Stack.EnsureFreeCapacity(1);
 
+        var L = this.GetStatePointer();
         using (Stack.SnapshotCount())
         {
-            Marshaler.PushValue(this, value);
-            var L = this.GetStatePointer();
+            Stack.Push(value);
             lua_rawsetglobal(L, name);
         }
     }
@@ -329,11 +329,11 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         Stack.EnsureFreeCapacity(1);
 
+        var L = this.GetStatePointer();
         using (Stack.SnapshotCount())
         {
-            var L = this.GetStatePointer();
             lua_createtable(L, sequenceCapacity, tableCapacity);
-            return Marshaler.PopValue<LuaTable>(this)!;
+            return Stack[-1].GetValue<LuaTable>()!;
         }
     }
 
@@ -353,11 +353,11 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         Stack.EnsureFreeCapacity(1);
 
+        var L = this.GetStatePointer();
         using (Stack.SnapshotCount())
         {
-            var L = this.GetStatePointer();
             _ = lua_newuserdatauv(L, size, userValueCount);
-            return Marshaler.PopValue<LuaUserData>(this)!;
+            return Stack[-1].GetValue<LuaUserData>()!;
         }
     }
 
@@ -384,7 +384,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         using (Stack.SnapshotCount())
         {
             _ = lua_pushthread(L);
-            var thread = Marshaler.GetValue<LuaThread>(this, -1);
+            var thread = Stack[-1].GetValue<LuaThread>();
             if (thread == null)
             {
                 ThrowLuaException("Failed to get the Lua thread.");
@@ -404,9 +404,9 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         Stack.EnsureFreeCapacity(1);
 
+        var L = this.GetStatePointer();
         using (Stack.SnapshotCount())
         {
-            var L = this.GetStatePointer();
             var L1 = lua_newthread(L);
             if (L1 == null || !LuaReference.TryCreate(L, -1, out var threadReference))
             {
