@@ -31,9 +31,23 @@ public abstract partial class LuaMarshaler
     ///     Setting <see langword="null"/> indicates entity pooling is disabled. Defaults to <see langword="null"/>.
     /// </summary>
     /// <remarks>
-    ///     When entity pooling is enabled, once you have disposed of a <see cref="LuaReference"/>,
+    ///     When entity pooling is enabled, you should invoke <see cref="LuaReferenceExtensions.PoolOnDispose{TReference}"/> whenever
+    ///     you retrieve a new <see cref="LuaReference"/> instance.
+    ///     Once you have disposed the given <see cref="LuaReference"/>,
     ///     you must not continue using that same object instance - it will be pooled and used for other entities.
+    ///     <example>
+    ///     Pooling <see cref="LuaReference"/> instances correctly.
+    ///     <code language="csharp">
+    ///     using (var table = Lua.Evaluate&lt;LuaTable&gt;("return {}").PoolOnDispose()!)
+    ///     {
+    ///         // do stuff
+    ///     }
+    ///     <para/>
+    ///     // `table` must not be used after it is disposed!
+    ///     </code>
+    ///     </example>
     /// </remarks>
+    /// <seealso cref="LuaReferenceExtensions.PoolOnDispose{TReference}"/>
     public LuaMarshalerEntityPoolConfiguration? EntityPoolConfiguration
     {
         set
