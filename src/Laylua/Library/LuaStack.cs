@@ -194,6 +194,18 @@ public unsafe class LuaStack
     }
 
     /// <summary>
+    ///     Pushes nil onto the stack.
+    /// </summary>
+    /// <remarks>
+    ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void PushNil()
+    {
+        lua_pushnil(_lua.GetStatePointer());
+    }
+
+    /// <summary>
     ///     Pushes a new <see cref="LuaTable"/> onto the stack.
     /// </summary>
     /// <remarks>

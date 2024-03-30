@@ -54,4 +54,18 @@ public class LuaStackTests : LuaTestBase
             Assert.That(actualValue, Is.EqualTo(expectedValue));
         }
     }
+
+    [Test]
+    public void LuaStack_PushNil_PushesNil()
+    {
+        // Act
+        Lua.Stack.PushNil();
+        var count = Lua.Stack.Count;
+        var type = Lua.Stack[-1].Type;
+        Lua.Stack.Pop();
+
+        // Assert
+        Assert.That(count, Is.EqualTo(1));
+        Assert.That(type, Is.EqualTo(LuaType.Nil));
+    }
 }
