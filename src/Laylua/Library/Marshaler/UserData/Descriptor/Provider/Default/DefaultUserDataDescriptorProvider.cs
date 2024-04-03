@@ -7,50 +7,88 @@ namespace Laylua.Marshaling;
 
 public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
 {
-    private readonly Dictionary<Type, UserDataDescriptor?> _descriptorDictionary;
-    private readonly List<(Type Type, UserDataDescriptor? Descriptor)> _descriptorList;
+    private readonly Dictionary<Type, UserDataDescriptor> _typeDescriptorDictionary;
+    private readonly Dictionary<Type, UserDataDescriptor> _valuesOfTypeDescriptorDictionary;
+    private readonly List<(Type Type, UserDataDescriptor Descriptor)> _valuesOfTypeDescriptorList;
     private readonly DelegateUserDataDescriptor _delegateDescriptor;
 
     public DefaultUserDataDescriptorProvider()
     {
-        _descriptorDictionary = new Dictionary<Type, UserDataDescriptor?>();
-        _descriptorList = new List<(Type, UserDataDescriptor?)>();
+        _typeDescriptorDictionary = new Dictionary<Type, UserDataDescriptor>();
+        _valuesOfTypeDescriptorDictionary = new Dictionary<Type, UserDataDescriptor>();
+        _valuesOfTypeDescriptorList = new List<(Type, UserDataDescriptor)>();
         _delegateDescriptor = new DelegateUserDataDescriptor();
     }
 
-    /// <inheritdoc/>
-    public override void SetDescriptor(Type type, UserDataDescriptor? descriptor)
+    public void SetDescriptorForType(Type type, UserDataDescriptor? descriptor)
     {
-        lock (_descriptorDictionary)
+        lock (_typeDescriptorDictionary)
         {
-            _descriptorDictionary[type] = descriptor;
-        }
-
-        lock (_descriptorList)
-        {
-            var existingIndex = _descriptorList.IndexOf((type, descriptor));
-            if (existingIndex == -1)
+            if (descriptor != null)
             {
-                _descriptorList.Add((type, descriptor));
-                _descriptorList.Sort(static (a, b) =>
-                {
-                    var aType = a.Item1;
-                    var bType = b.Item1;
-                    if (aType == bType)
-                        return 0;
-
-                    if (aType.IsAssignableFrom(bType))
-                        return -1;
-
-                    if (bType.IsAssignableFrom(aType))
-                        return 1;
-
-                    return 0;
-                });
+                _typeDescriptorDictionary[type] = descriptor;
             }
             else
             {
-                _descriptorList[existingIndex] = (type, descriptor);
+                _typeDescriptorDictionary.Remove(type);
+            }
+        }
+    }
+
+    public void SetDescriptorForValuesOfType(Type type, UserDataDescriptor? descriptor)
+    {
+        lock (_valuesOfTypeDescriptorDictionary)
+        {
+            if (descriptor != null)
+            {
+                _valuesOfTypeDescriptorDictionary[type] = descriptor;
+            }
+            else
+            {
+                _valuesOfTypeDescriptorDictionary.Remove(type);
+            }
+        }
+
+        lock (_valuesOfTypeDescriptorList)
+        {
+            if (descriptor != null)
+            {
+                var existingIndex = _valuesOfTypeDescriptorList.IndexOf((type, descriptor));
+                if (existingIndex == -1)
+                {
+                    _valuesOfTypeDescriptorList.Add((type, descriptor));
+                    _valuesOfTypeDescriptorList.Sort(static (a, b) =>
+                    {
+                        var aType = a.Item1;
+                        var bType = b.Item1;
+                        if (aType == bType)
+                            return 0;
+
+                        if (aType.IsAssignableFrom(bType))
+                            return -1;
+
+                        if (bType.IsAssignableFrom(aType))
+                            return 1;
+
+                        return 0;
+                    });
+                }
+                else
+                {
+                    _valuesOfTypeDescriptorList[existingIndex] = (type, descriptor);
+                }
+            }
+            else
+            {
+                var count = _valuesOfTypeDescriptorList.Count;
+                for (var i = 0; i < count; i++)
+                {
+                    if (_valuesOfTypeDescriptorList[i].Type != type)
+                        continue;
+
+                    _valuesOfTypeDescriptorList.RemoveAt(i);
+                    break;
+                }
             }
         }
     }
@@ -70,24 +108,35 @@ public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
             return true;
         }
 
-        var objType = obj!.GetType();
-        lock (_descriptorDictionary)
+        if (obj is Type)
         {
-            if (_descriptorDictionary.TryGetValue(objType, out descriptor))
+            lock (_typeDescriptorDictionary)
             {
-                return descriptor != null;
+                if (_typeDescriptorDictionary.TryGetValue((Type) (object) obj, out descriptor))
+                {
+                    return true;
+                }
             }
         }
 
-        lock (_descriptorList)
+        var objType = obj!.GetType();
+        lock (_valuesOfTypeDescriptorDictionary)
         {
-            for (var i = 0; i < _descriptorList.Count; i++)
+            if (_valuesOfTypeDescriptorDictionary.TryGetValue(objType, out descriptor))
             {
-                var tuple = _descriptorList[i];
+                return true;
+            }
+        }
+
+        lock (_valuesOfTypeDescriptorList)
+        {
+            for (var i = 0; i < _valuesOfTypeDescriptorList.Count; i++)
+            {
+                var tuple = _valuesOfTypeDescriptorList[i];
                 if (tuple.Type.IsAssignableFrom(objType))
                 {
                     descriptor = tuple.Descriptor;
-                    return descriptor != null;
+                    return true;
                 }
             }
         }
