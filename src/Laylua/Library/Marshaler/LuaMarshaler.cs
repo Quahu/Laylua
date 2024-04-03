@@ -46,7 +46,7 @@ public abstract partial class LuaMarshaler
         }
     }
 
-    private LuaReferencePool? _entityPool;
+    private volatile LuaReferencePool? _entityPool;
 
     /// <summary>
     ///     Instantiates a new marshaler with the specified Lua instance.
