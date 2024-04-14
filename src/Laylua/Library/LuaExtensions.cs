@@ -60,7 +60,7 @@ public static unsafe class LuaExtensions
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static lua_State* GetStatePointer(this Lua lua)
+    internal static lua_State* GetStatePointer(this Lua lua)
     {
         if (lua.IsDisposed)
             return null;

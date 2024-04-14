@@ -43,7 +43,7 @@ public abstract unsafe class LuaTestBase
 
         var allocator = CreateLuaAllocator();
         Lua = CreateLua(allocator);
-        L = Lua.GetStatePointer();
+        L = Lua.State.L;
     }
 
     [TearDown]

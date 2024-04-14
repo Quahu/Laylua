@@ -53,13 +53,13 @@ namespace Laylua
             Logger.LogInformation("Creating Lua...");
             using (var lua = new Lua(allocator))
             {
-                var L = lua.GetStatePointer();
+                var L = lua.State.L;
 
                 try
                 {
                     static int del(lua_State* L)
                     {
-                        return luaL_error(L, "haha yes");
+                        return luaL_error(L, "delegate error");
                     }
 
                     static int deln(lua_State* L)
@@ -169,7 +169,7 @@ namespace Laylua
                     }
                 }
 
-                Logger.LogInformation($"L: 0x{(IntPtr) lua.GetStatePointer():X}");
+                Logger.LogInformation($"L: 0x{(IntPtr) lua.State.L:X}");
                 Logger.LogInformation("Press enter to run lua table code.");
                 Console.ReadLine();
 
