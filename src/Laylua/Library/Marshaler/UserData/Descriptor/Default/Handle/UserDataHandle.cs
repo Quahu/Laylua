@@ -17,22 +17,19 @@ public unsafe class UserDataHandle
 
     internal const string UserDataTableName = "__laylua__internal_userdatacache";
     internal const string WeakValueModeMetatableName = "__laylua__internal_weakvaluemode";
+    internal const string SharedMetatableName = "__laylua__internal_shared"; // shared metatable for when no descriptor is set
 
     internal readonly Lua Lua;
-
-    internal readonly UserDataDescriptor Descriptor;
 
     internal IntPtr GCPtr => (IntPtr) _gcHandle;
 
     private GCHandle _gcHandle;
 
-    internal UserDataHandle(Lua lua, UserDataDescriptor descriptor)
+    internal UserDataHandle(Lua lua)
     {
         Guard.IsNotNull(lua);
-        Guard.IsNotNull(descriptor);
 
         Lua = lua;
-        Descriptor = descriptor;
 
         _gcHandle = GCHandle.Alloc(this);
     }
@@ -109,11 +106,8 @@ public unsafe class UserDataHandle
             {
                 if (!luaL_getsubtable(L, LuaRegistry.Index, UserDataTableName))
                 {
-                    if (luaL_getmetatable(L, WeakValueModeMetatableName).IsNoneOrNil())
+                    if (luaL_newmetatable(L, WeakValueModeMetatableName))
                     {
-                        lua_pop(L, 1);
-                        lua_createtable(L, 0, 1);
-
                         lua_pushstring(L, LuaMetatableKeysUtf8.__mode);
                         lua_pushstring(L, "v"u8);
                         lua_rawset(L, -3);
@@ -136,14 +130,25 @@ public unsafe class UserDataHandle
     private void PushMetatable()
     {
         var L = Lua.GetStatePointer();
-        var metatableName = $"__laylua_userdata_{Descriptor.MetatableName}";
-        if (!luaL_getmetatable(L, metatableName).IsNoneOrNil())
-            return;
+        var descriptor = GetDescriptor();
+        if (descriptor != null)
+        {
+            var metatableName = $"__laylua_userdata_{descriptor.MetatableName}";
+            if (luaL_getmetatable(L, metatableName).IsNoneOrNil())
+            {
+                lua_pop(L, 1);
+                lua_createtable(L, 0, 16);
 
-        lua_pop(L, 1);
-        lua_createtable(L, 0, 16);
+                descriptor.OnMetatableCreated(Lua, Lua.Stack[-1]);
 
-        Descriptor.OnMetatableCreated(Lua, Lua.Stack[-1]);
+                lua_pushvalue(L, -1);
+                lua_setfield(L, LuaRegistry.Index, metatableName);
+            }
+        }
+        else
+        {
+            luaL_newmetatable(L, SharedMetatableName);
+        }
 
         lua_pushstring(L, LuaMetatableKeysUtf8.__gc);
         lua_pushcfunction(L, __gc);
@@ -152,12 +157,15 @@ public unsafe class UserDataHandle
         lua_pushstring(L, LuaMetatableKeysUtf8.__metadata);
         lua_pushboolean(L, false);
         lua_rawset(L, -3);
-
-        lua_pushvalue(L, -1);
-        lua_setfield(L, LuaRegistry.Index, metatableName);
     }
 
-    internal static UserDataHandle FromStackIndex(lua_State* L, int stackIndex)
+    internal virtual UserDataDescriptor? GetDescriptor()
+    {
+        return null;
+    }
+
+    internal static UserDataHandle 
+        FromStackIndex(lua_State* L, int stackIndex)
     {
         if (!TryFromStackIndex(L, stackIndex, out var handle))
         {

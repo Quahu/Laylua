@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Laylua.Marshaling;
 
-public partial class DefaultLuaMarshaler : LuaMarshaler
+public unsafe partial class DefaultLuaMarshaler : LuaMarshaler
 {
     /// <summary>
     ///     Gets or sets the format provider of this marshaler.
@@ -21,7 +21,7 @@ public partial class DefaultLuaMarshaler : LuaMarshaler
     /// </summary>
     protected UserDataDescriptorProvider UserDataDescriptorProvider { get; }
 
-    private readonly Dictionary<IntPtr, Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>> _userDataHandleCaches;
+    private readonly Dictionary<IntPtr, Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>> _userDataHandleCaches;
 
     public DefaultLuaMarshaler(UserDataDescriptorProvider userDataDescriptorProvider)
     {
@@ -29,7 +29,7 @@ public partial class DefaultLuaMarshaler : LuaMarshaler
         _userDataHandleCaches = new();
     }
 
-    protected internal override unsafe void OnLuaDisposing(Lua lua)
+    protected internal override void OnLuaDisposing(Lua lua)
     {
         lock (_userDataHandleCaches)
         {
@@ -39,9 +39,9 @@ public partial class DefaultLuaMarshaler : LuaMarshaler
         base.OnLuaDisposing(lua);
     }
 
-    protected internal sealed override unsafe void RemoveUserDataHandle(UserDataHandle handle)
+    protected internal sealed override void RemoveUserDataHandle(UserDataHandle handle)
     {
-        Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>? userDataHandleCache;
+        Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
         lock (_userDataHandleCaches)
         {
             if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.Lua.MainThread.L, out userDataHandleCache))
@@ -51,6 +51,6 @@ public partial class DefaultLuaMarshaler : LuaMarshaler
         if (!handle.TryGetType(out var type) || type.IsValueType || !handle.TryGetValue<object>(out var value))
             return;
 
-        userDataHandleCache.Remove((value, handle.Descriptor));
+        userDataHandleCache.Remove((value, handle.GetDescriptor()));
     }
 }

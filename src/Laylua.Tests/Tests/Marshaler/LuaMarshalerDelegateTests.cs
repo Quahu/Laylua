@@ -2,7 +2,7 @@
 
 namespace Laylua.Tests;
 
-public class DelegateUserDataDescriptorTests : LuaTestBase
+public class LuaMarshalerDelegateTests : LuaTestBase
 {
     [Test]
     public void Delegate_LuaStackValueRange_ReturnsInt32ArgCount()

@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Laylua.Marshaling;
 
-public class DescribedUserData
+public abstract class DescribedUserData
 {
     public UserDataDescriptor Descriptor { get; }
 
@@ -12,10 +12,7 @@ public class DescribedUserData
         Descriptor = descriptor;
     }
 
-    internal virtual UserDataHandle CreateUserDataHandle(Lua lua)
-    {
-        return new UserDataHandle(lua, Descriptor);
-    }
+    internal abstract UserDataHandle CreateUserDataHandle(Lua lua);
 
     /// <summary>
     ///     Attempts to get the type of the value of this described userdata.

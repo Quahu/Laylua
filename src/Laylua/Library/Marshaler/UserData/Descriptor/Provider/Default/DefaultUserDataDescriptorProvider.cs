@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using Laylua.Moon;
 
 namespace Laylua.Marshaling;
 
@@ -10,14 +9,12 @@ public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
     private readonly Dictionary<Type, UserDataDescriptor> _typeDescriptorDictionary;
     private readonly Dictionary<Type, UserDataDescriptor> _valuesOfTypeDescriptorDictionary;
     private readonly List<(Type Type, UserDataDescriptor Descriptor)> _valuesOfTypeDescriptorList;
-    private readonly DelegateUserDataDescriptor _delegateDescriptor;
 
     public DefaultUserDataDescriptorProvider()
     {
         _typeDescriptorDictionary = new Dictionary<Type, UserDataDescriptor>();
         _valuesOfTypeDescriptorDictionary = new Dictionary<Type, UserDataDescriptor>();
         _valuesOfTypeDescriptorList = new List<(Type, UserDataDescriptor)>();
-        _delegateDescriptor = new DelegateUserDataDescriptor();
     }
 
     public void SetDescriptorForType(Type type, UserDataDescriptor? descriptor)
@@ -96,18 +93,6 @@ public class DefaultUserDataDescriptorProvider : UserDataDescriptorProvider
     /// <inheritdoc/>
     public override bool TryGetDescriptor<T>(T obj, [MaybeNullWhen(false)] out UserDataDescriptor descriptor)
     {
-        if (obj is Delegate)
-        {
-            if (obj is LuaCFunction)
-            {
-                descriptor = null;
-                return false;
-            }
-
-            descriptor = _delegateDescriptor;
-            return true;
-        }
-
         if (obj is Type)
         {
             lock (_typeDescriptorDictionary)

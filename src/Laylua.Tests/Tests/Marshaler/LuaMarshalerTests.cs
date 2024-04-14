@@ -219,4 +219,16 @@ public class LuaMarshalerTests : LuaTestBase
         // Assert
         Assert.That(newReference, Is.SameAs(reference));
     }
+
+    [Test]
+    public void Push_Delegate_PushesFunction()
+    {
+        // Act
+        Lua.Stack.Push(static () => { });
+        var type = Lua.Stack[1].Type;
+        Lua.Stack.Pop();
+
+        // Assert
+        Assert.That(type, Is.EqualTo(LuaType.Function));
+    }
 }

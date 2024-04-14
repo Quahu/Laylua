@@ -3,15 +3,15 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Laylua.Marshaling;
 
-public sealed class UserDataHandle<T> : UserDataHandle
+public class UserDataHandle<T> : UserDataHandle
 {
     /// <summary>
     ///     The value of this handle.
     /// </summary>
     public T Value;
 
-    internal UserDataHandle(Lua lua, T value, UserDataDescriptor descriptor)
-        : base(lua, descriptor)
+    internal UserDataHandle(Lua lua, T value)
+        : base(lua)
     {
         Value = value;
     }
@@ -19,7 +19,7 @@ public sealed class UserDataHandle<T> : UserDataHandle
     /// <inheritdoc/>
     public override bool TryGetType(out Type type)
     {
-        type = typeof(T);
+        type = Value?.GetType() ?? typeof(T);
         return true;
     }
 

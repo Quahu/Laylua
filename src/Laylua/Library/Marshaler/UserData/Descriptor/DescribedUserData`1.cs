@@ -22,7 +22,7 @@ public class DescribedUserData<T> : DescribedUserData
 
     internal override UserDataHandle CreateUserDataHandle(Lua lua)
     {
-        return new UserDataHandle<T>(lua, Value, Descriptor);
+        return new DescriptorUserDataHandle<T>(lua, Value, Descriptor);
     }
 
     /// <inheritdoc/>

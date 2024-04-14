@@ -136,7 +136,7 @@ public static class UserDataDescriptorUtilities
 
     private static T?[] GetParamsArgument<T>(Lua lua, int argumentCount, int argumentIndex)
     {
-        var remainingArgumentCount = argumentCount - (argumentIndex - 2);
+        var remainingArgumentCount = argumentCount - (argumentIndex - 1);
         if (remainingArgumentCount == 0)
             return Array.Empty<T>();
 
@@ -196,7 +196,7 @@ public static class UserDataDescriptorUtilities
             argumentVariableExpressions[i] = Expression.Variable(parameters[i].ParameterType, parameters[i].Name);
         }
 
-        var isColonInvoker = false;
+        var isInstanceMethodInvoker = false;
         Expression? instanceExpression;
         ParameterExpression? instanceExpressionVariable = null;
         if (methodInfo.IsStatic)
@@ -208,10 +208,9 @@ public static class UserDataDescriptorUtilities
             // Instance being null here means this is a colon syntax invoker:
             // obj:method()
             // This means the first argument is 'obj'.
-            // TODO: fix calculations based on this
             if (instance == null)
             {
-                isColonInvoker = true;
+                isInstanceMethodInvoker = true;
                 requiredParameterCount++;
 
                 /*
@@ -260,7 +259,7 @@ public static class UserDataDescriptorUtilities
             var parameter = parameters[i];
             var parameterType = parameter.ParameterType;
             var argumentVariableExpression = argumentVariableExpressions[i];
-            var argumentIndexExpression = Expression.Constant(i + (isColonInvoker ? 3 : 2));
+            var argumentIndexExpression = Expression.Constant(i + (isInstanceMethodInvoker ? 3 : 1));
 
             if (i != parameters.Length - 1 || ((!parameter.ParameterType.IsArray || parameter.GetCustomAttribute<ParamArrayAttribute>() == null)
                 && parameter.ParameterType != typeof(LuaStackValueRange)))
@@ -329,7 +328,7 @@ public static class UserDataDescriptorUtilities
                                 Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
                                 Expression.Subtract(
                                     argumentIndexExpression,
-                                    Expression.Constant(2)))));
+                                    Expression.Constant(1)))));
 
                     bodyExpressions.Add(getArgumentExpression);
                 }

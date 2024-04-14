@@ -144,7 +144,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        Dictionary<(object Value, UserDataDescriptor Descriptor), UserDataHandle>? userDataHandleCache;
+                        Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
                         lock (_userDataHandleCaches)
                         {
                             if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.L, out userDataHandleCache))
@@ -162,12 +162,12 @@ public unsafe partial class DefaultLuaMarshaler
                         Type clrType;
                         if (typeof(T).IsSealed || (clrType = obj.GetType()) == typeof(T))
                         {
-                            handle = new UserDataHandle<T>(lua, obj, descriptor);
+                            handle = new DescriptorUserDataHandle<T>(lua, obj, descriptor);
                         }
                         else
                         {
                             // TODO: possibly improve this in the future
-                            var userDataHandleType = typeof(UserDataHandle<>).MakeGenericType(clrType);
+                            var userDataHandleType = typeof(DescriptorUserDataHandle<>).MakeGenericType(clrType);
                             var constructor = userDataHandleType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
                             handle = (UserDataHandle) constructor.Invoke([lua, obj, descriptor]);
                         }
@@ -181,7 +181,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        new UserDataHandle<T>(lua, obj, descriptor).Push();
+                        new DescriptorUserDataHandle<T>(lua, obj, descriptor).Push();
                         return;
                     }
                 }
@@ -196,7 +196,7 @@ public unsafe partial class DefaultLuaMarshaler
                         }
                         else
                         {
-                            Throw.ArgumentException("The delegate cannot be marshaled without a user data descriptor.", nameof(obj));
+                            PushDelegate(lua, (Delegate) (object) obj);
                         }
 
                         return;

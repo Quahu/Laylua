@@ -3,14 +3,14 @@ using System.Runtime.CompilerServices;
 
 namespace Laylua.Marshaling;
 
-public class DelegateUserDataDescriptor : CallUserDataDescriptor
+public class LuaMarshalerDelegate : CallUserDataDescriptor
 {
     /// <inheritdoc/>
     public override string MetatableName => "delegate";
 
     private readonly ConditionalWeakTable<Delegate, UserDataDescriptorUtilities.MethodInvokerDelegate> _invokers;
 
-    public DelegateUserDataDescriptor()
+    public LuaMarshalerDelegate()
     {
         _invokers = new();
     }
