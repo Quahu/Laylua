@@ -40,6 +40,17 @@ public struct LuaFunctionResults : IDisposable
         }
     }
 
+    /// <inheritdoc cref="LuaStackValueRange.this[int]"/>
+    public LuaStackValue this[int index]
+    {
+        get
+        {
+            ThrowIfDisposed();
+
+            return _range[index];
+        }
+    }
+
     /// <inheritdoc cref="LuaStackValueRange.First"/>
     public readonly LuaStackValue First
     {
@@ -59,6 +70,19 @@ public struct LuaFunctionResults : IDisposable
             ThrowIfDisposed();
 
             return _range.Last;
+        }
+    }
+
+    /// <summary>
+    ///     Gets the underlying <see cref="LuaStackValueRange"/>.
+    /// </summary>
+    public readonly LuaStackValueRange Range
+    {
+        get
+        {
+            ThrowIfDisposed();
+
+            return _range;
         }
     }
 

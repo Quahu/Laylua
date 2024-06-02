@@ -22,6 +22,9 @@ public static class UserDataDescriptorUtilities
 
     private static readonly ConstructorInfo _luaStackValueRangeConstructor;
     private static readonly PropertyInfo _luaStackValueRangeGetItemProperty;
+    private static readonly PropertyInfo _luaStackValueRangeCountProperty;
+    private static readonly MethodInfo _luaStackValueRangePushValuesMethod;
+    private static readonly PropertyInfo _luaFunctionResultsRangeProperty;
 
     private static readonly MethodInfo _luaMarshalerTryToObjectMethod;
 
@@ -51,6 +54,18 @@ public static class UserDataDescriptorUtilities
         var luaStackValueRangeGetItemProperty = Array.Find(typeof(LuaStackValueRange).GetProperties(), propertyInfo => propertyInfo.GetIndexParameters().Length == 1);
         Guard.IsNotNull(luaStackValueRangeGetItemProperty);
         _luaStackValueRangeGetItemProperty = luaStackValueRangeGetItemProperty;
+
+        var luaStackValueRangeCountProperty = typeof(LuaStackValueRange).GetProperty(nameof(LuaStackValueRange.Count), BindingFlags.Instance | BindingFlags.Public);
+        Guard.IsNotNull(luaStackValueRangeCountProperty);
+        _luaStackValueRangeCountProperty = luaStackValueRangeCountProperty;
+
+        var luaStackValueRangePushValuesMethod = typeof(LuaStackValueRange).GetMethod(nameof(LuaStackValueRange.PushValues), BindingFlags.Instance | BindingFlags.Public);
+        Guard.IsNotNull(luaStackValueRangePushValuesMethod);
+        _luaStackValueRangePushValuesMethod = luaStackValueRangePushValuesMethod;
+
+        var luaFunctionResultsRangeProperty = typeof(LuaFunctionResults).GetProperty(nameof(LuaFunctionResults.Range), BindingFlags.Instance | BindingFlags.Public);
+        Guard.IsNotNull(luaFunctionResultsRangeProperty);
+        _luaFunctionResultsRangeProperty = luaFunctionResultsRangeProperty;
 
         var luaMarshalerTryToObjectMethod = typeof(LuaMarshaler).GetMethod(nameof(LuaMarshaler.TryGetValue), BindingFlags.Instance | BindingFlags.Public);
         Guard.IsNotNull(luaMarshalerTryToObjectMethod);
@@ -186,6 +201,7 @@ public static class UserDataDescriptorUtilities
         }
 
         var bodyExpressions = new List<Expression>();
+        var variableExpressions = new List<ParameterExpression>();
 
         // T1 arg1
         // T2 arg2
@@ -195,6 +211,8 @@ public static class UserDataDescriptorUtilities
         {
             argumentVariableExpressions[i] = Expression.Variable(parameters[i].ParameterType, parameters[i].Name);
         }
+
+        variableExpressions.AddRange(argumentVariableExpressions);
 
         var isInstanceMethodInvoker = false;
         Expression? instanceExpression;
@@ -237,6 +255,11 @@ public static class UserDataDescriptorUtilities
             {
                 instanceExpression = Expression.Constant(instance);
             }
+        }
+
+        if (instanceExpressionVariable != null)
+        {
+            variableExpressions.Add(instanceExpressionVariable);
         }
 
         // @delegate(arg1, arg2, arg3);
@@ -338,11 +361,28 @@ public static class UserDataDescriptorUtilities
         Expression returnCountExpression;
         if (methodInfo.ReturnType != typeof(void))
         {
-            // lua.Stack.Push(@delegate(...));
-            var pushMethod = _pushMethod.MakeGenericMethod(methodInfo.ReturnType);
-            var luaStack = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
-            callDelegateExpression = Expression.Call(luaStack, pushMethod, callDelegateExpression);
-            returnCountExpression = Expression.Constant(1, typeof(int));
+            if (methodInfo.ReturnType == typeof(LuaStackValueRange)
+                || methodInfo.ReturnType == typeof(LuaFunctionResults))
+            {
+                var returnValueVariableExpression = Expression.Variable(typeof(LuaStackValueRange), "returnValue");
+                variableExpressions.Add(returnValueVariableExpression);
+
+                callDelegateExpression = Expression.Call(
+                    Expression.Assign(returnValueVariableExpression, methodInfo.ReturnType == typeof(LuaStackValueRange)
+                        ? callDelegateExpression
+                        : Expression.Property(callDelegateExpression, _luaFunctionResultsRangeProperty)),
+                    _luaStackValueRangePushValuesMethod);
+
+                returnCountExpression = Expression.Property(returnValueVariableExpression, _luaStackValueRangeCountProperty);
+            }
+            else
+            {
+                // lua.Stack.Push(@delegate(...));
+                var pushMethod = _pushMethod.MakeGenericMethod(methodInfo.ReturnType);
+                var luaStack = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
+                callDelegateExpression = Expression.Call(luaStack, pushMethod, callDelegateExpression);
+                returnCountExpression = Expression.Constant(1, typeof(int));
+            }
         }
         else
         {
@@ -444,11 +484,11 @@ public static class UserDataDescriptorUtilities
         bodyExpressions.Add(callDelegateExpression);
         bodyExpressions.Add(returnCountExpression);
 
-        Expression bodyExpression = Expression.Block(instanceExpressionVariable != null ? argumentVariableExpressions.Prepend(instanceExpressionVariable) : argumentVariableExpressions, bodyExpressions);
+        Expression bodyExpression = Expression.Block(variableExpressions, bodyExpressions);
 
         if (disposeArgumentExpressions.Count > 0)
         {
-            bodyExpression = Expression.TryFinally(bodyExpression, Expression.Block(argumentVariableExpressions, disposeArgumentExpressions));
+            bodyExpression = Expression.TryFinally(bodyExpression, Expression.Block(variableExpressions, disposeArgumentExpressions));
         }
 
         var lambdaExpression = Expression.Lambda<MethodInvokerDelegate>(bodyExpression, luaParameterExpression, argumentsParameterExpression);
