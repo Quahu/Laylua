@@ -364,6 +364,7 @@ public static class UserDataDescriptorUtilities
             if (methodInfo.ReturnType == typeof(LuaStackValueRange)
                 || methodInfo.ReturnType == typeof(LuaFunctionResults))
             {
+                // @delegate(...).PushValues();
                 var returnValueVariableExpression = Expression.Variable(typeof(LuaStackValueRange), "returnValue");
                 variableExpressions.Add(returnValueVariableExpression);
 
