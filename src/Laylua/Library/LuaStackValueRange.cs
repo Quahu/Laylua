@@ -119,6 +119,7 @@ public readonly struct LuaStackValueRange
         if (IsEmpty)
             return;
 
+        _stack.EnsureFreeCapacity(_count);
         for (var i = 0; i < _count; i++)
         {
             this[i + 1].PushValue();
