@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using Qommon;
 
 namespace Laylua;
@@ -113,40 +111,10 @@ public struct LuaFunctionResults : IDisposable
         _isDisposed = true;
     }
 
-    public readonly Enumerator GetEnumerator()
+    public readonly LuaStackValueRange.Enumerator GetEnumerator()
     {
         ThrowIfDisposed();
 
-        return new Enumerator(this);
-    }
-
-    public struct Enumerator : IEnumerator<LuaStackValue>
-    {
-        /// <inheritdoc/>
-        public LuaStackValue Current => _enumerator.Current;
-
-        object IEnumerator.Current => Current;
-
-        private LuaStackValueRange.Enumerator _enumerator;
-
-        internal Enumerator(LuaFunctionResults results)
-        {
-            _enumerator = results._range.GetEnumerator();
-        }
-
-        /// <inheritdoc/>
-        public bool MoveNext()
-        {
-            return _enumerator.MoveNext();
-        }
-
-        /// <inheritdoc/>
-        public void Reset()
-        {
-            _enumerator.Reset();
-        }
-
-        void IDisposable.Dispose()
-        { }
+        return _range.GetEnumerator();
     }
 }
