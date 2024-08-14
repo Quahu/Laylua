@@ -59,4 +59,10 @@ public sealed unsafe class LuaUserData : LuaTable
     {
         return Clone<LuaUserData>();
     }
+
+    /// <inheritdoc cref="LuaReference.CreateWeakReference{TReference}"/>
+    public new LuaWeakReference<LuaUserData> CreateWeakReference()
+    {
+        return CreateWeakReference<LuaUserData>();
+    }
 }

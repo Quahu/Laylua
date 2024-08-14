@@ -87,11 +87,11 @@ public class LuaMarshalerDelegateTests : LuaTestBase
 
         // Assert
         Assert.That(result.Count, Is.EqualTo(3));
-        Assert.That(actual, Is.EquivalentTo(new[] { 1, 2, 3 }));
+        Assert.That(actual, Is.EqualTo(new[] { 1, 2, 3 }));
     }
 
     [Test]
-    public void Delegate_LuaStackValueRange_ReturningLuaFunctionResults_ReturnsVariadicArguments()
+    public void Delegate_ReturningLuaFunctionResults_ReturnsVariadicArguments()
     {
         // Arrange
         Lua.SetGlobal("func", () =>
@@ -109,7 +109,37 @@ public class LuaMarshalerDelegateTests : LuaTestBase
 
         // Assert
         Assert.That(result.Count, Is.EqualTo(3));
-        Assert.That(actual, Is.EquivalentTo(new[] { 1, 2, 3 }));
+        Assert.That(actual, Is.EqualTo(new[] { 1, 2, 3 }));
+    }
+
+    [Test]
+    [TestCase(new[] { 1, 2, 3, 4 }, 1, 2, new[] { 1, 2 })]
+    [TestCase(new[] { 1, 2, 3, 4 }, 2, 2, new[] { 2, 3 })]
+    [TestCase(new[] { 1, 2, 3, 4 }, 1, 4, new[] { 1, 2, 3, 4 })]
+    [TestCase(new[] { 1, 2, 3, 4 }, 3, 2, new[] { 3, 4 })]
+    public void Delegate_WithExtraStackElements_ReturningSlice_ReturnsCorrectVariadicArguments(int[] stackValues, int rangeStart, int rangeCount, int[] expected)
+    {
+        // Arrange
+        Lua.SetGlobal("func", () =>
+        {
+            foreach (var stackValue in stackValues)
+            {
+                Lua.Stack.Push(stackValue);
+            }
+
+            return Lua.Stack.GetRange(rangeStart, rangeCount);
+        });
+
+        // Act
+        using var result = Lua.Evaluate("return func()");
+        var actual = new List<int>();
+        foreach (var value in result)
+        {
+            actual.Add(value.GetValue<int>());
+        }
+
+        // Assert
+        Assert.That(actual, Is.EqualTo(expected));
     }
 
     [Test]

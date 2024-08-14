@@ -400,12 +400,31 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaType.Table:
             {
-                if (typeof(LuaTable).IsAssignableTo(clrType) || clrType == typeof(object))
+                if (clrType.IsAssignableFrom(typeof(LuaTable)) || clrType == typeof(object))
                 {
                     if (LuaReference.TryCreate(L, stackIndex, out var reference))
                     {
                         obj = (T) (object) CreateTable(lua, reference);
                         return true;
+                    }
+                }
+                else if (clrType == typeof(LuaWeakReference<LuaTable>) || clrType == typeof(LuaWeakReference<LuaReference>))
+                {
+                    if (clrType == typeof(LuaWeakReference<LuaTable>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaTable>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
+                    }
+                    else if (clrType == typeof(LuaWeakReference<LuaReference>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
                     }
                 }
 
@@ -414,12 +433,31 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaType.Function:
             {
-                if (typeof(LuaFunction).IsAssignableTo(clrType) || clrType == typeof(object))
+                if (clrType.IsAssignableFrom(typeof(LuaFunction)) || clrType == typeof(object))
                 {
                     if (LuaReference.TryCreate(L, stackIndex, out var reference))
                     {
                         obj = (T) (object) CreateFunction(lua, reference);
                         return true;
+                    }
+                }
+                else if (clrType == typeof(LuaWeakReference<LuaFunction>) || clrType == typeof(LuaWeakReference<LuaReference>))
+                {
+                    if (clrType == typeof(LuaWeakReference<LuaFunction>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaFunction>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
+                    }
+                    else if (clrType == typeof(LuaWeakReference<LuaReference>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
                     }
                 }
 
@@ -442,7 +480,7 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                 }
 
-                if (typeof(LuaUserData).IsAssignableTo(clrType) || clrType == typeof(object))
+                if (clrType.IsAssignableFrom(typeof(LuaUserData)) || clrType == typeof(object))
                 {
                     var ptr = lua_touserdata(L, stackIndex);
                     if (ptr != null && LuaReference.TryCreate(L, stackIndex, out var reference))
@@ -451,13 +489,32 @@ public unsafe partial class DefaultLuaMarshaler
                         return true;
                     }
                 }
+                else if (clrType == typeof(LuaWeakReference<LuaUserData>) || clrType == typeof(LuaWeakReference<LuaReference>))
+                {
+                    if (clrType == typeof(LuaWeakReference<LuaUserData>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaUserData>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
+                    }
+                    else if (clrType == typeof(LuaWeakReference<LuaReference>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
+                    }
+                }
 
                 obj = default;
                 return false;
             }
             case LuaType.Thread:
             {
-                if (clrType.IsAssignableTo(typeof(LuaReference)) || clrType == typeof(object))
+                if (clrType.IsAssignableFrom(typeof(LuaThread)) || clrType == typeof(object))
                 {
                     var threadPtr = lua_tothread(L, stackIndex);
                     if (threadPtr == lua.MainThread.L)
@@ -470,6 +527,25 @@ public unsafe partial class DefaultLuaMarshaler
                     {
                         obj = (T) (object) CreateThread(lua, reference, threadPtr);
                         return true;
+                    }
+                }
+                else if (clrType == typeof(LuaWeakReference<LuaThread>) || clrType == typeof(LuaWeakReference<LuaReference>))
+                {
+                    if (clrType == typeof(LuaWeakReference<LuaThread>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaThread>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
+                    }
+                    else if (clrType == typeof(LuaWeakReference<LuaReference>))
+                    {
+                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        {
+                            obj = (T) (object) weakReference;
+                            return true;
+                        }
                     }
                 }
 

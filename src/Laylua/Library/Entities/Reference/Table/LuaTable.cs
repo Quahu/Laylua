@@ -125,6 +125,12 @@ public unsafe partial class LuaTable : LuaReference
         return Clone<LuaTable>();
     }
 
+    /// <inheritdoc cref="LuaReference.CreateWeakReference{TReference}"/>
+    public LuaWeakReference<LuaTable> CreateWeakReference()
+    {
+        return CreateWeakReference<LuaTable>();
+    }
+
     /// <summary>
     ///     Attempts to get the metatable of this table.
     /// </summary>
@@ -309,6 +315,9 @@ public unsafe partial class LuaTable : LuaReference
     /// <param name="key"> The key of the value to get. </param>
     /// <typeparam name="TKey"> The type of the key. </typeparam>
     /// <typeparam name="TValue"> The type of the value. </typeparam>
+    /// <returns>
+    ///     The value from the table.
+    /// </returns>
     /// <exception cref="KeyNotFoundException">
     ///     Thrown when the table does not contain a value with the specified key.
     /// </exception>
@@ -328,11 +337,48 @@ public unsafe partial class LuaTable : LuaReference
             Lua.Stack.Push(key);
             if (lua_gettable(L, -2).IsNoneOrNil())
             {
-                Throw.KeyNotFoundException();
+                Throw.KeyNotFoundException("The given key was not present in the table.");
             }
 
             return Lua.Stack[-1].GetValue<TValue>()!;
         }
+    }
+
+    /// <inheritdoc cref="LuaReference._reference"/>
+    /// <summary>
+    ///     Gets a value with the given key in the table.
+    /// </summary>
+    /// <param name="key"> The key of the value to get. </param>
+    /// <typeparam name="TKey"> The type of the key. </typeparam>
+    /// <typeparam name="TValue"> The type of the value. </typeparam>
+    /// <returns>
+    ///     The value from the table or <see langword="default"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public TValue? GetValueOrDefault<TKey, TValue>(TKey key)
+        where TKey : notnull
+        where TValue : notnull
+    {
+        return TryGetValue<TKey, TValue>(key, out var value) ? value : default;
+    }
+
+    /// <inheritdoc cref="LuaReference._reference"/>
+    /// <summary>
+    ///     Gets a value with the given key in the table.
+    /// </summary>
+    /// <param name="key"> The key of the value to get. </param>
+    /// <param name="defaultValue"> The default value to return. </param>
+    /// <typeparam name="TKey"> The type of the key. </typeparam>
+    /// <typeparam name="TValue"> The type of the value. </typeparam>
+    /// <returns>
+    ///     The value from the table or <paramref name="defaultValue"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public TValue? GetValueOrDefault<TKey, TValue>(TKey key, TValue defaultValue)
+        where TKey : notnull
+        where TValue : notnull
+    {
+        return TryGetValue<TKey, TValue>(key, out var value) ? value : defaultValue;
     }
 
     /// <summary>

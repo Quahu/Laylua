@@ -1,0 +1,145 @@
+﻿using System;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using Laylua.Moon;
+using Qommon;
+
+namespace Laylua;
+
+/// <summary>
+///     Represent a weak reference to a Lua object.
+/// </summary>
+/// <typeparam name="TReference"> The type of the object, specified by a <see cref="LuaReference"/> type. </typeparam>
+public readonly unsafe struct LuaWeakReference<TReference>
+    where TReference : LuaReference
+{
+    /// <summary>
+    ///     Gets the <see cref="Laylua.Lua"/> instance this object is bound to.
+    /// </summary>
+    public Lua Lua
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            ThrowIfInvalid();
+            return _lua;
+        }
+    }
+
+    private readonly Lua _lua;
+    private readonly void* _pointer;
+
+    internal LuaWeakReference(Lua lua, void* pointer)
+    {
+        _lua = lua;
+        _pointer = pointer;
+    }
+
+    /// <summary>
+    ///     Checks whether this weak reference is alive and attempts to retrieve the weakly referenced <see cref="LuaReference"/>.
+    /// </summary>
+    /// <param name="value"> The weakly referenced <see cref="LuaReference"/> or <see langword="null"/> if the reference is not alive. </param>
+    /// <returns>
+    ///     <see langword="true"/> if the value is retrieved successfully; <see langword="false"/> otherwise.
+    /// </returns>
+    public bool TryGetValue([MaybeNullWhen(false)] out TReference value)
+    {
+        if (_lua == null || !_lua.Stack.TryEnsureFreeCapacity(2))
+        {
+            value = default;
+            return false;
+        }
+
+        var L = _lua.GetStatePointer();
+        var top = lua_gettop(L);
+        try
+        {
+            if (lua_getfield(L, LuaRegistry.Index, LuaWeakReference.WeakReferencesTableName) != LuaType.Table)
+            {
+                value = default;
+                return false;
+            }
+
+            var type = lua_rawgetp(L, -1, _pointer);
+            if (type.IsNoneOrNil())
+            {
+                value = default;
+                return false;
+            }
+
+            return Lua.Stack[-1].TryGetValue(out value);
+        }
+        catch
+        {
+            value = default;
+            return false;
+        }
+        finally
+        {
+            lua_settop(L, top);
+        }
+    }
+
+    [MemberNotNull(nameof(_lua))]
+    private void ThrowIfInvalid()
+    {
+        if (_lua == null)
+        {
+            throw new InvalidOperationException($"This '{GetType().ToTypeString()}' has not been initialized.");
+        }
+    }
+}
+
+internal static class LuaWeakReference
+{
+    internal const string WeakReferencesTableName = "__laylua__internal_weakreferences";
+
+    public static unsafe bool TryCreate<TReference>(Lua lua, int stackIndex, out LuaWeakReference<TReference> weakReference)
+        where TReference : LuaReference
+    {
+        if (!TryCreate(lua, stackIndex, out var targetPointer))
+        {
+            weakReference = default;
+            return false;
+        }
+
+        weakReference = new LuaWeakReference<TReference>(lua, targetPointer);
+        return true;
+    }
+
+    private static unsafe bool TryCreate(Lua lua, int stackIndex, out void* targetPointer)
+    {
+        var L = lua.GetStatePointer();
+        if (!lua_checkstack(L, 4))
+        {
+            targetPointer = null;
+            return false;
+        }
+
+        stackIndex = lua_absindex(L, stackIndex);
+        var top = lua_gettop(L);
+        try
+        {
+            if (!luaL_getsubtable(L, LuaRegistry.Index, WeakReferencesTableName))
+            {
+                lua_createtable(L, 0, 1);
+
+                lua_pushstring(L, LuaMetatableKeysUtf8.__mode);
+                lua_pushstring(L, "v"u8);
+                lua_rawset(L, -3);
+
+                lua_setmetatable(L, -2);
+            }
+
+            lua_pushvalue(L, stackIndex);
+            targetPointer = lua_topointer(L, -1);
+            lua_rawsetp(L, -2, targetPointer);
+            return true;
+        }
+        finally
+        {
+            lua_settop(L, top);
+        }
+    }
+}

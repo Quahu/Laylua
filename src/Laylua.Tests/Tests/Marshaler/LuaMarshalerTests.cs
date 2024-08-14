@@ -1,10 +1,8 @@
 ﻿using System.Collections;
-using Laylua.Marshaling;
-using Qommon;
-#if NET7_0_OR_GREATER
 using System.Numerics;
 using System.Reflection;
-#endif
+using Laylua.Marshaling;
+using Qommon;
 
 namespace Laylua.Tests;
 
@@ -26,7 +24,6 @@ public class LuaMarshalerTests : LuaTestBase
             typeof(double),
         };
 
-#if NET7_0_OR_GREATER
         var createNumberMethod = typeof(LuaMarshalerTests).GetMethod(nameof(CreateNumber), BindingFlags.NonPublic | BindingFlags.Static)!;
         var createFloatingPointMethod = typeof(LuaMarshalerTests).GetMethod(nameof(CreateFloatingPoint), BindingFlags.NonPublic | BindingFlags.Static)!;
         foreach (var type in types)
@@ -42,19 +39,8 @@ public class LuaMarshalerTests : LuaTestBase
                 yield return testCaseData;
             }
         }
-#else
-        foreach (var type in types)
-        {
-            yield return new TestCaseData(Convert.ChangeType(0, type))
-                .SetArgDisplayNames($"({type.Name}) 0");
-
-            yield return new TestCaseData(Convert.ChangeType(1, type))
-                .SetArgDisplayNames($"({type.Name}) 1");
-        }
-#endif
     }
 
-#if NET7_0_OR_GREATER
     private static IEnumerable<TestCaseData> CreateNumber<T>()
         where T : INumberBase<T>, IMinMaxValue<T>
     {
@@ -91,7 +77,6 @@ public class LuaMarshalerTests : LuaTestBase
         yield return new TestCaseData(T.Tau)
             .SetArgDisplayNames($"{typeof(T).Name}.{nameof(T.Tau)}");
     }
-#endif
 
     [Test]
     [TestCaseSource(nameof(SameValues))]
@@ -230,5 +215,57 @@ public class LuaMarshalerTests : LuaTestBase
 
         // Assert
         Assert.That(type, Is.EqualTo(LuaType.Function));
+    }
+
+    [Test]
+    public void MarshaledReference_MarshaledAsWeakReference_WorksWithAllReferenceTypes()
+    {
+        // Arrange
+        using var table = Lua.Evaluate<LuaTable>("return {}");
+        using var function = Lua.Evaluate<LuaFunction>("return function() end");
+        using var ud = Lua.CreateUserData(0);
+        var thread = Lua.MainThread;
+
+        // Act
+        Lua.Stack.Push(table);
+        var weakTable = Lua.Stack[-1].GetValue<LuaWeakReference<LuaTable>>();
+        var weakTableAsReference = Lua.Stack[-1].GetValue<LuaWeakReference<LuaReference>>();
+        Lua.Stack.Pop();
+
+        Lua.Stack.Push(function);
+        var weakFunction = Lua.Stack[-1].GetValue<LuaWeakReference<LuaFunction>>();
+        var weakFunctionAsReference = Lua.Stack[-1].GetValue<LuaWeakReference<LuaReference>>();
+        Lua.Stack.Pop();
+
+        Lua.Stack.Push(ud);
+        var weakUserData = Lua.Stack[-1].GetValue<LuaWeakReference<LuaUserData>>();
+        var weakUserDataAsReference = Lua.Stack[-1].GetValue<LuaWeakReference<LuaReference>>();
+        Lua.Stack.Pop();
+
+        Lua.Stack.Push(thread);
+        var weakThread = Lua.Stack[-1].GetValue<LuaWeakReference<LuaThread>>();
+        var weakThreadAsReference = Lua.Stack[-1].GetValue<LuaWeakReference<LuaReference>>();
+        Lua.Stack.Pop();
+
+        // Assert
+        Assert.That(weakTable.TryGetValue(out var weakTableValue), Is.True);
+        Assert.That(weakTableValue, Is.EqualTo(table));
+        Assert.That(weakTableAsReference.TryGetValue(out var weakTableAsReferenceValue), Is.True);
+        Assert.That(weakTableAsReferenceValue, Is.EqualTo(table));
+
+        Assert.That(weakFunction.TryGetValue(out var weakFunctionValue), Is.True);
+        Assert.That(weakFunctionValue, Is.EqualTo(function));
+        Assert.That(weakFunctionAsReference.TryGetValue(out var weakFunctionAsReferenceValue), Is.True);
+        Assert.That(weakFunctionAsReferenceValue, Is.EqualTo(function));
+
+        Assert.That(weakUserData.TryGetValue(out var weakUserDataValue), Is.True);
+        Assert.That(weakUserDataValue, Is.EqualTo(ud));
+        Assert.That(weakUserDataAsReference.TryGetValue(out var weakUserDataAsReferenceValue), Is.True);
+        Assert.That(weakUserDataAsReferenceValue, Is.EqualTo(ud));
+
+        Assert.That(weakThread.TryGetValue(out var weakThreadValue), Is.True);
+        Assert.That(weakThreadValue, Is.EqualTo(thread));
+        Assert.That(weakThreadAsReference.TryGetValue(out var weakThreadAsReferenceValue), Is.True);
+        Assert.That(weakThreadAsReferenceValue, Is.EqualTo(thread));
     }
 }

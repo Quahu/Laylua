@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Laylua.Marshaling;
 using Laylua.Moon;
+using Qommon;
 
 namespace Laylua;
 
@@ -110,6 +111,31 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         }
     }
 
+    /// <summary>
+    ///     Creates a weak reference to the object of this reference.
+    /// </summary>
+    /// <returns>
+    ///     The created weak reference.
+    /// </returns>
+    private protected LuaWeakReference<TReference> CreateWeakReference<TReference>()
+        where TReference : LuaReference
+    {
+        ThrowIfInvalid();
+
+        Lua.Stack.EnsureFreeCapacity(1);
+
+        using (Lua.Stack.SnapshotCount())
+        {
+            PushValue(this);
+            if (!LuaWeakReference.TryCreate<TReference>(Lua, -1, out var weakReference))
+            {
+                _lua.ThrowLuaException("Failed to create the weak reference.");
+            }
+
+            return weakReference;
+        }
+    }
+
     public bool Equals(LuaReference? other)
     {
         if (other == null)
@@ -157,7 +183,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     public override string ToString()
     {
         if (_isDisposed)
-            return $"<disposed {GetType().Name}>";
+            return $"<disposed {GetType().ToTypeString()}>";
 
         Lua.Stack.EnsureFreeCapacity(2);
 

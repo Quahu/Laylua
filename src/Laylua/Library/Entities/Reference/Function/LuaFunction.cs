@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Laylua.Moon;
 
 namespace Laylua;
@@ -24,6 +24,12 @@ public sealed unsafe partial class LuaFunction : LuaReference
     public LuaFunction Clone()
     {
         return Clone<LuaFunction>();
+    }
+
+    /// <inheritdoc cref="LuaReference.CreateWeakReference{TReference}"/>
+    public LuaWeakReference<LuaFunction> CreateWeakReference()
+    {
+        return CreateWeakReference<LuaFunction>();
     }
 
     private static void PrepareFunction(LuaReference reference, out int top, int argumentCount)

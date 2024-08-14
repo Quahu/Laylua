@@ -60,4 +60,10 @@ public sealed unsafe class LuaThread : LuaReference
     {
         return Clone<LuaThread>();
     }
+
+    /// <inheritdoc cref="LuaReference.CreateWeakReference{TReference}"/>
+    public LuaWeakReference<LuaThread> CreateWeakReference()
+    {
+        return CreateWeakReference<LuaThread>();
+    }
 }
