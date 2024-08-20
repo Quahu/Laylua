@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Laylua.Marshaling;
 using Laylua.Moon;
 using Qommon;
 
@@ -45,12 +44,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         set => _reference = value;
     }
 
-    internal bool PoolOnDispose
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        set => _poolOnDispose = value;
-    }
-
     private Lua? _lua;
 
     /// <remarks>
@@ -59,7 +52,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     /// </remarks>
     private int _reference;
     private bool _isDisposed;
-    private bool _poolOnDispose;
 
     private protected LuaReference()
     { }
@@ -68,7 +60,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     internal void Reset()
     {
         _isDisposed = default;
-        _poolOnDispose = default;
     }
 
     [MemberNotNull(nameof(_lua))]
@@ -216,11 +207,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         luaL_unref(L, LuaRegistry.Index, _reference);
         _isDisposed = true;
 
-        var marshaler = _lua!.Marshaler;
-        if (_poolOnDispose)
-        {
-            marshaler.ReturnReference(this);
-        }
+        _lua!.Marshaler.ReturnReference(this);
     }
 
     public static int GetReference(LuaReference reference)

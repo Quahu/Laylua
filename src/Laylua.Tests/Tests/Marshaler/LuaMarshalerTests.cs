@@ -198,7 +198,7 @@ public class LuaMarshalerTests : LuaTestBase
         var reference = lua1.Evaluate<LuaTable>("return {}")!;
 
         // Act
-        reference.PoolOnDispose().Dispose();
+        reference.Dispose();
         var newReference = lua1.Evaluate<LuaTable>("return {}")!;
 
         // Assert
