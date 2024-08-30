@@ -45,6 +45,8 @@ public unsafe partial class LuaTable : LuaReference
         {
             ThrowIfInvalid();
 
+            Lua.Stack.EnsureFreeCapacity(3);
+
             var L = Lua.GetStatePointer();
             using (Lua.Stack.SnapshotCount())
             {
@@ -57,7 +59,7 @@ public unsafe partial class LuaTable : LuaReference
 
     /// <summary>
     ///     Gets the length of this table.
-    ///     This returns the same value as the length operator ()
+    ///     This returns the same value as the length operator (<c>#table</c>).
     /// </summary>
     /// <remarks>
     ///     <b>If you want to get the amount of key/value pairs in the table,
@@ -186,6 +188,8 @@ public unsafe partial class LuaTable : LuaReference
     public void SetMetatable(LuaTable? metatable)
     {
         ThrowIfInvalid();
+
+        Lua.Stack.EnsureFreeCapacity(2);
 
         var L = Lua.GetStatePointer();
         using (Lua.Stack.SnapshotCount())
