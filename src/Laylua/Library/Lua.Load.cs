@@ -33,7 +33,7 @@ public unsafe partial class Lua
         {
             if (results.Count == 0)
             {
-                Throw.InvalidOperationException("The evaluation returned no results.");
+                Throw.InvalidOperationException("The code evaluation succeeded, but returned no results.");
             }
 
             return results.First.GetValue<T>();
