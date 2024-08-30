@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
@@ -39,16 +38,14 @@ public readonly unsafe struct LuaWeakReference<TReference>
     /// <summary>
     ///     Checks whether this weak reference is alive and attempts to retrieve the weakly referenced <see cref="LuaReference"/>.
     /// </summary>
-    /// <param name="value"> The weakly referenced <see cref="LuaReference"/> or <see langword="null"/> if the reference is not alive. </param>
     /// <returns>
-    ///     <see langword="true"/> if the value is retrieved successfully; <see langword="false"/> otherwise.
+    ///     The weakly referenced <see cref="LuaReference"/> or <see langword="null"/> if the reference is not alive.
     /// </returns>
-    public bool TryGetValue([MaybeNullWhen(false)] out TReference value)
+    public TReference? GetValue()
     {
         if (_lua == null || !_lua.Stack.TryEnsureFreeCapacity(2))
         {
-            value = default;
-            return false;
+            return default;
         }
 
         var L = _lua.GetStatePointer();
@@ -57,23 +54,20 @@ public readonly unsafe struct LuaWeakReference<TReference>
         {
             if (lua_getfield(L, LuaRegistry.Index, LuaWeakReference.WeakReferencesTableName) != LuaType.Table)
             {
-                value = default;
-                return false;
+                return default;
             }
 
             var type = lua_rawgetp(L, -1, _pointer);
             if (type.IsNoneOrNil())
             {
-                value = default;
-                return false;
+                return default;
             }
 
-            return Lua.Stack[-1].TryGetValue(out value);
+            return Lua.Stack[-1].TryGetValue(out TReference? value) ? value : null;
         }
         catch
         {
-            value = default;
-            return false;
+            return default;
         }
         finally
         {

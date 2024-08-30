@@ -17,15 +17,13 @@ public class LuaWeakReferenceTests : LuaTestBase
         // Act
         Lua.State.GC.Collect();
 
-        var isAlive = weakReference.TryGetValue(out var table);
-        using var _ = table;
+        using var table = weakReference.GetValue();
 
         Lua.Stack.Push(table);
         var targetPointer = lua_topointer(L, -1);
         Lua.Stack.Pop();
 
         // Assert
-        Assert.That(isAlive, Is.True);
         Assert.That(table, Is.Not.Null);
         Assert.That((IntPtr) targetPointer, Is.EqualTo((IntPtr) expectedTargetPointer));
     }
@@ -39,11 +37,9 @@ public class LuaWeakReferenceTests : LuaTestBase
         // Act
         Lua.State.GC.Collect();
 
-        var isAlive = weakReference.TryGetValue(out var function);
-        using var _ = function;
+        using var function = weakReference.GetValue();
 
         // Assert
-        Assert.That(isAlive, Is.False);
         Assert.That(function, Is.Null);
     }
 }
