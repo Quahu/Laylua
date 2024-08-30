@@ -1,3 +1,4 @@
+﻿using System;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
 
@@ -206,6 +207,18 @@ public sealed unsafe partial class LuaFunction : LuaReference
     /// </returns>
     public LuaFunctionResults Call(params object?[] arguments)
     {
+        return Call(arguments.AsSpan());
+    }
+
+    /// <summary>
+    ///     Calls (invokes) this function with the specified arguments.
+    /// </summary>
+    /// <param name="arguments"> The arguments to pass to the function. </param>
+    /// <returns>
+    ///     The results returned from the function.
+    /// </returns>
+    public LuaFunctionResults Call(params ReadOnlySpan<object?> arguments)
+    {
         ThrowIfInvalid();
 
         var argumentCount = arguments.Length;
@@ -236,6 +249,18 @@ public sealed unsafe partial class LuaFunction : LuaReference
     ///     The results returned from the function.
     /// </returns>
     public LuaFunctionResults Call(params LuaStackValue[] arguments)
+    {
+        return Call(arguments.AsSpan());
+    }
+
+    /// <summary>
+    ///     Calls (invokes) this function with the specified arguments.
+    /// </summary>
+    /// <param name="arguments"> The arguments to pass to the function. </param>
+    /// <returns>
+    ///     The results returned from the function.
+    /// </returns>
+    public LuaFunctionResults Call(params ReadOnlySpan<LuaStackValue> arguments)
     {
         ThrowIfInvalid();
 
