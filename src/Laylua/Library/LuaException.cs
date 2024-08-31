@@ -1,52 +1,92 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Laylua.Moon;
 
 namespace Laylua;
 
-public unsafe class LuaException : Exception
+public class LuaException : Exception
 {
-    public Lua Lua { get; }
+    internal static readonly ConcurrentDictionary<IntPtr, GCHandle> ErrorInfoHandles = new();
 
-    public LuaStatus? Status { get; }
+    private class ErrorInfo(string? message, Exception? exception)
+    {
+        public string? Message { get; } = message;
 
-    public LuaException(Lua lua)
-        : this(lua, PopError(lua))
+        public Exception? Exception { get; } = exception;
+    }
+
+    private const string UnknownMessage = "An unknown error occurred.";
+
+    public LuaStatus? Status { get; private set; }
+
+    internal LuaException(string? message, Exception? innerException = null)
+        : base(message, innerException)
     { }
 
-    public LuaException(Lua lua, string? message)
-        : this(lua, null, message)
-    { }
+    private static string GetMessage(string? message, Exception? innerException)
+    {
+        return message ?? (innerException != null ? "An exception occurred, but was caught and raised as an error." : UnknownMessage);
+    }
 
-    public LuaException(Lua lua, LuaStatus? status)
-        : this(lua, PopError(lua))
+    public LuaException WithStatus(LuaStatus status)
     {
         Status = status;
+        return this;
     }
 
-    public LuaException(Lua lua, LuaStatus? status, string? message)
-        : base(message)
-    {
-        Lua = lua;
-        Status = status;
-    }
-
-    private static string? PopError(Lua lua)
-    {
-        return TryPopError(lua, out var error) ? error : null;
-    }
-
-    private static bool TryPopError(Lua lua, [MaybeNullWhen(false)] out string error)
+    internal static unsafe LuaException ConstructFromStack(Lua lua)
     {
         var L = lua.GetStatePointer();
-        if (!lua_isstring(L, -1))
+        if (TryGetError(L, out var error))
         {
-            error = null;
+            lua_pop(L);
+            return new LuaException(error.Message, error.Exception);
+        }
+
+        return new LuaException("Error object is neither a string nor an exception.");
+    }
+
+    internal static unsafe bool TryGetError(lua_State* L, out (string? Message, Exception? Exception) error)
+    {
+        var type = lua_type(L, -1);
+        if (type != LuaType.String && type != LuaType.LightUserData)
+        {
+            error = default;
             return false;
         }
 
-        error = lua_tostring(L, -1).ToString().Replace("\r", "").Replace("\n", "");
-        lua_pop(L);
+        if (type == LuaType.String)
+        {
+            error = (lua_tostring(L, -1).ToString().Replace("\r", "").Replace("\n", ""), Exception: null);
+            return true;
+        }
+
+        var ptr = (IntPtr) lua_touserdata(L, -1);
+        if (!ErrorInfoHandles.TryRemove(ptr, out var handle))
+        {
+            error = default;
+            return false;
+        }
+
+        var errorInfo = Unsafe.As<ErrorInfo>(handle.Target)!;
+        error = (errorInfo.Message, errorInfo.Exception);
+        handle.Free();
         return true;
+    }
+
+    [DoesNotReturn]
+    internal static unsafe int RaiseErrorInfo(lua_State* L, string? message, Exception? exception)
+    {
+        luaL_checkstack(L, 1, "No space on the stack to push error info.");
+
+        var handle = GCHandle.Alloc(new ErrorInfo(message, exception));
+        var ptr = (IntPtr) handle;
+        ErrorInfoHandles[ptr] = handle;
+
+        lua_pushlightuserdata(L, ptr.ToPointer());
+        return lua_error(L);
     }
 }

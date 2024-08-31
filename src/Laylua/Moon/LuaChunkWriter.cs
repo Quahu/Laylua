@@ -9,9 +9,6 @@ public abstract unsafe class LuaChunkWriter
     /// <summary>
     ///     Writes the specified Lua chunk.
     /// </summary>
-    /// <remarks>
-    ///     The code must not throw any exceptions.
-    /// </remarks>
     /// <param name="L"> The Lua state. </param>
     /// <param name="data"> The pointer to the memory block containing the Lua chunk to write. </param>
     /// <param name="length"> The size of the memory block. </param>

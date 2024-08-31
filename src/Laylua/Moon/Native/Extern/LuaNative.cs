@@ -497,19 +497,9 @@ public static unsafe partial class LuaNative
 
     public static LuaStatus lua_pcallk(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, LuaKFunction? k)
     {
-        var state = LayluaState.FromExtraSpace(L);
-        var wasPCall = state.IsPCall;
-        state.IsPCall = true;
-        try
+        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
         {
             return _lua_pcallk(L, nargs, nresults, errfunc, ctx, k);
-        }
-        finally
-        {
-            if (!wasPCall)
-            {
-                state.IsPCall = false;
-            }
         }
     }
 
@@ -525,6 +515,7 @@ public static unsafe partial class LuaNative
     {
         using (var chunkNameBytes = ToCString(chunkname))
         using (var modeBytes = ToCString(mode))
+        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
         {
             fixed (byte* chunkNamePtr = chunkNameBytes)
             fixed (byte* modePtr = modeBytes)
@@ -538,6 +529,7 @@ public static unsafe partial class LuaNative
     {
         using (var chunkNameBytes = ToCString(chunkname))
         using (var modeBytes = ToCString(mode))
+        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
         {
             fixed (byte* chunkNamePtr = chunkNameBytes)
             fixed (byte* modePtr = modeBytes)

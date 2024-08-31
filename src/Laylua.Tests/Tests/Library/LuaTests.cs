@@ -127,13 +127,57 @@ public class LuaTests : LuaTestBase
     {
         // Arrange
         using var _ = stream;
-        using var function = Lua.Load(stream, "streamChunk");
 
         // Act
+        using var function = Lua.Load(stream, "streamChunk");
         using var results = function.Call();
 
         // Assert
         Assert.That(results.First.GetValue<int>(), Is.EqualTo(42));
+    }
+
+    // Q: This test also validates that there's no leaked PanicInfo from lua_load + lua_error.
+    [Test]
+    public void Load_ThrowingStream_ThrowsExceptionCorrectly()
+    {
+        // Arrange
+        using var stream = new IOThrowingStream();
+
+        // Act & Assert
+        Assert.That(() =>
+        {
+            using var function = Lua.Load(stream, "streamChunk");
+        }, Throws.TypeOf<LuaException>().And.InnerException.TypeOf<IOException>());
+    }
+
+    private sealed class IOThrowingStream() : MemoryStream([], 0, 0, true, false)
+    {
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            throw new IOException("Test IO exception.");
+        }
+    }
+
+    // Q: This test also validates that there's no leaked PanicInfo from lua_error.
+    [Test]
+    public void Load_ThrowingChunkReader_ThrowsExceptionCorrectly()
+    {
+        // Arrange
+        var reader = new ThrowingLuaChunkReader();
+
+        // Act & Assert
+        Assert.That(() =>
+        {
+            using var function = Lua.Load(reader, "readerChunk");
+        }, Throws.TypeOf<LuaException>().And.InnerException.TypeOf<IOException>());
+    }
+
+    private sealed class ThrowingLuaChunkReader : LuaChunkReader
+    {
+        protected override unsafe byte* Read(lua_State* L, out UIntPtr bytesRead)
+        {
+            throw new IOException("Test IO exception.");
+        }
     }
 
     [Test]

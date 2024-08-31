@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Laylua.Moon;
 
@@ -58,45 +59,63 @@ public unsafe partial class LuaFunction
                 throw new ArgumentOutOfRangeException(nameof(target));
             }
 
-            var handle = GCHandle.Alloc(target);
+            var state = new WriteState(target);
+            var handle = GCHandle.Alloc(state);
             try
             {
                 var L = Lua.GetStatePointer();
-                return lua_dump(L, writerFunctionPtr, (void*) (IntPtr) handle, stripDebugInformation);
+                var result = lua_dump(L, writerFunctionPtr, (void*) (IntPtr) handle, stripDebugInformation);
+                if (state.Exception != null)
+                {
+                    ExceptionDispatchInfo.Capture(state.Exception).Throw();
+                }
+
+                return result;
             }
             finally
             {
                 handle.Free();
             }
         }
+    }
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-        static int WriteToStream(lua_State* L, void* p, nuint sz, void* ud)
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int WriteToStream(lua_State* L, void* p, nuint sz, void* ud)
+    {
+        var state = Unsafe.As<WriteState>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
+        var stream = Unsafe.As<Stream>(state.Target);
+        try
         {
-            var stream = Unsafe.As<Stream>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
-            try
-            {
-                stream.Write(new Span<byte>(p, (int) sz));
-                return 0;
-            }
-            catch
-            {
-                return 1;
-            }
+            stream.Write(new Span<byte>(p, (int) sz));
+            return 0;
         }
+        catch (Exception ex)
+        {
+            state.Exception = new LuaException("An exception occurred while writing to the stream.", ex);
+            return 1;
+        }
+    }
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-        static int WriteToCustomWriter(lua_State* L, void* p, nuint sz, void* ud)
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int WriteToCustomWriter(lua_State* L, void* p, nuint sz, void* ud)
+    {
+        var state = Unsafe.As<WriteState>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
+        var writer = Unsafe.As<LuaChunkWriter>(state.Target);
+        try
         {
-            var writer = Unsafe.As<LuaChunkWriter>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
-            try
-            {
-                return writer.Write(L, (byte*) p, sz);
-            }
-            catch
-            {
-                return 1;
-            }
+            return writer.Write(L, (byte*) p, sz);
         }
+        catch (Exception ex)
+        {
+            state.Exception = new LuaException("An exception occurred while writing to the chunk writer.", ex);
+            return 1;
+        }
+    }
+
+    private sealed class WriteState(object target)
+    {
+        public readonly object Target = target;
+
+        public Exception? Exception;
     }
 }

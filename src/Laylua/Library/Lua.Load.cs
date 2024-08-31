@@ -84,7 +84,7 @@ public unsafe partial class Lua
         var status = lua_pcall(L, 0, 0, 0);
         if (status.IsError())
         {
-            ThrowLuaException(status);
+            ThrowLuaException(this, status);
         }
     }
 
@@ -164,7 +164,7 @@ public unsafe partial class Lua
 
             if (status.IsError())
             {
-                ThrowLuaException(status);
+                ThrowLuaException(this, status);
             }
         }
     }
@@ -196,7 +196,7 @@ public unsafe partial class Lua
 
         if (status.IsError())
         {
-            ThrowLuaException(status);
+            ThrowLuaException(this, status);
         }
     }
 
@@ -210,7 +210,15 @@ public unsafe partial class Lua
             ref var state = ref Unsafe.AsRef<State>(ud);
             var stream = Unsafe.As<Stream>(state.StreamHandle.Target!);
             var bufferSpan = new Span<byte>(state.Buffer, BufferSize);
-            *sz = (nuint) stream.Read(bufferSpan);
+            try
+            {
+                *sz = (nuint) stream.Read(bufferSpan);
+            }
+            catch (Exception ex)
+            {
+                LuaException.RaiseErrorInfo(L, "An exception occurred while reading from the stream.", ex);
+            }
+
             return state.Buffer;
         }
 
@@ -249,7 +257,7 @@ public unsafe partial class Lua
 
         if (status.IsError())
         {
-            ThrowLuaException(status);
+            ThrowLuaException(this, status);
         }
 
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -257,7 +265,15 @@ public unsafe partial class Lua
         {
             ref var size = ref Unsafe.AsRef<nuint>(sz);
             var reader = Unsafe.As<LuaChunkReader>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
-            return reader.Read(L, out size);
+            try
+            {
+                return reader.Read(L, out size);
+            }
+            catch (Exception ex)
+            {
+                LuaException.RaiseErrorInfo(L, "An exception occurred while reading from the chunk reader.", ex);
+                return default;
+            }
         }
     }
 }

@@ -120,7 +120,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             PushValue(this);
             if (!LuaWeakReference.TryCreate<TReference>(Lua, -1, out var weakReference))
             {
-                _lua.ThrowLuaException("Failed to create the weak reference.");
+                Lua.ThrowLuaException("Failed to create the weak reference.");
             }
 
             return weakReference;
@@ -225,7 +225,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (lua_rawgeti(L, LuaRegistry.Index, reference._reference).IsNoneOrNil())
         {
             lua_pop(L);
-            reference._lua.ThrowLuaException("Failed to push the referenced object.");
+            Lua.ThrowLuaException("Failed to push the referenced object.");
         }
     }
 

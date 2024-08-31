@@ -9,9 +9,6 @@ public abstract unsafe class LuaChunkReader
     /// <summary>
     ///     Reads a Lua chunk and returns it as a memory block.
     /// </summary>
-    /// <remarks>
-    ///     The code must not throw any exceptions.
-    /// </remarks>
     /// <param name="L"> The Lua state. </param>
     /// <param name="bytesRead"> The size of the returned memory block. </param>
     /// <returns>

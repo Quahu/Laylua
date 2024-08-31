@@ -71,36 +71,33 @@ internal static unsafe partial class LayluaNative
     private static void* Panic(lua_State* L)
     {
         var laylua = LayluaState.FromExtraSpace(L);
-        string? message = null;
         var hasDupedStackMessage = false;
-        if (lua_isstring(L, -1))
+        if (LuaException.TryGetError(L, out var error))
         {
             // On Lua compiled with GCC there's some issue here with the error message
             // appearing twice on the stack, so this code checks for it.
-            if (lua_gettop(L) > 1 && lua_isstring(L, -2) && lua_rawequal(L, -1, -2))
+            if (lua_gettop(L) > 1 && lua_rawequal(L, -1, -2))
             {
                 hasDupedStackMessage = true;
             }
 
-            message = lua_tostring(L, -1).ToString();
             lua_pop(L, hasDupedStackMessage ? 2 : 1);
         }
 
         ExceptionDispatchInfo exception;
-        var lua = laylua.State as Lua;
         var panic = laylua.Panic;
 
-        message ??= "Unhandled error occurred.";
+        error.Message ??= "An unhandled error occurred.";
 
         if (panic == null)
         {
-            exception = ExceptionDispatchInfo.Capture(new LuaPanicException(lua!, message));
+            exception = ExceptionDispatchInfo.Capture(new LuaPanicException(error.Message, error.Exception));
         }
         else
         {
             if (panic.Exception == null)
             {
-                var ex = new LuaPanicException(lua!, message);
+                var ex = new LuaPanicException(error.Message, error.Exception);
                 panic.Exception = ExceptionDispatchInfo.Capture(ex);
             }
 
@@ -136,7 +133,6 @@ internal static unsafe partial class LayluaNative
             MemoryMarshal.Write(asmSpan[18..], ref panicPtr);
 
 #if TRACE_PANIC
-
             // Console.WriteLine("Stack State at 0x{0:X}", (IntPtr) stackState);
             Console.WriteLine("asmPtr: 0x{0:X}\nmPtr: 0x{1:X}", asmPtr, panicPtr);
 #endif
@@ -250,7 +246,7 @@ internal static unsafe partial class LayluaNative
         }
 
         var throwPanicExceptionPtr = typeof(LayluaNative).GetMethod(nameof(ThrowPanicException), BindingFlags.Static | BindingFlags.NonPublic)!.MethodHandle.GetFunctionPointer();
-        foreach (var method in typeof(LuaNative).GetMethods(BindingFlags.Static | BindingFlags.Public))
+        foreach (var method in typeof(LuaNative).GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
         {
             var canErrorAttribute = method.GetCustomAttribute<ErrorExportAttribute>();
             if (canErrorAttribute == null)

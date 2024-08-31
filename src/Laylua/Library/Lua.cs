@@ -144,21 +144,21 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     }
 
     [DoesNotReturn]
-    internal void ThrowLuaException()
+    internal static void ThrowLuaException(Lua lua)
     {
-        throw new LuaException(this);
+        throw LuaException.ConstructFromStack(lua);
     }
 
     [DoesNotReturn]
-    internal void ThrowLuaException(LuaStatus status)
+    internal static void ThrowLuaException(Lua lua, LuaStatus status)
     {
-        throw new LuaException(this, status);
+        throw LuaException.ConstructFromStack(lua).WithStatus(status);
     }
 
     [DoesNotReturn]
-    internal void ThrowLuaException(string message)
+    internal static void ThrowLuaException(string message)
     {
-        throw new LuaException(this, message);
+        throw new LuaException(message);
     }
 
     /// <summary>
@@ -193,6 +193,14 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     public int RaiseError(string message)
     {
         return luaL_error(State.L, message);
+    }
+
+    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    [DoesNotReturn]
+    public int RaiseError(string message, Exception exception)
+    {
+        return LuaException.RaiseErrorInfo(State.L, message, exception);
     }
 
     /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>

@@ -109,6 +109,29 @@ internal sealed unsafe class LayluaState : IDisposable
 #endif
     }
 
+    public PCallDisposable EnterPCallContext()
+    {
+        return new(this);
+    }
+
+    public readonly ref struct PCallDisposable
+    {
+        private readonly bool _wasPCall;
+        private readonly LayluaState _state;
+
+        public PCallDisposable(LayluaState state)
+        {
+            _state = state;
+            _wasPCall = state.IsPCall;
+            _state.IsPCall = true;
+        }
+
+        public void Dispose()
+        {
+            _state.IsPCall = _wasPCall;
+        }
+    }
+
     public void Dispose()
     {
         if (!_gcHandle.IsAllocated)

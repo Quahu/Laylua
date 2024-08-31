@@ -49,7 +49,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         var status = lua_pcall(L, argumentCount, LUA_MULTRET, 0);
         if (status.IsError())
         {
-            lua.ThrowLuaException(status);
+            Lua.ThrowLuaException(lua, status);
         }
 
         var newTop = lua_gettop(L);

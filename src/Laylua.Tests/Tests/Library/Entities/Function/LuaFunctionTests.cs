@@ -7,18 +7,18 @@ public class LuaFunctionTests : LuaTestBase
     {
         // Arrange
         using var function = Lua.Load("return 42");
-        var ms = new MemoryStream();
+        var stream = new MemoryStream();
 
         // Act
-        var errorCode = function.Dump(ms);
+        var errorCode = function.Dump(stream);
 
         // Assert
         Assert.That(errorCode, Is.Zero);
-        Assert.That(ms.Length, Is.Not.Zero);
+        Assert.That(stream.Length, Is.Not.Zero);
     }
 
     [Test]
-    public void Dump_Writer_WritesBinaryData()
+    public void Dump_StreamChunkWriter_WritesBinaryData()
     {
         // Arrange
         using var function = Lua.Load("return 42");
@@ -39,6 +39,50 @@ public class LuaFunctionTests : LuaTestBase
         {
             stream.Write(new Span<byte>(data, (int) length));
             return 0;
+        }
+    }
+
+    [Test]
+    public void Dump_ThrowingStream_ThrowsExceptionCorrectly()
+    {
+        // Arrange
+        using var function = Lua.Load("return 42");
+        var stream = new IOThrowingStream();
+
+        // Act & Assert
+        Assert.That(() =>
+        {
+            _ = function.Dump(stream);
+        }, Throws.TypeOf<LuaException>().And.InnerException.TypeOf<IOException>());
+    }
+
+    private sealed class IOThrowingStream() : MemoryStream([], 0, 0, true, false)
+    {
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new IOException("Test IO exception.");
+        }
+    }
+
+    [Test]
+    public void Dump_ThrowingWriter_ThrowsExceptionCorrectly()
+    {
+        // Arrange
+        using var function = Lua.Load("return 42");
+        var writer = new ThrowingLuaChunkWriter();
+
+        // Act & Assert
+        Assert.That(() =>
+        {
+            _ = function.Dump(writer);
+        }, Throws.TypeOf<LuaException>().And.InnerException.TypeOf<IOException>());
+    }
+
+    private sealed class ThrowingLuaChunkWriter : LuaChunkWriter
+    {
+        protected override unsafe int Write(lua_State* L, byte* data, UIntPtr length)
+        {
+            throw new IOException("Test IO exception.");
         }
     }
 
