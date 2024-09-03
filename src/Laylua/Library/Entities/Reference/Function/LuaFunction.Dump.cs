@@ -14,6 +14,7 @@ public unsafe partial class LuaFunction
     /// </summary>
     /// <param name="stream"> The stream to dump this function to. </param>
     /// <param name="stripDebugInformation"> Whether some debug information should be stripped to save on space. </param>
+    /// <exception cref="LuaException"> Thrown when an exception the given stream's <see cref="Stream.Read(byte[],int,int)"/> method . </exception>
     /// <returns>
     ///     <see langword="0"/> if the operation succeeded.
     ///     Otherwise, any other value, indicating failure.

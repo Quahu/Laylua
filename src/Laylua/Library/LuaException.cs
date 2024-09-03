@@ -7,6 +7,14 @@ using Laylua.Moon;
 
 namespace Laylua;
 
+/// <summary>
+///     Represents errors that occur when executing Lua operations.
+/// </summary>
+/// <remarks>
+///     If <see cref="Exception.InnerException"/> has a value,
+///     it usually means that a callback or another user-provided component threw an exception.
+/// </remarks>
+/// <seealso cref="LuaPanicException"/>
 public class LuaException : Exception
 {
     internal static readonly ConcurrentDictionary<IntPtr, GCHandle> ErrorInfoHandles = new();
@@ -20,6 +28,10 @@ public class LuaException : Exception
 
     private const string UnknownMessage = "An unknown error occurred.";
 
+    /// <summary>
+    ///     Gets the status associated with this exception.
+    ///     This usually comes from methods such as <see cref="Lua.Execute(string,string?)"/>.
+    /// </summary>
     public LuaStatus? Status { get; private set; }
 
     internal LuaException(string? message, Exception? innerException = null)
@@ -31,7 +43,7 @@ public class LuaException : Exception
         return message ?? (innerException != null ? "An exception occurred, but was caught and raised as an error." : UnknownMessage);
     }
 
-    public LuaException WithStatus(LuaStatus status)
+    internal LuaException WithStatus(LuaStatus status)
     {
         Status = status;
         return this;
