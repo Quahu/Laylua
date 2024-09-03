@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -184,7 +184,9 @@ public unsafe class LuaStack
     ///     Pushes the value onto the stack.
     /// </summary>
     /// <remarks>
-    ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
+    ///     <b>Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.</b>
+    ///     <br/>
+    ///     Ensuring free stack space is left up to the caller for performance reasons.
     /// </remarks>
     /// <param name="value"> The value to push. </param>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -197,7 +199,7 @@ public unsafe class LuaStack
     ///     Pushes nil onto the stack.
     /// </summary>
     /// <remarks>
-    ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
+    ///     <inheritdoc cref="Push{T}"/>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void PushNil()
@@ -209,7 +211,7 @@ public unsafe class LuaStack
     ///     Pushes a new <see cref="LuaTable"/> onto the stack.
     /// </summary>
     /// <remarks>
-    ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
+    ///     <inheritdoc cref="Push{T}"/>
     /// </remarks>
     /// <param name="sequenceCapacity"> The size hint for how many items keyed with integers the table will hold. </param>
     /// <param name="tableCapacity"> The size hint for how many items keyed with non-integers the table will hold. </param>
@@ -224,7 +226,7 @@ public unsafe class LuaStack
     ///     shifting up the values above the index.
     /// </summary>
     /// <remarks>
-    ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
+    ///     <inheritdoc cref="Push{T}"/>
     /// </remarks>
     /// <param name="index"> The index on the stack. </param>
     /// <param name="value"> The value to insert. </param>
@@ -242,7 +244,7 @@ public unsafe class LuaStack
     ///     overwriting the existing value.
     /// </summary>
     /// <remarks>
-    ///     <paramref name="toIndex"/> must be a valid stack index.
+    ///     <paramref name="toIndex"/> must be a valid existing stack index.
     /// </remarks>
     /// <param name="fromIndex"> The index on the stack to copy from. </param>
     /// <param name="toIndex"> The index on the stack to copy to. </param>
