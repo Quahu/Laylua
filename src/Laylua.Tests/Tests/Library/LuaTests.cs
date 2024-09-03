@@ -105,6 +105,42 @@ public class LuaTests : LuaTestBase
         Assert.That(results.First.GetValue<int>(), Is.EqualTo(42));
     }
 
+    [Test]
+    public void Execute_Utf8String_ExecutesCode()
+    {
+        // Arrange
+        Lua.SetGlobal("x", 0);
+
+        // Act
+        Lua.Execute("x = 42"u8);
+
+        // Assert
+        Assert.That(Lua.GetGlobal<int>("x"), Is.EqualTo(42));
+    }
+
+    [Test]
+    public void Evaluate_Utf8String_EvaluatesCode()
+    {
+        // Arrange & Act
+        var result = Lua.Evaluate<int>("return 42"u8);
+
+        // Assert
+        Assert.That(result, Is.EqualTo(42));
+    }
+
+    [Test]
+    public void Load_Utf8String_LoadsCodeAndReturnsValidFunction()
+    {
+        // Arrange
+        using var function = Lua.Load("return 42"u8);
+
+        // Act
+        using var results = function.Call();
+
+        // Assert
+        Assert.That(results.First.GetValue<int>(), Is.EqualTo(42));
+    }
+
     private static IEnumerable<TestCaseData> CodeStreams
     {
         get
