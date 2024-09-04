@@ -294,7 +294,7 @@ public class LuaTests : LuaTestBase
     }
 
     [Test]
-    public void Warn_TriggersWarningEvent()
+    public void Warn_OnePieceMessage_TriggersWarningEvent()
     {
         // Arrange
         const string Message = "This is a warning message.";
@@ -315,7 +315,7 @@ public class LuaTests : LuaTestBase
     }
 
     [Test]
-    public void ContinuedWarn_TriggersSingleWarningEvent()
+    public void Warn_MultiPieceMessage_TriggersSingleWarningEvent()
     {
         // Arrange
         const string Message = "Youshallnotpass.";
@@ -334,5 +334,28 @@ public class LuaTests : LuaTestBase
         // Assert
         Assert.That(collectedMessages, Has.Count.EqualTo(1));
         Assert.That(collectedMessages[0], Is.EqualTo(Message));
+    }
+
+    [Test]
+    public void Warn_OffOnControlMessages_TogglesEmitsWarningsAccordingly()
+    {
+        // Arrange
+        const string Message = "This is a warning message.";
+        var collectedMessages = new List<string>();
+
+        Lua.OpenLibrary(LuaLibraries.Standard.Base);
+        Lua.Warning += (_, e) =>
+        {
+            collectedMessages.Add(e.Message.ToString());
+        };
+
+        // Act
+        Lua.Execute("warn('@off')");
+        Lua.Execute($"warn('{Message}')");
+        Lua.Execute("warn('@on')");
+        Lua.Execute($"warn('{Message}')");
+
+        // Assert
+        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
     }
 }

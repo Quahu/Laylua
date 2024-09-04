@@ -9,6 +9,7 @@ using System.Text;
 using Laylua.Marshaling;
 using Laylua.Moon;
 using Qommon;
+using Qommon.Pooling;
 
 namespace Laylua;
 
@@ -63,6 +64,15 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         get => GetGlobal<object>(name);
         set => SetGlobal(name, value);
     }
+
+    /// <summary>
+    ///     Gets or sets whether <see cref="Warning"/> should fire for emitted warnings.
+    /// </summary>
+    /// <remarks>
+    ///     This can be controlled by the content of warning messages;
+    ///     can be disabled using "@off" and enabled using "@on".
+    /// </remarks>
+    public bool EmitsWarnings { get; set; } = true;
 
     /// <summary>
     ///     Fired when Lua emits a warning. <br/>
@@ -141,38 +151,76 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     private static void WarningHandler(void* ud, byte* msg, int tocont)
     {
         var lua = FromExtraSpace((lua_State*) ud);
-        var handlers = lua._warningHandlers;
-        if (handlers.Count == 0)
+        var msgSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(msg);
+        if (msgSpan.StartsWith("@"u8))
+        {
+            ProcessControlWarningMessage(lua, msgSpan[1..]);
+            return;
+        }
+
+        if (!lua.EmitsWarnings || lua._warningHandlers.Count == 0)
         {
             return;
         }
 
-        var msgSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(msg);
         if (tocont != 0)
         {
             (lua._warningBuffer ??= new(capacity: 128)).Write(msgSpan);
             return;
         }
 
-        ReadOnlyMemory<char> message;
+        RentedArray<char> message;
         var warningBuffer = lua._warningBuffer;
-        if (warningBuffer == null)
+        if (warningBuffer == null || warningBuffer.Length == 0)
         {
-            message = Encoding.UTF8.GetString(msgSpan).AsMemory();
+            message = CreateWarningMessage(msgSpan);
         }
         else
         {
             warningBuffer.Write(msgSpan);
             Debug.Assert(warningBuffer.TryGetBuffer(out var buffer));
-            message = Encoding.UTF8.GetString(buffer).AsMemory();
 
-            warningBuffer.Position = 0;
-            warningBuffer.SetLength(0);
+            message = CreateWarningMessage(buffer);
+
+            ClearWarningBuffer(warningBuffer);
         }
 
-        foreach (var handler in handlers)
+        using (message)
         {
-            handler.Invoke(lua, new LuaWarningEventArgs(message));
+            foreach (var handler in lua._warningHandlers)
+            {
+                handler.Invoke(lua, new LuaWarningEventArgs(message));
+            }
+        }
+
+        static void ProcessControlWarningMessage(Lua lua, ReadOnlySpan<byte> controlMsg)
+        {
+            if (controlMsg.SequenceEqual("on"u8))
+            {
+                lua.EmitsWarnings = true;
+            }
+            else if (controlMsg.SequenceEqual("off"u8))
+            {
+                lua.EmitsWarnings = false;
+
+                if (lua._warningBuffer != null)
+                {
+                    ClearWarningBuffer(lua._warningBuffer);
+                }
+            }
+        }
+
+        static RentedArray<char> CreateWarningMessage(ReadOnlySpan<byte> msg)
+        {
+            var message = RentedArray<char>.Rent(Encoding.UTF8.GetCharCount(msg));
+            _ = Encoding.UTF8.GetChars(msg, message);
+            return message;
+        }
+
+        static void ClearWarningBuffer(MemoryStream warningBuffer)
+        {
+            warningBuffer.Position = 0;
+            warningBuffer.SetLength(0);
         }
     }
 
