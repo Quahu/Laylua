@@ -178,7 +178,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         else
         {
             warningBuffer.Write(msgSpan);
-            Debug.Assert(warningBuffer.TryGetBuffer(out var buffer));
+            _ = warningBuffer.TryGetBuffer(out var buffer);
 
             message = CreateWarningMessage(buffer);
 
