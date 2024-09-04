@@ -226,9 +226,9 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
 
     public bool OpenLibrary(LuaLibrary library)
     {
-        foreach (var openlibrary in _openLibraries)
+        foreach (var openLibrary in _openLibraries)
         {
-            if (string.Equals(openlibrary.Name, library.Name, StringComparison.Ordinal))
+            if (string.Equals(openLibrary.Name, library.Name, StringComparison.Ordinal))
                 return false;
         }
 
@@ -241,10 +241,10 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         for (var i = 0; i < _openLibraries.Count; i++)
         {
-            var openlibrary = _openLibraries[i];
-            if (string.Equals(openlibrary.Name, libraryName, StringComparison.Ordinal))
+            var openLibrary = _openLibraries[i];
+            if (string.Equals(openLibrary.Name, libraryName, StringComparison.Ordinal))
             {
-                openlibrary.Close(this);
+                openLibrary.Close(this);
                 _openLibraries.RemoveAt(i);
                 return true;
             }
