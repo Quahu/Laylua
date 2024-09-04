@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 using Laylua.Marshaling;
 using Laylua.Moon;
 using Qommon;
@@ -62,6 +65,19 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     }
 
     /// <summary>
+    ///     Fired when Lua emits a warning. <br/>
+    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Lua manual</a> for more information about warnings.
+    /// </summary>
+    /// <remarks>
+    ///     Subscribed event handlers must not throw any exceptions.
+    /// </remarks>
+    public event EventHandler<LuaWarningEventArgs> Warning
+    {
+        add => _warningHandlers.Add(value);
+        remove => _warningHandlers.Remove(value);
+    }
+
+    /// <summary>
     ///     Gets whether this instance is disposed.
     /// </summary>
     public bool IsDisposed => State.IsDisposed;
@@ -69,6 +85,9 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     internal LuaMarshaler Marshaler { get; }
 
     private readonly List<LuaLibrary> _openLibraries;
+
+    private MemoryStream? _warningBuffer;
+    private readonly List<EventHandler<LuaWarningEventArgs>> _warningHandlers;
 
     public Lua()
         : this(LuaMarshaler.Default)
@@ -96,8 +115,11 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Marshaler = marshaler;
 
         _openLibraries = new List<LuaLibrary>();
+        _warningHandlers = new List<EventHandler<LuaWarningEventArgs>>();
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
+
+        lua_setwarnf(state.L, &WarningHandler, State.L);
     }
 
     private Lua(
@@ -110,8 +132,48 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Marshaler = parent.Marshaler;
 
         _openLibraries = parent._openLibraries;
+        _warningHandlers = parent._warningHandlers;
         MainThread = parent.MainThread;
         Globals = parent.Globals;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void WarningHandler(void* ud, byte* msg, int tocont)
+    {
+        var lua = FromExtraSpace((lua_State*) ud);
+        var handlers = lua._warningHandlers;
+        if (handlers.Count == 0)
+        {
+            return;
+        }
+
+        var msgSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(msg);
+        if (tocont != 0)
+        {
+            (lua._warningBuffer ??= new(capacity: 128)).Write(msgSpan);
+            return;
+        }
+
+        ReadOnlyMemory<char> message;
+        var warningBuffer = lua._warningBuffer;
+        if (warningBuffer == null)
+        {
+            message = Encoding.UTF8.GetString(msgSpan).AsMemory();
+        }
+        else
+        {
+            warningBuffer.Write(msgSpan);
+            Debug.Assert(warningBuffer.TryGetBuffer(out var buffer));
+            message = Encoding.UTF8.GetString(buffer).AsMemory();
+
+            warningBuffer.Position = 0;
+            warningBuffer.SetLength(0);
+        }
+
+        foreach (var handler in handlers)
+        {
+            handler.Invoke(lua, new LuaWarningEventArgs(message));
+        }
     }
 
     public bool OpenLibrary(LuaLibrary library)

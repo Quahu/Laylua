@@ -292,4 +292,47 @@ public class LuaTests : LuaTestBase
             Assert.That((IntPtr) threads[i].L, Is.EqualTo((IntPtr) luas[i].State.L));
         }
     }
+
+    [Test]
+    public void Warn_TriggersWarningEvent()
+    {
+        // Arrange
+        const string Message = "This is a warning message.";
+        var collectedMessages = new List<string>();
+
+        Lua.OpenLibrary(LuaLibraries.Standard.Base);
+        Lua.Warning += (_, e) =>
+        {
+            collectedMessages.Add(e.Message.ToString());
+        };
+
+        // Act
+        Lua.Execute($"warn('{Message}')");
+
+        // Assert
+        Assert.That(collectedMessages, Has.Count.EqualTo(1));
+        Assert.That(collectedMessages[0], Is.EqualTo(Message));
+    }
+
+    [Test]
+    public void ContinuedWarn_TriggersSingleWarningEvent()
+    {
+        // Arrange
+        const string Message = "Youshallnotpass.";
+        const string SplitMessage = "'You', 'shall', 'not', 'pass.'";
+        var collectedMessages = new List<string>();
+
+        Lua.OpenLibrary(LuaLibraries.Standard.Base);
+        Lua.Warning += (_, e) =>
+        {
+            collectedMessages.Add(e.Message.ToString());
+        };
+
+        // Act
+        Lua.Execute($"warn({SplitMessage})"); // 
+
+        // Assert
+        Assert.That(collectedMessages, Has.Count.EqualTo(1));
+        Assert.That(collectedMessages[0], Is.EqualTo(Message));
+    }
 }

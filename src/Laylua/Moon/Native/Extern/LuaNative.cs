@@ -585,6 +585,9 @@ public static unsafe partial class LuaNative
     public static extern void lua_setwarnf(lua_State* L, LuaWarnFunction f, void* ud);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
+    public static extern void lua_setwarnf(lua_State* L, delegate* unmanaged[Cdecl]<void*, byte*, int, void> f, void* ud);
+
+    [DllImport(DllName, CallingConvention = Cdecl)]
     public static extern void lua_warning(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg, bool tocont);
 
     /*
