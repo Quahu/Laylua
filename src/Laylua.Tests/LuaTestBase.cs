@@ -68,7 +68,10 @@ public abstract unsafe class LuaTestBase
         if (allocator is NativeMemoryLuaAllocator nativeMemoryLuaAllocator)
         {
             Assert.That((int) nativeMemoryLuaAllocator.CurrentlyAllocatedBytes, Is.EqualTo(0), "Lua failed to free memory.");
+
+#if TRACE_ALLOCS
             Logger.LogInformation("Lua allocated {0} times for a total of {1}KiB", nativeMemoryLuaAllocator.TimesAllocated, Math.Round(nativeMemoryLuaAllocator.TotalAllocatedBytes / 1024.0, 2));
+#endif
         }
     }
 
@@ -76,7 +79,7 @@ public abstract unsafe class LuaTestBase
     {
         var allocator = new NativeMemoryLuaAllocator(maxBytes);
 
-#if DEBUG
+#if TRACE_ALLOCS
         NativeMemoryLuaAllocatorLogging.Hook(allocator, LoggerFactory.CreateLogger("Alloc"));
 #endif
         return allocator;
