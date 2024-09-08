@@ -272,7 +272,7 @@ internal static unsafe partial class LayluaNative
 #endif
     )
     {
-        var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
+        // var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
         var functionWrapperPtr = Marshal.GetFunctionPointerForDelegate(functionWrapper);
 
         // MemoryMarshal.Write(asmSpan.Slice(21), ref functionPtr);
