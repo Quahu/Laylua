@@ -66,7 +66,9 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     }
 
     /// <summary>
-    ///     Gets or sets whether <see cref="Warning"/> should fire for emitted warnings.
+    ///     Gets or sets whether <see cref="Warning"/> should fire for emitted warnings. <br/>
+    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
+    ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
     /// <remarks>
     ///     This can be controlled by the content of warning messages;
@@ -76,7 +78,8 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
 
     /// <summary>
     ///     Fired when Lua emits a warning. <br/>
-    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Lua manual</a> for more information about warnings.
+    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
+    ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
     /// <remarks>
     ///     Subscribed event handlers must not throw any exceptions.
@@ -222,6 +225,23 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
             warningBuffer.Position = 0;
             warningBuffer.SetLength(0);
         }
+    }
+
+    /// <inheritdoc cref="EmitWarning(ReadOnlySpan{char})"/>
+    public void EmitWarning(string? message)
+    {
+        EmitWarning(message.AsSpan());
+    }
+
+    /// <summary>
+    ///     Emits a Lua warning that can fire <see cref="Warning"/>. <br/>
+    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
+    ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
+    /// </summary>
+    /// <param name="message"> The warning message. </param>
+    public void EmitWarning(ReadOnlySpan<char> message)
+    {
+        lua_warning(State.L, message, false);
     }
 
     public bool OpenLibrary(LuaLibrary library)

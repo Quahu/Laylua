@@ -590,6 +590,20 @@ public static unsafe partial class LuaNative
     [DllImport(DllName, CallingConvention = Cdecl)]
     public static extern void lua_warning(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg, bool tocont);
 
+    [DllImport(DllName, CallingConvention = Cdecl)]
+    private static extern void lua_warning(lua_State* L, byte* msg, bool tocont);
+
+    public static void lua_warning(lua_State* L, ReadOnlySpan<char> msg, bool tocont)
+    {
+        using (var bytes = ToCString(msg))
+        {
+            fixed (byte* ptr = bytes)
+            {
+                lua_warning(L, ptr, tocont);
+            }
+        }
+    }
+
     /*
      *
      * Garbage-collection function and options

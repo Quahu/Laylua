@@ -310,8 +310,26 @@ public class LuaTests : LuaTestBase
         Lua.Execute($"warn('{Message}')");
 
         // Assert
-        Assert.That(collectedMessages, Has.Count.EqualTo(1));
-        Assert.That(collectedMessages[0], Is.EqualTo(Message));
+        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
+    }
+
+    [Test]
+    public void EmitWarning_OnePieceMessage_TriggersWarningEvent()
+    {
+        // Arrange
+        const string Message = "This is a warning message.";
+        var collectedMessages = new List<string>();
+
+        Lua.Warning += (_, e) =>
+        {
+            collectedMessages.Add(e.Message.ToString());
+        };
+
+        // Act
+        Lua.EmitWarning(Message);
+
+        // Assert
+        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
     }
 
     [Test]
@@ -332,8 +350,7 @@ public class LuaTests : LuaTestBase
         Lua.Execute($"warn({SplitMessage})"); // 
 
         // Assert
-        Assert.That(collectedMessages, Has.Count.EqualTo(1));
-        Assert.That(collectedMessages[0], Is.EqualTo(Message));
+        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
     }
 
     [Test]
