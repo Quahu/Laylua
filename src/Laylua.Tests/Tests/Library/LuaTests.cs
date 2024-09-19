@@ -301,7 +301,7 @@ public class LuaTests : LuaTestBase
         var collectedMessages = new List<string>();
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
-        Lua.Warning += (_, e) =>
+        Lua.WarningEmitted += (_, e) =>
         {
             collectedMessages.Add(e.Message.ToString());
         };
@@ -320,7 +320,7 @@ public class LuaTests : LuaTestBase
         const string Message = "This is a warning message.";
         var collectedMessages = new List<string>();
 
-        Lua.Warning += (_, e) =>
+        Lua.WarningEmitted += (_, e) =>
         {
             collectedMessages.Add(e.Message.ToString());
         };
@@ -341,7 +341,7 @@ public class LuaTests : LuaTestBase
         var collectedMessages = new List<string>();
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
-        Lua.Warning += (_, e) =>
+        Lua.WarningEmitted += (_, e) =>
         {
             collectedMessages.Add(e.Message.ToString());
         };
@@ -361,7 +361,7 @@ public class LuaTests : LuaTestBase
         var collectedMessages = new List<string>();
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
-        Lua.Warning += (_, e) =>
+        Lua.WarningEmitted += (_, e) =>
         {
             collectedMessages.Add(e.Message.ToString());
         };

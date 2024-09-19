@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -66,7 +66,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     }
 
     /// <summary>
-    ///     Gets or sets whether <see cref="Warning"/> should fire for emitted warnings. <br/>
+    ///     Gets or sets whether <see cref="WarningEmitted"/> should fire for emitted warnings. <br/>
     ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
     ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
@@ -84,7 +84,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     /// <remarks>
     ///     Subscribed event handlers must not throw any exceptions.
     /// </remarks>
-    public event EventHandler<LuaWarningEventArgs> Warning
+    public event EventHandler<LuaWarningEmittedEventArgs> WarningEmitted
     {
         add => _warningHandlers.Add(value);
         remove => _warningHandlers.Remove(value);
@@ -100,7 +100,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     private readonly List<LuaLibrary> _openLibraries;
 
     private MemoryStream? _warningBuffer;
-    private readonly List<EventHandler<LuaWarningEventArgs>> _warningHandlers;
+    private readonly List<EventHandler<LuaWarningEmittedEventArgs>> _warningHandlers;
 
     public Lua()
         : this(LuaMarshaler.Default)
@@ -128,7 +128,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Marshaler = marshaler;
 
         _openLibraries = new List<LuaLibrary>();
-        _warningHandlers = new List<EventHandler<LuaWarningEventArgs>>();
+        _warningHandlers = new List<EventHandler<LuaWarningEmittedEventArgs>>();
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
 
@@ -192,7 +192,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         {
             foreach (var handler in lua._warningHandlers)
             {
-                handler.Invoke(lua, new LuaWarningEventArgs(message));
+                handler.Invoke(lua, new LuaWarningEmittedEventArgs(message));
             }
         }
 
@@ -234,7 +234,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     }
 
     /// <summary>
-    ///     Emits a Lua warning that can fire <see cref="Warning"/>. <br/>
+    ///     Emits a Lua warning that can fire <see cref="WarningEmitted"/>. <br/>
     ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
     ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
