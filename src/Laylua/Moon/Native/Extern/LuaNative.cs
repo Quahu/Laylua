@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -41,7 +41,7 @@ public static unsafe partial class LuaNative
     public static extern LuaCFunction lua_atpanic(lua_State* L, LuaCFunction panicf);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaCFunction lua_atpanic(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, int> panicf);
+    public static extern delegate* unmanaged[Cdecl]<lua_State*, int> lua_atpanic(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, int> panicf);
 
     [DllImport(DllName, CallingConvention = Cdecl)]
     public static extern lua_Number lua_version(lua_State* L);
