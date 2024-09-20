@@ -86,10 +86,7 @@ public sealed unsafe class LuaState : ISpanFormattable
         }
     }
 
-    /// <summary>
-    ///     Gets whether this instance is disposed.
-    /// </summary>
-    public bool IsDisposed => _L == null;
+    internal bool IsDisposed => _L == null;
 
     internal object? State
     {

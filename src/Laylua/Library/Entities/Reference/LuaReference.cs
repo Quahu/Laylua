@@ -253,15 +253,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         }
     }
 
-    /// <summary>
-    ///     Checks whether the specified reference is alive,
-    ///     i.e. is initialized and not disposed.
-    /// </summary>
-    /// <param name="reference"> The reference to check. </param>
-    /// <returns>
-    ///     <see langword="true"/> if the reference is initialized and not disposed.
-    /// </returns>
-    public static bool IsAlive(LuaReference reference)
+    internal static bool IsAlive(LuaReference reference)
     {
         var lua = reference._lua;
         return lua != null && !lua.IsDisposed && !reference._isDisposed;

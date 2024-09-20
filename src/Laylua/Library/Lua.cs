@@ -61,10 +61,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         set => SetGlobal(name, value);
     }
 
-    /// <summary>
-    ///     Gets whether this instance is disposed.
-    /// </summary>
-    public bool IsDisposed => State.IsDisposed;
+    internal bool IsDisposed => State.IsDisposed;
 
     internal LuaMarshaler Marshaler { get; }
 

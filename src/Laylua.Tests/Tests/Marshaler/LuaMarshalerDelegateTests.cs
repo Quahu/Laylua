@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Reflection;
 
 namespace Laylua.Tests;
 
@@ -207,7 +208,7 @@ public class LuaMarshalerDelegateTests : LuaTestBase
 
         // Assert
         Assert.That(reference, Is.Not.Null);
-        Assert.That(LuaReference.IsAlive(reference!), Is.False);
+        Assert.That(IsReferenceAlive(reference), Is.False);
     }
 
     [Test]
@@ -221,13 +222,19 @@ public class LuaMarshalerDelegateTests : LuaTestBase
 
         // Assert
         Assert.That(_references, Is.Not.Null);
-        Assert.That(_references!.Select(LuaReference.IsAlive), Is.All.False);
+        Assert.That(_references!.Select(IsReferenceAlive), Is.All.False);
     }
 
     // Can't be local, because params doesn't work in local methods.
     private LuaReference[]? _references;
+
     private void ParamsObjectMethod(params object[] args)
     {
         _references = args.OfType<LuaReference>().ToArray();
+    }
+
+    private static bool IsReferenceAlive(LuaReference? reference)
+    {
+        return (bool) typeof(LuaReference).GetMethod("IsAlive", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [reference])!;
     }
 }
