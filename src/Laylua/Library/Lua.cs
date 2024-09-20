@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -295,6 +295,39 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
 
             return Stack[-1].GetValue<TValue>()!;
         }
+    }
+
+    /// <inheritdoc cref="LuaReference._reference"/>
+    /// <summary>
+    ///     Gets the value of a global variable.
+    /// </summary>
+    /// <param name="name"> The name of the global variable. </param>
+    /// <typeparam name="TValue"> The type of the value. </typeparam>
+    /// <returns>
+    ///     The value of the global variable or <see langword="default"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public TValue? GetGlobalOrDefault<TValue>(ReadOnlySpan<char> name)
+        where TValue : notnull
+    {
+        return TryGetGlobal<TValue>(name, out var value) ? value : default;
+    }
+
+    /// <inheritdoc cref="LuaReference._reference"/>
+    /// <summary>
+    ///     Gets the value of a global variable.
+    /// </summary>
+    /// <param name="name"> The name of the global variable. </param>
+    /// <param name="defaultValue"> The default value to return. </param>
+    /// <typeparam name="TValue"> The type of the value. </typeparam>
+    /// <returns>
+    ///     The value from the table or <paramref name="defaultValue"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public TValue? GetGlobalOrDefault<TValue>(ReadOnlySpan<char> name, TValue defaultValue)
+        where TValue : notnull
+    {
+        return TryGetGlobal<TValue>(name, out var value) ? value : defaultValue;
     }
 
     /// <summary>
