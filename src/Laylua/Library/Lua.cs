@@ -93,7 +93,6 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Marshaler = marshaler;
 
         _openLibraries = new List<LuaLibrary>();
-        _warningHandlers = new List<EventHandler<LuaWarningEmittedEventArgs>>();
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
 
@@ -110,7 +109,6 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         Marshaler = parent.Marshaler;
 
         _openLibraries = parent._openLibraries;
-        _warningHandlers = parent._warningHandlers;
         MainThread = parent.MainThread;
         Globals = parent.Globals;
     }

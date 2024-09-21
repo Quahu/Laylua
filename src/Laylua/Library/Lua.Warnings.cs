@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -30,14 +29,9 @@ public sealed unsafe partial class Lua
     /// <remarks>
     ///     Subscribed event handlers must not throw any exceptions.
     /// </remarks>
-    public event EventHandler<LuaWarningEmittedEventArgs> WarningEmitted
-    {
-        add => (_warningHandlers ??= new()).Add(value);
-        remove => _warningHandlers?.Remove(value);
-    }
+    public event EventHandler<LuaWarningEmittedEventArgs>? WarningEmitted;
 
     private MemoryStream? _warningBuffer;
-    private List<EventHandler<LuaWarningEmittedEventArgs>>? _warningHandlers;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void WarningHandler(void* ud, byte* msg, int tocont)
@@ -50,7 +44,7 @@ public sealed unsafe partial class Lua
             return;
         }
 
-        if (!lua.EmitsWarnings || lua._warningHandlers == null || lua._warningHandlers.Count == 0)
+        if (!lua.EmitsWarnings || lua.WarningEmitted == null)
         {
             return;
         }
@@ -79,10 +73,7 @@ public sealed unsafe partial class Lua
 
         using (message)
         {
-            foreach (var handler in lua._warningHandlers)
-            {
-                handler.Invoke(lua, new LuaWarningEmittedEventArgs(message));
-            }
+            lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
         }
 
         static void ProcessControlWarningMessage(Lua lua, ReadOnlySpan<byte> controlMsg)
