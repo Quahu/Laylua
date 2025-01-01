@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Qommon;
 
@@ -252,5 +253,24 @@ public sealed unsafe class LuaState : ISpanFormattable
         }
 
         _L = null;
+    }
+    
+    private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName == DllName && 
+            (NativeLibrary.TryLoad(DllName, assembly, searchPath, out var handle) ||
+             NativeLibrary.TryLoad($"liblua{LuaVersionMajor}{LuaVersionMinor}.so", assembly, searchPath, out handle) ||
+             NativeLibrary.TryLoad($"liblua{LuaVersionMajor}.{LuaVersionMinor}.so", assembly, searchPath, out handle)))
+        {
+            return handle;
+        }
+        
+        // Fall back to default import resolver.
+        return IntPtr.Zero;
+    }
+
+    static LuaState()
+    {
+        NativeLibrary.SetDllImportResolver(typeof(LuaNative).Assembly, DllImportResolver);
     }
 }

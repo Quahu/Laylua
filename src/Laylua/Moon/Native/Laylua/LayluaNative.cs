@@ -263,7 +263,14 @@ internal static unsafe partial class LayluaNative
             if (delegateType == null)
                 throw new InvalidOperationException($"No matching panic delegate '{delegateName}' found.");
 
-            if (!NativeLibrary.TryGetExport(NativeLibrary.Load(OperatingSystem.IsWindows() ? "lua54" : "liblua54.so"), exportName, out var exportPtr))
+            var loaded = NativeLibrary.TryLoad(DllName, out var handler) || 
+                         NativeLibrary.TryLoad($"liblua{LuaVersionMajor}{LuaVersionMinor}.so", out handler) || 
+                         NativeLibrary.TryLoad($"liblua{LuaVersionMajor}.{LuaVersionMinor}.so", out handler);
+
+            if (!loaded)
+                throw new InvalidOperationException("Failed to load native Lua libraries.");
+            
+            if (!NativeLibrary.TryGetExport(handler, exportName, out var exportPtr))
             {
                 if (method.GetCustomAttribute<OptionalExportAttribute>() == null)
                     throw new InvalidOperationException($"No export '{exportName}' found.");
