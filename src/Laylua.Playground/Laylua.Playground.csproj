@@ -11,21 +11,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Laylua\Laylua.csproj"/>
-
-        <PackageReference Include="Microsoft.NETCore.Platforms" Version="5.0.0"/>
-        <RuntimeTargetsCopyLocalItems Include="../../lib/**/*.dll;../../lib/**/*.so"
-                                      AssetType="native"
-                                      DestinationSubDirectory="runtimes\%(RecursiveDir)native"
-                                      NuGetPackageId="Microsoft.NETCore.Platforms"
-                                      RuntimeIdentifier="$([System.String]::new('%(RecursiveDir)').Trim('\'))"
-                                      Visible="false"/>
-        <Content Include="@(RuntimeTargetsCopyLocalItems)"
-                 Link="%(DestinationSubDirectory)\%(FileName)%(Extension)"
-                 CopyToOutputDirectory="PreserveNewest"
-                 Visible="false"/>
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Laylua.Natives" Version="1.0.0-alpha.1" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
     </ItemGroup>
