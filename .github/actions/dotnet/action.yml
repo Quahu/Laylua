@@ -19,9 +19,9 @@ runs:
     - name: Build
       run: dotnet build $Env:SOLUTION_PATH -c Release --no-restore -p:NoWarn=1591
       shell: pwsh
-    # - name: Test
-    #   run: dotnet test $Env:SOLUTION_PATH --no-restore --verbosity minimal
-    #   shell: pwsh
+    - name: Test
+      run: dotnet test $Env:SOLUTION_PATH --no-restore --verbosity minimal
+      shell: pwsh
     - name: Pack
       run: | 
         Invoke-Expression "dotnet pack $Env:SOLUTION_PATH -c Release -o ./artifacts --no-restore --no-build $($Env:VERSION_SUFFIX ? "--version-suffix=$Env:VERSION_SUFFIX" : $null)"
