@@ -219,6 +219,8 @@ internal static unsafe partial class LayluaNative
 
     private static void InitializePanicHooks()
     {
+        var libraryHandle = NativeLibrary.Load("lua54", typeof(LayluaNative).Assembly, null);
+
         static IntPtr PrepareHookAsm(IntPtr export, IntPtr throwPanicExceptionPtr)
         {
             delegate* unmanaged[Cdecl]<lua_State*, void*, void*> mPtrDel = &SetPanicJump;
@@ -263,7 +265,7 @@ internal static unsafe partial class LayluaNative
             if (delegateType == null)
                 throw new InvalidOperationException($"No matching panic delegate '{delegateName}' found.");
 
-            if (!NativeLibrary.TryGetExport(NativeLibrary.Load(OperatingSystem.IsWindows() ? "lua54" : "liblua54.so"), exportName, out var exportPtr))
+            if (!NativeLibrary.TryGetExport(libraryHandle, exportName, out var exportPtr))
             {
                 if (method.GetCustomAttribute<OptionalExportAttribute>() == null)
                     throw new InvalidOperationException($"No export '{exportName}' found.");

@@ -49,4 +49,15 @@ public class ErrorHandlingTests : LuaTestBase
         // Act & Assert
         Assert.Throws<LuaException>(() => function.Call());
     }
+
+    [Test]
+    public void LuaError_NestedLuaFunction_ProtectedLongJmp_GetsCaughtWithLuaException()
+    {
+        // Arrange
+        Lua.SetGlobal("print", (Action<int>) Console.WriteLine);
+        Lua.SetGlobal("func", (string code) => Lua.Execute(code));
+
+        // Act & Assert
+        Assert.Throws<LuaException>(() => Lua.Execute(@"print(func('print(\'abc\')'))"));
+    }
 }

@@ -13,6 +13,7 @@
     <!--    </PropertyGroup>-->
 
     <ItemGroup>
+        <PackageReference Include="Laylua.Natives" Version="1.0.0-alpha.1" PrivateAssets="analyzers;build" />
         <PackageReference Include="Qommon" Version="4.0.1"/>
     </ItemGroup>
 
