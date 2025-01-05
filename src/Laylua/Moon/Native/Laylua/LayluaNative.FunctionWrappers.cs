@@ -253,7 +253,6 @@ internal static unsafe partial class LayluaNative
         return asmPtr;
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Span<byte> AllocFunctionWrapperAsm(out IntPtr asmPtr)
     {
@@ -272,7 +271,9 @@ internal static unsafe partial class LayluaNative
 #endif
     )
     {
-        // var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
+#if TRACE_PANIC
+        var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
+#endif
         var functionWrapperPtr = Marshal.GetFunctionPointerForDelegate(functionWrapper);
 
         // MemoryMarshal.Write(asmSpan.Slice(21), ref functionPtr);
