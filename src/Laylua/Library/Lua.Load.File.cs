@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using Qommon;
 
 namespace Laylua;
 
@@ -38,8 +39,9 @@ public unsafe partial class Lua
     /// </returns>
     public LuaFunction LoadFile(Stream stream, ReadOnlySpan<char> chunkName = default)
     {
-        SkipPreamble(stream);
+        Guard.CanSeek(stream);
 
+        SkipPreamble(stream);
         return Load(stream, chunkName.Length == 0 && stream is FileStream fileStream ? $"@{fileStream.Name}" : chunkName);
 
         static void SkipPreamble(Stream stream)
