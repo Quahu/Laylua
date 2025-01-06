@@ -94,7 +94,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
 
-        lua_setwarnf(state.L, &WarningHandler, State.L);
+        lua_setwarnf(state.L, LayluaNative.CreateLuaWarnFunctionWrapper(_warningHandler), State.L);
     }
 
     private Lua(

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Laylua.Moon;
@@ -32,8 +31,7 @@ public sealed unsafe partial class Lua
 
     private MemoryStream? _warningBuffer;
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void WarningHandler(void* ud, byte* msg, int tocont)
+    private static readonly LuaWarnFunction _warningHandler = static (ud, msg, tocont) =>
     {
         var lua = FromExtraSpace((lua_State*) ud);
         var msgSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(msg);
@@ -119,7 +117,7 @@ public sealed unsafe partial class Lua
             warningBuffer.Position = 0;
             warningBuffer.SetLength(0);
         }
-    }
+    };
 
     /// <inheritdoc cref="EmitWarning(ReadOnlySpan{char})"/>
     public void EmitWarning(string? message)

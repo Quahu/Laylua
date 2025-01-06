@@ -205,6 +205,55 @@ internal static unsafe partial class LayluaNative
         return asmPtr;
     }
 
+    public static IntPtr CreateLuaWarnFunctionWrapper(LuaWarnFunction function)
+    {
+        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
+
+        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaWarnFunction) ((ud, msg, tocont) =>
+        {
+            try
+            {
+#if TRACE_PANIC
+                Console.WriteLine("LuaWarnFunction: calling delegate...");
+#endif
+                Unsafe.As<LuaWarnFunction>(function)(ud, msg, tocont);
+            }
+            catch (Exception ex)
+            {
+#if TRACE_PANIC
+                Console.WriteLine("LuaWarnFunction: caught exception...");
+#endif
+                var L = (lua_State*) ud;
+                var laylua = LayluaState.FromExtraSpace(L);
+                if (laylua.Panic != null)
+                {
+#if TRACE_PANIC
+                    Console.WriteLine($"LuaWarnFunction: setting panic exception: {ex}");
+#endif
+                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                }
+                else
+                {
+#if TRACE_PANIC
+                    Console.WriteLine($"LuaWarnFunction: panic is null, throwing exception: {ex}");
+#endif
+                    luaL_error(L, ex.Message);
+                }
+            }
+#if TRACE_PANIC
+            Console.WriteLine("LuaWarnFunction: returning...");
+#endif
+        }));
+
+        WriteFunctionWrapperPointers(asmSpan,
+#if TRACE_PANIC
+            asmPtr,
+#endif
+            function, functionWrapper);
+
+        return asmPtr;
+    }
+
     public static IntPtr CreateLuaHookFunctionWrapper(LuaHookFunction function)
     {
         var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
@@ -277,13 +326,18 @@ internal static unsafe partial class LayluaNative
         var functionWrapperPtr = Marshal.GetFunctionPointerForDelegate(functionWrapper);
 
         // MemoryMarshal.Write(asmSpan.Slice(21), ref functionPtr);
-        MemoryMarshal.Write(asmSpan.Slice(40 - 13), ref functionWrapperPtr);
-        MemoryMarshal.Write(asmSpan.Slice(71 - 13), ref getPotentialPanicPtr);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapperPtr);
 
         // Console.WriteLine("Stack State at 0x{0:X}", (IntPtr) stackState);
 
 #if TRACE_PANIC
         Console.WriteLine("ManagedPanic for {0} asmPtr: 0x{1:X}\nGetPotentialPanicPtr: 0x{2:X}\nCallLuaCFunction: 0x{3:X} (for 0x{4:X})", callerName, asmPtr, getPotentialPanicPtr, functionWrapperPtr, functionPtr);
 #endif
+    }
+
+    private static void WriteFunctionWrapperPointers(Span<byte> asmSpan, IntPtr functionWrapperPtr)
+    {
+        MemoryMarshal.Write(asmSpan.Slice(40 - 13), ref functionWrapperPtr);
+        MemoryMarshal.Write(asmSpan.Slice(71 - 13), ref getPotentialPanicPtr);
     }
 }

@@ -30,7 +30,7 @@ public unsafe delegate int LuaWriterFunction(lua_State* L, void* p, nuint sz, vo
 /// <param name="ud"> The userdata. </param>
 /// <param name="msg"> The message. </param>
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-public unsafe delegate void LuaWarnFunction(void* ud, [MarshalAs(UnmanagedType.LPStr)] string msg, int tocont);
+public unsafe delegate void LuaWarnFunction(void* ud, byte* msg, int tocont);
 
 /// <summary>
 ///     Represents a Lua allocation function.
