@@ -298,19 +298,24 @@ public class LuaTests : LuaTestBase
     {
         // Arrange
         const string Message = "This is a warning message.";
-        var collectedMessages = new List<string>();
+        var expectedWarnings = new[]
+        {
+            Message
+        };
+
+        var actualWarnings = new List<string>();
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
         Lua.WarningEmitted += (_, e) =>
         {
-            collectedMessages.Add(e.Message.ToString());
+            actualWarnings.Add(e.Message.ToString());
         };
 
         // Act
         Lua.Execute($"warn('{Message}')");
 
         // Assert
-        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
+        Assert.That(actualWarnings, Is.EqualTo(expectedWarnings));
     }
 
     [Test]
@@ -318,18 +323,23 @@ public class LuaTests : LuaTestBase
     {
         // Arrange
         const string Message = "This is a warning message.";
-        var collectedMessages = new List<string>();
+        var expectedWarnings = new[]
+        {
+            Message
+        };
+
+        var actualWarnings = new List<string>();
 
         Lua.WarningEmitted += (_, e) =>
         {
-            collectedMessages.Add(e.Message.ToString());
+            actualWarnings.Add(e.Message.ToString());
         };
 
         // Act
         Lua.EmitWarning(Message);
 
         // Assert
-        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
+        Assert.That(actualWarnings, Is.EqualTo(expectedWarnings));
     }
 
     [Test]
@@ -338,19 +348,24 @@ public class LuaTests : LuaTestBase
         // Arrange
         const string Message = "Youshallnotpass.";
         const string SplitMessage = "'You', 'shall', 'not', 'pass.'";
-        var collectedMessages = new List<string>();
+        var expectedWarnings = new[]
+        {
+            Message
+        };
+
+        var actualWarnings = new List<string>();
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
         Lua.WarningEmitted += (_, e) =>
         {
-            collectedMessages.Add(e.Message.ToString());
+            actualWarnings.Add(e.Message.ToString());
         };
 
         // Act
         Lua.Execute($"warn({SplitMessage})"); // 
 
         // Assert
-        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
+        Assert.That(actualWarnings, Is.EqualTo(expectedWarnings));
     }
 
     [Test]
@@ -358,21 +373,59 @@ public class LuaTests : LuaTestBase
     {
         // Arrange
         const string Message = "This is a warning message.";
-        var collectedMessages = new List<string>();
+        var expectedWarnings = new[]
+        {
+            "@off",
+            "@off",
+            "@on",
+            Message
+        };
+
+        var actualWarnings = new List<string>();
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
         Lua.WarningEmitted += (_, e) =>
         {
-            collectedMessages.Add(e.Message.ToString());
+            actualWarnings.Add(e.Message.ToString());
+        };
+
+        // Act & Assert
+        Lua.Execute("warn('@off')");
+        Assert.That(Lua.EmitsWarnings, Is.False);
+
+        Lua.Execute("warn('@off')");
+        Lua.Execute($"warn('{Message}')");
+
+        Lua.Execute("warn('@on')");
+        Assert.That(Lua.EmitsWarnings, Is.True);
+
+        Lua.Execute($"warn('{Message}')");
+
+        Assert.That(actualWarnings, Is.EqualTo(expectedWarnings));
+    }
+
+    [Test]
+    public void Warn_CustomControlMessage_TriggersWarningEventWithIsControlTrue()
+    {
+        // Arrange
+        const string Message = "@custom-control-message";
+        var expectedWarnings = new[]
+        {
+            Message
+        };
+
+        var actualWarnings = new List<string>();
+
+        Lua.OpenLibrary(LuaLibraries.Standard.Base);
+        Lua.WarningEmitted += (_, e) =>
+        {
+            actualWarnings.Add(e.Message.ToString());
         };
 
         // Act
-        Lua.Execute("warn('@off')");
-        Lua.Execute($"warn('{Message}')");
-        Lua.Execute("warn('@on')");
         Lua.Execute($"warn('{Message}')");
 
         // Assert
-        Assert.That(collectedMessages, Is.EqualTo(new[] { Message }));
+        Assert.That(actualWarnings, Is.EqualTo(expectedWarnings));
     }
 }

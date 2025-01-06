@@ -12,6 +12,8 @@ public sealed unsafe partial class Lua
 {
     /// <summary>
     ///     Gets or sets whether <see cref="WarningEmitted"/> should fire for emitted warnings. <br/>
+    ///     Control messages ignore this property. <br/>
+    ///     Defaults to <see langword="true"/>. <br/>
     ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
     ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
@@ -29,7 +31,7 @@ public sealed unsafe partial class Lua
     /// <remarks>
     ///     Subscribed event handlers must not throw any exceptions.
     /// </remarks>
-    public event EventHandler<LuaWarningEmittedEventArgs>? WarningEmitted;
+    public event LuaWarningEventHandler? WarningEmitted;
 
     private MemoryStream? _warningBuffer;
 
@@ -38,43 +40,27 @@ public sealed unsafe partial class Lua
     {
         var lua = FromExtraSpace((lua_State*) ud);
         var msgSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(msg);
-        if (msgSpan.StartsWith("@"u8))
+        bool isControl;
+        if (tocont == 0)
         {
-            ProcessControlWarningMessage(lua, msgSpan[1..]);
-            return;
+            if ((isControl = msgSpan.StartsWith("@"u8)))
+            {
+                ProcessControlWarningMessage(lua, msgSpan[1..]);
+            }
         }
-
-        if (!lua.EmitsWarnings || lua.WarningEmitted == null)
-        {
-            return;
-        }
-
-        if (tocont != 0)
+        else
         {
             (lua._warningBuffer ??= new(capacity: 128)).Write(msgSpan);
             return;
         }
 
-        RentedArray<char> message;
-        var warningBuffer = lua._warningBuffer;
-        if (warningBuffer == null || warningBuffer.Length == 0)
+        if (!isControl && (!lua.EmitsWarnings || lua.WarningEmitted == null))
         {
-            message = CreateWarningMessage(msgSpan);
-        }
-        else
-        {
-            warningBuffer.Write(msgSpan);
-            _ = warningBuffer.TryGetBuffer(out var buffer);
-
-            message = CreateWarningMessage(buffer);
-
-            ClearWarningBuffer(warningBuffer);
+            return;
         }
 
-        using (message)
-        {
-            lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
-        }
+        InvokeWarningEmitted(lua, msgSpan);
+        return;
 
         static void ProcessControlWarningMessage(Lua lua, ReadOnlySpan<byte> controlMsg)
         {
@@ -90,6 +76,30 @@ public sealed unsafe partial class Lua
                 {
                     ClearWarningBuffer(lua._warningBuffer);
                 }
+            }
+        }
+
+        static void InvokeWarningEmitted(Lua lua, ReadOnlySpan<byte> msgSpan)
+        {
+            RentedArray<char> message;
+            var warningBuffer = lua._warningBuffer;
+            if (warningBuffer == null || warningBuffer.Length == 0)
+            {
+                message = CreateWarningMessage(msgSpan);
+            }
+            else
+            {
+                warningBuffer.Write(msgSpan);
+                _ = warningBuffer.TryGetBuffer(out var buffer);
+
+                message = CreateWarningMessage(buffer);
+
+                ClearWarningBuffer(warningBuffer);
+            }
+
+            using (message)
+            {
+                lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
             }
         }
 
@@ -122,5 +132,26 @@ public sealed unsafe partial class Lua
     public void EmitWarning(ReadOnlySpan<char> message)
     {
         lua_warning(State.L, message, false);
+    }
+}
+
+/// <summary>
+///     Represents a method that will handle the <see cref="Lua.WarningEmitted"/> <see langword="event"/>.
+/// </summary>
+public delegate void LuaWarningEventHandler(object? sender, LuaWarningEmittedEventArgs e);
+
+/// <summary>
+///     Represents event data for <see cref="Lua.WarningEmitted"/>.
+/// </summary>
+public readonly ref struct LuaWarningEmittedEventArgs
+{
+    /// <summary>
+    ///     Gets the warning message Lua emitted.
+    /// </summary>
+    public ReadOnlySpan<char> Message { get; }
+
+    internal LuaWarningEmittedEventArgs(ReadOnlySpan<char> message)
+    {
+        Message = message;
     }
 }
