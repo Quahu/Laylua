@@ -428,4 +428,29 @@ public class LuaTests : LuaTestBase
         // Assert
         Assert.That(actualWarnings, Is.EqualTo(expectedWarnings));
     }
+
+    [Test]
+    public void Warn_ThrowingExceptionEventHandler_Errors()
+    {
+        // Arrange
+        const string ExceptionMessage = "Warning event handler exception.";
+
+        Lua.OpenLibrary(LuaLibraries.Standard.Base);
+        Lua.WarningEmitted += static (_, _) => throw new Exception(ExceptionMessage);
+
+        // Act & Assert
+        Assert.That(() => Lua.Execute("warn('')"), Throws.TypeOf<LuaException>().With.InnerException.Not.Null.And.InnerException.Message.EqualTo(ExceptionMessage));
+    }
+
+    [Test]
+    public void EmitWarning_ThrowingExceptionEventHandler_Throws()
+    {
+        // Arrange
+        const string ExceptionMessage = "Warning event handler exception.";
+
+        Lua.WarningEmitted += static (_, _) => throw new Exception(ExceptionMessage);
+
+        // Act & Assert
+        Assert.That(() => Lua.EmitWarning(""), Throws.TypeOf<LuaPanicException>().With.InnerException.Not.Null.And.InnerException.Message.EqualTo(ExceptionMessage));
+    }
 }

@@ -28,9 +28,6 @@ public sealed unsafe partial class Lua
     ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
     ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
-    /// <remarks>
-    ///     Subscribed event handlers must not throw any exceptions.
-    /// </remarks>
     public event LuaWarningEventHandler? WarningEmitted;
 
     private MemoryStream? _warningBuffer;
@@ -99,7 +96,14 @@ public sealed unsafe partial class Lua
 
             using (message)
             {
-                lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
+                try
+                {
+                    lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
+                }
+                catch (Exception ex)
+                {
+                    LuaException.RaiseErrorInfo(lua.GetStatePointer(), "An exception occurred while invoking the warning event.", ex);
+                }
             }
         }
 
