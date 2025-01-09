@@ -117,6 +117,34 @@ public class LuaTableTests : LuaTestBase
     }
 
     [Test]
+    public void GetValueOrDefault_MissingNullableInt_ReturnsNull()
+    {
+        // Arrange
+        using var table = Lua.CreateTable();
+
+        // Act
+        table.SetValue("MissingValue", (int?) null);
+        var missingValue = table.GetValueOrDefault<string, int?>("MissingValue");
+
+        // Assert
+        Assert.That(missingValue, Is.Null);
+    }
+
+    [Test]
+    public void GetValueOrDefault_MissingNullableInt_DefaultValue_ReturnsDefaultValue()
+    {
+        // Arrange
+        using var table = Lua.CreateTable();
+
+        // Act
+        table.SetValue("MissingValue", (int?) null);
+        var missingValue = table.GetValueOrDefault<string, int?>("MissingValue", 42);
+
+        // Assert
+        Assert.That(missingValue, Is.EqualTo(42));
+    }
+
+    [Test]
     public void Count_ReturnsValidCount()
     {
         // Arrange

@@ -353,24 +353,6 @@ public unsafe partial class LuaTable : LuaReference
     ///     Gets a value with the given key in the table.
     /// </summary>
     /// <param name="key"> The key of the value to get. </param>
-    /// <typeparam name="TKey"> The type of the key. </typeparam>
-    /// <typeparam name="TValue"> The type of the value. </typeparam>
-    /// <returns>
-    ///     The value from the table or <see langword="default"/>.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public TValue? GetValueOrDefault<TKey, TValue>(TKey key)
-        where TKey : notnull
-        where TValue : notnull
-    {
-        return TryGetValue<TKey, TValue>(key, out var value) ? value : default;
-    }
-
-    /// <inheritdoc cref="LuaReference._reference"/>
-    /// <summary>
-    ///     Gets a value with the given key in the table.
-    /// </summary>
-    /// <param name="key"> The key of the value to get. </param>
     /// <param name="defaultValue"> The default value to return. </param>
     /// <typeparam name="TKey"> The type of the key. </typeparam>
     /// <typeparam name="TValue"> The type of the value. </typeparam>
@@ -378,11 +360,12 @@ public unsafe partial class LuaTable : LuaReference
     ///     The value from the table or <paramref name="defaultValue"/>.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public TValue? GetValueOrDefault<TKey, TValue>(TKey key, TValue defaultValue)
+    public TValue? GetValueOrDefault<TKey, TValue>(TKey key, TValue? defaultValue = default)
         where TKey : notnull
-        where TValue : notnull
     {
+#pragma warning disable CS8714 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'notnull' constraint.
         return TryGetValue<TKey, TValue>(key, out var value) ? value : defaultValue;
+#pragma warning restore CS8714 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'notnull' constraint.
     }
 
     /// <summary>
