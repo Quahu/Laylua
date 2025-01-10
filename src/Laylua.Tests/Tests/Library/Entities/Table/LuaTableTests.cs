@@ -145,6 +145,21 @@ public class LuaTableTests : LuaTestBase
     }
 
     [Test]
+    public void SetNil_ExistingValue_OverwritesItToNil()
+    {
+        // Arrange
+        using var table = Lua.CreateTable();
+
+        // Act
+        table.SetValue("Value", 1);
+        table.SetNil("Value");
+        var value = table.GetValueOrDefault<string, int?>("Value");
+
+        // Assert
+        Assert.That(value, Is.Null);
+    }
+
+    [Test]
     public void Count_ReturnsValidCount()
     {
         // Arrange

@@ -394,6 +394,29 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
+    ///     Sets a nil value with the given key in the table.
+    /// </summary>
+    /// <param name="key"> The key of the value to set. </param>
+    /// <typeparam name="TKey"> The type of the key. </typeparam>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public void SetNil<TKey>(TKey key)
+        where TKey : notnull
+    {
+        ThrowIfInvalid();
+
+        Lua.Stack.EnsureFreeCapacity(3);
+
+        var L = Lua.GetStatePointer();
+        using (Lua.Stack.SnapshotCount())
+        {
+            PushValue(this);
+            Lua.Stack.Push(key);
+            Lua.Stack.PushNil();
+            lua_settable(L, -3);
+        }
+    }
+
+    /// <summary>
     ///     Clears this table by setting all values to nil.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
