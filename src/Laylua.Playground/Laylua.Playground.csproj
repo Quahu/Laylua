@@ -14,7 +14,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Laylua.Natives" Version="1.0.0-alpha.1" />
+        <PackageReference Include="Laylua.Natives" Version="1.0.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
     </ItemGroup>
