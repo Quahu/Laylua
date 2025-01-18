@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Laylua.Marshaling;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -99,8 +100,27 @@ public abstract unsafe class LuaTestBase
         }
         catch
         {
-            Lua.DumpStack(Context.Test.Name);
+            DumpStack(Context.Test.Name);
             throw;
         }
+    }
+
+    public void DumpStack(string? location = null)
+    {
+        DumpStack(TestContext.WriteLine, location);
+    }
+
+    public void DumpStack(Action<string, object[]> writer, string? location = null)
+    {
+        var top = lua_gettop(L);
+        var sb = new StringBuilder();
+        for (var i = 1; i <= top; i++)
+        {
+            sb.Append($"@{i} => <{luaL_typename(L, i)}> = '{luaL_tostring(L, i).ToString()}'\n");
+            lua_pop(L);
+        }
+
+        sb.Append(new string('=', 20));
+        writer("Stack ({0} values){1} -->\n{2}", [top, location != null ? $" @{location}" : "", sb]);
     }
 }

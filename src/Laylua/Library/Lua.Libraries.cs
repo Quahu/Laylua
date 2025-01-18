@@ -5,7 +5,23 @@ namespace Laylua;
 
 public sealed partial class Lua
 {
+    /// <summary>
+    ///     Gets the currently open libraries.
+    /// </summary>
+    public IReadOnlyList<LuaLibrary> OpenLibraries => _openLibraries;
+
     private readonly List<LuaLibrary> _openLibraries;
+
+    /// <summary>
+    ///     Opens all standard libraries using <see cref="LuaLibraries.Standard.EnumerateAll"/>.
+    /// </summary>
+    public void OpenStandardLibraries()
+    {
+        foreach (var library in LuaLibraries.Standard.EnumerateAll())
+        {
+            OpenLibrary(library);
+        }
+    }
 
     public bool OpenLibrary(LuaLibrary library)
     {
@@ -18,6 +34,22 @@ public sealed partial class Lua
         library.Open(this, false);
         _openLibraries.Add(library);
         return true;
+    }
+
+    /// <summary>
+    ///     Closes all standard libraries using <see cref="LuaLibraries.Standard.EnumerateAll"/>.
+    /// </summary>
+    public void CloseStandardLibraries()
+    {
+        foreach (var library in LuaLibraries.Standard.EnumerateAll())
+        {
+            CloseLibrary(library.Name);
+        }
+    }
+
+    public bool CloseLibrary(LuaLibrary library)
+    {
+        return CloseLibrary(library.Name);
     }
 
     public bool CloseLibrary(string libraryName)
