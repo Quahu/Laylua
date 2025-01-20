@@ -402,9 +402,9 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if (clrType.IsAssignableFrom(typeof(LuaTable)) || clrType == typeof(object))
                 {
-                    if (LuaReference.TryCreate(L, stackIndex, out var reference))
+                    if (TryCreateTableReference(lua, stackIndex, out var table))
                     {
-                        obj = (T) (object) CreateTable(lua, reference);
+                        obj = (T) (object) table;
                         return true;
                     }
                 }
@@ -435,9 +435,9 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if (clrType.IsAssignableFrom(typeof(LuaFunction)) || clrType == typeof(object))
                 {
-                    if (LuaReference.TryCreate(L, stackIndex, out var reference))
+                    if (TryCreateFunctionReference(lua, stackIndex, out var function))
                     {
-                        obj = (T) (object) CreateFunction(lua, reference);
+                        obj = (T) (object) function;
                         return true;
                     }
                 }
@@ -483,9 +483,9 @@ public unsafe partial class DefaultLuaMarshaler
                 if (clrType.IsAssignableFrom(typeof(LuaUserData)) || clrType == typeof(object))
                 {
                     var ptr = lua_touserdata(L, stackIndex);
-                    if (ptr != null && LuaReference.TryCreate(L, stackIndex, out var reference))
+                    if (ptr != null && TryCreateUserDataReference(lua, stackIndex, (IntPtr) ptr, out var userData))
                     {
-                        obj = (T) (object) CreateUserData(lua, reference, (IntPtr) ptr);
+                        obj = (T) (object) userData;
                         return true;
                     }
                 }
@@ -523,9 +523,9 @@ public unsafe partial class DefaultLuaMarshaler
                         return true;
                     }
 
-                    if (LuaReference.TryCreate(L, stackIndex, out var reference))
+                    if (TryCreateThreadReference(lua, stackIndex, threadPtr, out var thread))
                     {
-                        obj = (T) (object) CreateThread(lua, reference, threadPtr);
+                        obj = (T) (object) thread;
                         return true;
                     }
                 }

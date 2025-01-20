@@ -56,6 +56,22 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     private protected LuaReference()
     { }
 
+    ~LuaReference()
+    {
+        if (!IsAlive(this))
+            return;
+
+        if (!LuaRegistry.IsPersistentReference(_reference))
+        {
+            _lua!.PushLeakedReference(_reference);
+        }
+
+        if (_lua!.Marshaler.ReturnReference(this))
+        {
+            GC.ReRegisterForFinalize(this);
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Reset()
     {
@@ -190,9 +206,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     ///     Disposes this <see cref="LuaReference"/>, dereferencing the Lua object.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-#pragma warning disable CA1816 // Destructor is used for entity pooling
     public void Dispose()
-#pragma warning restore CA1816
     {
         if (LuaRegistry.IsPersistentReference(_reference))
             return;
@@ -206,8 +220,10 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         luaL_unref(L, LuaRegistry.Index, _reference);
         _isDisposed = true;
-
-        _lua!.Marshaler.ReturnReference(this);
+        if (!_lua!.Marshaler.ReturnReference(this))
+        {
+            GC.SuppressFinalize(this);
+        }
     }
 
     public static int GetReference(LuaReference reference)

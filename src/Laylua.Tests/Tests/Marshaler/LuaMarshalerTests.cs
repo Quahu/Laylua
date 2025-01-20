@@ -280,4 +280,43 @@ public class LuaMarshalerTests : LuaTestBase
         Assert.That(weakThreadAsReferenceValue, Is.Not.Null);
         Assert.That(weakThreadAsReferenceValue, Is.EqualTo(thread));
     }
+
+    [Test]
+    public unsafe void LeakedReference_Finalized_IsTrackedAndUnreferenced()
+    {
+        // Arrange
+        Lua.Stack.PushNewTable();
+        var leakedReferences = GetLeakedReferences();
+
+        // Act & Assert
+        var reference = GetLeakedReference();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.That(leakedReferences, Does.Contain(reference));
+        Assert.That(lua_rawgeti(L, LuaRegistry.Index, reference), Is.EqualTo(LuaType.Table));
+
+        // Get another reference for the leak cleanup to trigger
+        Lua.Stack[-1].GetValue<LuaTable>()!.Dispose();
+
+        Assert.That(leakedReferences, Is.Empty);
+        Assert.That(lua_rawgeti(L, LuaRegistry.Index, reference), Is.Not.EqualTo(LuaType.Table));
+        Lua.Stack.Pop(3);
+
+        int GetLeakedReference()
+        {
+            var table = Lua.Stack[-1].GetValue<LuaTable>()!;
+            return LuaReference.GetReference(table);
+        }
+    }
+
+    private IEnumerable<int> GetLeakedReferences()
+    {
+        var leakedReferencesProperty = typeof(Lua).GetField("_leakedReferences", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assume.That(leakedReferencesProperty, Is.Not.Null);
+
+        return (IEnumerable<int>) leakedReferencesProperty!.GetValue(Lua)!;
+    }
 }

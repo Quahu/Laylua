@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -65,6 +66,8 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
 
     internal LuaMarshaler Marshaler { get; }
 
+    private readonly ConcurrentStack<int> _leakedReferences = new();
+
     public Lua()
         : this(LuaMarshaler.Default)
     { }
@@ -109,6 +112,19 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         _openLibraries = parent._openLibraries;
         MainThread = parent.MainThread;
         Globals = parent.Globals;
+    }
+
+    internal void PushLeakedReference(int reference)
+    {
+        _leakedReferences.Push(reference);
+    }
+
+    internal void UnrefLeakedReferences()
+    {
+        while (_leakedReferences.TryPop(out var reference))
+        {
+            luaL_unref(State.L, LuaRegistry.Index, reference);
+        }
     }
 
     [DoesNotReturn]
@@ -399,6 +415,9 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     {
         if (IsDisposed)
             return;
+
+        _leakedReferences.Clear();
+        _openLibraries.Clear();
 
         try
         {

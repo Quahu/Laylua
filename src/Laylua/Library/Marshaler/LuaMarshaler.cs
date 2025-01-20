@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Laylua.Moon;
@@ -33,14 +34,9 @@ public abstract partial class LuaMarshaler
     /// </remarks>
     public LuaMarshalerEntityPoolConfiguration? EntityPoolConfiguration
     {
-        set
-        {
-            var pool = value != null
-                ? new LuaReferencePool(value)
-                : null;
-
-            Interlocked.Exchange(ref _entityPool, pool);
-        }
+        set => _entityPool = value != null
+            ? new LuaReferencePool(value)
+            : null;
     }
 
     private volatile LuaReferencePool? _entityPool;
@@ -59,75 +55,109 @@ public abstract partial class LuaMarshaler
     { }
 
     /// <summary>
-    ///     Instantiates a new <see cref="LuaTable"/>.
+    ///     Attempts to create a <see cref="LuaTable"/> reference.
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
-    /// <param name="reference"> The Lua reference. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="table"> The referenced Lua table. </param>
     /// <returns>
-    ///     The created <see cref="LuaTable"/>.
+    ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaTable CreateTable(Lua lua, int reference)
+    protected unsafe bool TryCreateTableReference(Lua lua, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
     {
-        var table = _entityPool?.RentTable() ?? new();
+        lua.UnrefLeakedReferences();
+
+        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        {
+            table = default;
+            return false;
+        }
+
+        table = _entityPool?.RentTable() ?? new();
         table.Lua = lua;
         table.Reference = reference;
-        return table;
+        return true;
     }
 
     /// <summary>
-    ///     Instantiates a new <see cref="LuaFunction"/>.
+    ///     Attempts to create a <see cref="LuaFunction"/> reference.
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
-    /// <param name="reference"> The Lua reference. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="function"> The referenced Lua function. </param>
     /// <returns>
-    ///     The created <see cref="LuaFunction"/>.
+    ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaFunction CreateFunction(Lua lua, int reference)
+    protected unsafe bool TryCreateFunctionReference(Lua lua, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
     {
-        var function = _entityPool?.RentFunction() ?? new();
+        lua.UnrefLeakedReferences();
+
+        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        {
+            function = default;
+            return false;
+        }
+
+        function = _entityPool?.RentFunction() ?? new();
         function.Lua = lua;
         function.Reference = reference;
-        return function;
+        return true;
     }
 
     /// <summary>
-    ///     Instantiates a new <see cref="LuaUserData"/>.
+    ///     Attempts to create a <see cref="LuaUserData"/> reference.
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
-    /// <param name="reference"> The Lua reference. </param>
-    /// <param name="pointer"> The pointer to the allocated memory of the user data. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="userData"> The referenced Lua user data. </param>
     /// <returns>
-    ///     The created <see cref="LuaUserData"/>.
+    ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected LuaUserData CreateUserData(Lua lua, int reference, IntPtr pointer)
+    protected unsafe bool TryCreateUserDataReference(Lua lua, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
     {
-        var userData = _entityPool?.RentUserData() ?? new();
+        lua.UnrefLeakedReferences();
+
+        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        {
+            userData = default;
+            return false;
+        }
+
+        userData = _entityPool?.RentUserData() ?? new();
         userData.Lua = lua;
         userData.Reference = reference;
         userData.Pointer = pointer;
-        return userData;
+        return true;
     }
 
     /// <summary>
-    ///     Instantiates a new <see cref="LuaThread"/>.
+    ///     Attempts to create a <see cref="LuaThread"/> reference.
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
-    /// <param name="reference"> The Lua reference. </param>
-    /// <param name="L"> The Lua state pointer. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="thread"> The referenced Lua thread. </param>
     /// <returns>
-    ///     The created <see cref="LuaThread"/>.
+    ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe LuaThread CreateThread(Lua lua, int reference, lua_State* L)
+    protected unsafe bool TryCreateThreadReference(Lua lua, int stackIndex, lua_State* L, [MaybeNullWhen(false)] out LuaThread thread)
     {
-        var thread = _entityPool?.RentThread() ?? new();
+        lua.UnrefLeakedReferences();
+
+        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        {
+            thread = default;
+            return false;
+        }
+
+        thread = _entityPool?.RentThread() ?? new();
         thread.Lua = lua;
         thread.Reference = reference;
         thread.L = L;
-        return thread;
+        return true;
     }
 
     /// <summary>
