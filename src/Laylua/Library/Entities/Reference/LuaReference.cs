@@ -44,6 +44,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         set => _reference = value;
     }
 
+    internal bool IsDisposed
+    {
+        get => _reference == LUA_NOREF;
+        set => _reference = value ? LUA_NOREF : LUA_REFNIL;
+    }
+
     private Lua? _lua;
 
     /// <remarks>
@@ -51,7 +57,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     ///     See the remarks on <see cref="LuaReference"/> for details.
     /// </remarks>
     private int _reference;
-    private bool _isDisposed;
 
     private protected LuaReference()
     { }
@@ -75,7 +80,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Reset()
     {
-        _isDisposed = default;
+        IsDisposed = false;
     }
 
     [MemberNotNull(nameof(_lua))]
@@ -86,7 +91,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             throw new InvalidOperationException($"This {GetType().Name.SingleQuoted()} has not been initialized.");
         }
 
-        if (_isDisposed)
+        if (IsDisposed)
         {
             throw new ObjectDisposedException(GetType().FullName, $"This {GetType().Name.SingleQuoted()} has been disposed.");
         }
@@ -189,7 +194,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     /// </returns>
     public override string ToString()
     {
-        if (_isDisposed)
+        if (IsDisposed)
             return $"<disposed {GetType().ToTypeString()}>";
 
         Lua.Stack.EnsureFreeCapacity(2);
@@ -219,7 +224,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             return;
 
         luaL_unref(L, LuaRegistry.Index, _reference);
-        _isDisposed = true;
+        IsDisposed = true;
         if (!_lua!.Marshaler.ReturnReference(this))
         {
             GC.SuppressFinalize(this);
@@ -272,6 +277,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     internal static bool IsAlive(LuaReference reference)
     {
         var lua = reference._lua;
-        return lua != null && !lua.IsDisposed && !reference._isDisposed;
+        return lua != null && !lua.IsDisposed && !reference.IsDisposed;
     }
 }

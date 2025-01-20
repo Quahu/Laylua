@@ -39,6 +39,6 @@ public static class LuaRegistry
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsPersistentReference(int reference)
     {
-        return reference >= Indices.MainThread && reference <= Indices.Globals;
+        return reference is Indices.MainThread or Indices.Globals;
     }
 }
