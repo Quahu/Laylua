@@ -31,6 +31,7 @@ public sealed unsafe partial class Lua
 
     private MemoryStream? _warningBuffer;
 
+    private static readonly IntPtr _warningHandlerWrapperPtr;
     private static readonly LuaWarnFunction _warningHandler = static (ud, msg, tocont) =>
     {
         var lua = FromExtraSpace((lua_State*) ud);

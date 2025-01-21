@@ -97,7 +97,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         MainThread = LuaThread.CreateMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
 
-        lua_setwarnf(state.L, LayluaNative.CreateLuaWarnFunctionWrapper(_warningHandler), State.L);
+        lua_setwarnf(state.L, _warningHandlerWrapperPtr, State.L);
     }
 
     private Lua(
@@ -112,6 +112,11 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         _openLibraries = parent._openLibraries;
         MainThread = parent.MainThread;
         Globals = parent.Globals;
+    }
+
+    static Lua()
+    {
+        _warningHandlerWrapperPtr = LayluaNative.CreateLuaWarnFunctionWrapper(_warningHandler);
     }
 
     internal void PushLeakedReference(int reference)
