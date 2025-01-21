@@ -231,15 +231,7 @@ public unsafe partial class DefaultLuaMarshaler
                             case TypeCode.Double:
                             case TypeCode.Decimal:
                             {
-                                if (typeof(lua_Number) == typeof(double))
-                                {
-                                    lua_pushnumber(L, ((IConvertible) obj).ToDouble(FormatProvider));
-                                }
-                                else
-                                {
-                                    lua_pushnumber(L, (lua_Number) ((IConvertible) obj).ToType(typeof(lua_Number), FormatProvider));
-                                }
-
+                                lua_pushnumber(L, ((IConvertible) obj).ToDouble(FormatProvider));
                                 return;
                             }
                             case TypeCode.Char:
