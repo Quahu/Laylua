@@ -171,6 +171,11 @@ public unsafe partial class LuaLibraries
                     }
                 }
             }
+
+            public override string ToString()
+            {
+                return Name;
+            }
         }
 
         private sealed class RequireLibrary : BaseLibrary
