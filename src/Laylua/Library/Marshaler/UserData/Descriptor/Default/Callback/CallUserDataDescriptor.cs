@@ -10,7 +10,7 @@ public abstract unsafe class CallUserDataDescriptor : UserDataDescriptor
     {
         _call = L =>
         {
-            var lua = Lua.FromExtraSpace(L);
+            var lua = LuaThread.FromExtraSpace(L);
             var top = lua_gettop(L);
             var arguments = top == 1
                 ? LuaStackValueRange.Empty
@@ -29,10 +29,10 @@ public abstract unsafe class CallUserDataDescriptor : UserDataDescriptor
     /// <returns>
     ///     The amount of values pushed onto the stack.
     /// </returns>
-    public abstract int Call(Lua lua, LuaStackValue userData, LuaStackValueRange arguments);
+    public abstract int Call(LuaThread lua, LuaStackValue userData, LuaStackValueRange arguments);
 
     /// <inheritdoc/>
-    public override void OnMetatableCreated(Lua lua, LuaStackValue metatable)
+    public override void OnMetatableCreated(LuaThread lua, LuaStackValue metatable)
     {
         var L = lua.GetStatePointer();
         var metatableIndex = metatable.Index;

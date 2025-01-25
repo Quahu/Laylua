@@ -33,7 +33,7 @@ public unsafe partial class DefaultLuaMarshaler : LuaMarshaler
     {
         lock (_userDataHandleCaches)
         {
-            _userDataHandleCaches.Remove((IntPtr) lua.MainThread.L);
+            _userDataHandleCaches.Remove((IntPtr) lua.MainThread.State.L);
         }
 
         base.OnLuaDisposing(lua);
@@ -44,7 +44,7 @@ public unsafe partial class DefaultLuaMarshaler : LuaMarshaler
         Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
         lock (_userDataHandleCaches)
         {
-            if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.Lua.MainThread.L, out userDataHandleCache))
+            if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.Lua.MainThread.State.L, out userDataHandleCache))
                 return;
         }
 

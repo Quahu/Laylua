@@ -10,7 +10,7 @@ public class UserDataHandle<T> : UserDataHandle
     /// </summary>
     public T Value;
 
-    internal UserDataHandle(Lua lua, T value)
+    internal UserDataHandle(LuaThread lua, T value)
         : base(lua)
     {
         Value = value;

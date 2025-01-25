@@ -2,127 +2,127 @@
 
 public abstract partial class CallbackUserDataDescriptor
 {
-    public virtual int Pairs(Lua lua, LuaStackValue userData)
+    public virtual int Pairs(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public virtual int Add(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Add(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Subtract(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Subtract(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Multiply(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Multiply(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Modulo(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Modulo(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Power(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Power(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Divide(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Divide(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int FloorDivide(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int FloorDivide(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int BitwiseAnd(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int BitwiseAnd(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int BitwiseOr(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int BitwiseOr(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int BitwiseExclusiveOr(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int BitwiseExclusiveOr(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int ShiftLeft(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int ShiftLeft(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int ShiftRight(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int ShiftRight(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Negate(Lua lua, LuaStackValue userData)
+    public virtual int Negate(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public virtual int BitwiseNot(Lua lua, LuaStackValue userData)
+    public virtual int BitwiseNot(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public virtual int Concat(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Concat(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Length(Lua lua, LuaStackValue userData)
+    public virtual int Length(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public virtual int Equal(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int Equal(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int LessThan(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int LessThan(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int LessThanOrEqual(Lua lua, LuaStackValue left, LuaStackValue right)
+    public virtual int LessThanOrEqual(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public virtual int Index(Lua lua, LuaStackValue userData, LuaStackValue key)
+    public virtual int Index(LuaThread lua, LuaStackValue userData, LuaStackValue key)
     {
         return 0;
     }
 
-    public virtual int NewIndex(Lua lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value)
+    public virtual int NewIndex(LuaThread lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value)
     {
         return 0;
     }
 
-    public virtual int Call(Lua lua, LuaStackValue userData, LuaStackValueRange arguments)
+    public virtual int Call(LuaThread lua, LuaStackValue userData, LuaStackValueRange arguments)
     {
         return 0;
     }
 
-    public virtual int Close(Lua lua, LuaStackValue userData, LuaStackValue error)
+    public virtual int Close(LuaThread lua, LuaStackValue userData, LuaStackValue error)
     {
         return 0;
     }
 
-    public virtual int ToString(Lua lua, LuaStackValue userData)
+    public virtual int ToString(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }

@@ -108,6 +108,9 @@ public unsafe partial class LuaTable : LuaReference
         set => SetValue(key, value);
     }
 
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    protected internal override LuaThread? LuaCore { get; set; }
+
     internal LuaTable()
     { }
 

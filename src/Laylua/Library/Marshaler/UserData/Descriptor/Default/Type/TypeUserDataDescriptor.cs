@@ -68,102 +68,102 @@ public abstract class TypeUserDataDescriptor : CallbackUserDataDescriptor
         Type = type;
     }
 
-    public override int Add(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Add(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Subtract(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Subtract(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Multiply(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Multiply(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Modulo(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Modulo(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Power(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Power(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Divide(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Divide(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int FloorDivide(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int FloorDivide(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int BitwiseAnd(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int BitwiseAnd(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int BitwiseOr(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int BitwiseOr(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int BitwiseExclusiveOr(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int BitwiseExclusiveOr(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int ShiftLeft(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int ShiftLeft(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int ShiftRight(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int ShiftRight(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Negate(Lua lua, LuaStackValue userData)
+    public override int Negate(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public override int BitwiseNot(Lua lua, LuaStackValue userData)
+    public override int BitwiseNot(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public override int Concat(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Concat(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Length(Lua lua, LuaStackValue userData)
+    public override int Length(LuaThread lua, LuaStackValue userData)
     {
         return 0;
     }
 
-    public override int Equal(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int Equal(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int LessThan(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int LessThan(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int LessThanOrEqual(Lua lua, LuaStackValue left, LuaStackValue right)
+    public override int LessThanOrEqual(LuaThread lua, LuaStackValue left, LuaStackValue right)
     {
         return 0;
     }
 
-    public override int Index(Lua lua, LuaStackValue userData, LuaStackValue key)
+    public override int Index(LuaThread lua, LuaStackValue userData, LuaStackValue key)
     {
         if (_indexDelegate != null)
         {
@@ -173,7 +173,7 @@ public abstract class TypeUserDataDescriptor : CallbackUserDataDescriptor
         return 0;
     }
 
-    public override int NewIndex(Lua lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value)
+    public override int NewIndex(LuaThread lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value)
     {
         if (_newIndexDelegate != null)
         {
@@ -183,7 +183,7 @@ public abstract class TypeUserDataDescriptor : CallbackUserDataDescriptor
         return 0;
     }
 
-    public override int Close(Lua lua, LuaStackValue userData, LuaStackValue error)
+    public override int Close(LuaThread lua, LuaStackValue userData, LuaStackValue error)
     {
         // if (_closeDelegate != null)
         // {
@@ -193,7 +193,7 @@ public abstract class TypeUserDataDescriptor : CallbackUserDataDescriptor
         return 0;
     }
 
-    public override int ToString(Lua lua, LuaStackValue userData)
+    public override int ToString(LuaThread lua, LuaStackValue userData)
     {
         // if (_toStringDelegate != null)
         // {

@@ -19,13 +19,13 @@ public unsafe class UserDataHandle
     internal const string WeakValueModeMetatableName = "__laylua__internal_weakvaluemode";
     internal const string SharedMetatableName = "__laylua__internal_shared"; // shared metatable for when no descriptor is set
 
-    internal readonly Lua Lua;
+    internal readonly LuaThread Lua;
 
     internal IntPtr GCPtr => (IntPtr) _gcHandle;
 
     private GCHandle _gcHandle;
 
-    internal UserDataHandle(Lua lua)
+    internal UserDataHandle(LuaThread lua)
     {
         Guard.IsNotNull(lua);
 

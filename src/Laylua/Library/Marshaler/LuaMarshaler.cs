@@ -63,9 +63,9 @@ public abstract partial class LuaMarshaler
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateTableReference(Lua lua, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
+    protected unsafe bool TryCreateTableReference(LuaThread lua, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
     {
-        lua.UnrefLeakedReferences();
+        lua.MainThread.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -89,9 +89,9 @@ public abstract partial class LuaMarshaler
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateFunctionReference(Lua lua, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
+    protected unsafe bool TryCreateFunctionReference(LuaThread lua, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
     {
-        lua.UnrefLeakedReferences();
+        lua.MainThread.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -110,14 +110,15 @@ public abstract partial class LuaMarshaler
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="pointer"> The pointer to the user data. </param>
     /// <param name="userData"> The referenced Lua user data. </param>
     /// <returns>
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateUserDataReference(Lua lua, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
+    protected unsafe bool TryCreateUserDataReference(LuaThread lua, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
     {
-        lua.UnrefLeakedReferences();
+        lua.MainThread.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -137,14 +138,15 @@ public abstract partial class LuaMarshaler
     /// </summary>
     /// <param name="lua"> The Lua state. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="L"> The thread state pointer. </param>
     /// <param name="thread"> The referenced Lua thread. </param>
     /// <returns>
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateThreadReference(Lua lua, int stackIndex, lua_State* L, [MaybeNullWhen(false)] out LuaThread thread)
+    protected unsafe bool TryCreateThreadReference(LuaThread lua, int stackIndex, lua_State* L, [MaybeNullWhen(false)] out LuaThread thread)
     {
-        lua.UnrefLeakedReferences();
+        lua.MainThread.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -152,10 +154,9 @@ public abstract partial class LuaMarshaler
             return false;
         }
 
-        thread = _entityPool?.RentThread() ?? new();
-        thread.Lua = lua;
-        thread.Reference = reference;
-        thread.L = L;
+        var childThread = _entityPool?.RentThread() ?? new();
+        childThread.Initialize(L, reference);
+        thread = childThread;
         return true;
     }
 
@@ -170,7 +171,7 @@ public abstract partial class LuaMarshaler
     /// <returns>
     ///     <see langword="true"/> if successful.
     /// </returns>
-    public abstract bool TryGetValue<T>(Lua lua, int stackIndex, out T? obj);
+    public abstract bool TryGetValue<T>(LuaThread lua, int stackIndex, out T? obj);
 
     /// <summary>
     ///     Pushes the specified .NET value onto the Lua stack,
@@ -183,5 +184,5 @@ public abstract partial class LuaMarshaler
     /// <param name="lua"> The Lua state. </param>
     /// <param name="obj"> The value to push. </param>
     /// <typeparam name="T"> The type of the value. </typeparam>
-    public abstract void PushValue<T>(Lua lua, T obj);
+    public abstract void PushValue<T>(LuaThread lua, T obj);
 }

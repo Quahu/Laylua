@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
 
@@ -16,6 +17,9 @@ public sealed unsafe partial class LuaFunction : LuaReference
     ///     Gets the upvalues of this function.
     /// </summary>
     public UpvalueCollection Upvalues => new(this);
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    protected internal override LuaThread? LuaCore { get; set; }
 
     internal LuaFunction()
     { }
@@ -43,13 +47,13 @@ public sealed unsafe partial class LuaFunction : LuaReference
         PushValue(reference);
     }
 
-    internal static LuaFunctionResults PCall(Lua lua, int oldTop, int argumentCount)
+    internal static LuaFunctionResults PCall(LuaThread lua, int oldTop, int argumentCount)
     {
         var L = lua.GetStatePointer();
         var status = lua_pcall(L, argumentCount, LUA_MULTRET, 0);
         if (status.IsError())
         {
-            Lua.ThrowLuaException(lua, status);
+            LuaThread.ThrowLuaException(lua, status);
         }
 
         var newTop = lua_gettop(L);

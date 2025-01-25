@@ -99,15 +99,7 @@ public sealed unsafe class LuaState : ISpanFormattable
     private LuaHookFunction? _safeHookFunction;
 
     private LayluaState _layluaState = null!;
-    private readonly int _threadReference;
-
-    /// <summary>
-    ///     Instantiates a new <see cref="LuaState"/> with
-    ///     a new default state from the Lua auxiliary library.
-    /// </summary>
-    internal LuaState()
-        : this(null)
-    { }
+    private readonly bool _isMainThread;
 
     /// <summary>
     ///     Instantiates a new <see cref="LuaState"/>
@@ -128,6 +120,7 @@ public sealed unsafe class LuaState : ISpanFormattable
 
         ValidateNewState();
         InitializeState();
+        _isMainThread = true;
     }
 
     /// <summary>
@@ -135,11 +128,9 @@ public sealed unsafe class LuaState : ISpanFormattable
     ///     with the specified pointer to a Lua thread.
     /// </summary>
     /// <param name="L"> The state pointer. </param>
-    /// <param name="threadReference"> The Lua reference to the thread. </param>
-    internal LuaState(lua_State* L, int threadReference)
+    internal LuaState(lua_State* L)
     {
         _L = L;
-        _threadReference = threadReference;
 
         InitializeState();
     }
@@ -238,14 +229,10 @@ public sealed unsafe class LuaState : ISpanFormattable
         if (_L == null)
             return;
 
-        if (_threadReference == 0)
+        lua_close(_L);
+        if (_isMainThread)
         {
-            lua_close(_L);
             _layluaState.Dispose();
-        }
-        else
-        {
-            luaL_unref(_L, LuaRegistry.Index, _threadReference);
         }
 
         _L = null;

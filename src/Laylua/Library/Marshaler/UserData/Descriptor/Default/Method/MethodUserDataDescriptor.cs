@@ -24,7 +24,7 @@ public class MethodUserDataDescriptor : CallUserDataDescriptor
     /// <returns>
     ///     The amount of values pushed onto the stack.
     /// </returns>
-    public override int Call(Lua lua, LuaStackValue userData, LuaStackValueRange arguments)
+    public override int Call(LuaThread lua, LuaStackValue userData, LuaStackValueRange arguments)
     {
         if (!userData.TryGetValue<MethodInfo>(out var method) || method == null)
         {

@@ -6,7 +6,7 @@ namespace Laylua.Marshaling;
 [EditorBrowsable(EditorBrowsableState.Never)]
 public static class LuaMarshalerExtensions
 {
-    public static T? GetValue<T>(this LuaMarshaler marshaler, Lua lua, int stackIndex)
+    public static T? GetValue<T>(this LuaMarshaler marshaler, LuaThread lua, int stackIndex)
     {
         if (!marshaler.TryGetValue<T>(lua, stackIndex, out var value))
         {

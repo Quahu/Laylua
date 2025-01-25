@@ -119,23 +119,6 @@ public sealed unsafe partial class Lua
             warningBuffer.SetLength(0);
         }
     };
-
-    /// <inheritdoc cref="EmitWarning(ReadOnlySpan{char})"/>
-    public void EmitWarning(string? message)
-    {
-        EmitWarning(message.AsSpan());
-    }
-
-    /// <summary>
-    ///     Emits a Lua warning that can fire <see cref="WarningEmitted"/>. <br/>
-    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
-    ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
-    /// </summary>
-    /// <param name="message"> The warning message. </param>
-    public void EmitWarning(ReadOnlySpan<char> message)
-    {
-        lua_warning(State.L, message, false);
-    }
 }
 
 /// <summary>

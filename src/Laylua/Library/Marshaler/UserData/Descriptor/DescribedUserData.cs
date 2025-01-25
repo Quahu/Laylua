@@ -12,7 +12,7 @@ public abstract class DescribedUserData
         Descriptor = descriptor;
     }
 
-    internal abstract UserDataHandle CreateUserDataHandle(Lua lua);
+    internal abstract UserDataHandle CreateUserDataHandle(LuaThread lua);
 
     /// <summary>
     ///     Attempts to get the type of the value of this described userdata.

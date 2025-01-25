@@ -71,9 +71,9 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
         set => SetValue(value);
     }
 
-    private readonly Lua _lua;
+    private readonly LuaThread _lua;
 
-    internal LuaStackValue(Lua lua, int index)
+    internal LuaStackValue(LuaThread lua, int index)
     {
         _lua = lua;
         Index = index;
@@ -85,9 +85,9 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
             throw new InvalidOperationException($"The index of this {nameof(LuaStackValue)} is not valid.");
     }
 
-    internal static void ValidateOwnership(Lua lua, LuaStackValue value)
+    internal static void ValidateOwnership(LuaThread lua, LuaStackValue value)
     {
-        if (lua != value._lua)
+        if (lua.MainThread.State.L != value._lua.MainThread.State.L)
         {
             throw new InvalidOperationException($"The given stack value is owned by a different Lua state.");
         }

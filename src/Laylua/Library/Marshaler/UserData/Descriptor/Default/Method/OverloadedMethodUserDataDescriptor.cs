@@ -17,7 +17,7 @@ public class OverloadedMethodUserDataDescriptor : CallUserDataDescriptor
     /// <returns>
     ///     The amount of values pushed onto the stack.
     /// </returns>
-    public override int Call(Lua lua, LuaStackValue userData, LuaStackValueRange arguments)
+    public override int Call(LuaThread lua, LuaStackValue userData, LuaStackValueRange arguments)
     {
         return lua.RaiseError("Calling overloaded methods is currently not supported.");
     }

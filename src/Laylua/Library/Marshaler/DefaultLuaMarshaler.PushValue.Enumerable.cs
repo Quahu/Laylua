@@ -9,7 +9,7 @@ namespace Laylua.Marshaling;
 
 public unsafe partial class DefaultLuaMarshaler
 {
-    protected delegate void PushGenericEnumerableDelegate(Lua lua, IEnumerable enumerable);
+    protected delegate void PushGenericEnumerableDelegate(LuaThread lua, IEnumerable enumerable);
 
     protected static ConditionalWeakTable<Type, PushGenericEnumerableDelegate?> PushGenericEnumerableDelegateCache { get; } = new();
 
@@ -21,7 +21,7 @@ public unsafe partial class DefaultLuaMarshaler
             if (elementTypes == null)
                 return null;
 
-            var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
+            var luaParameterExpression = Expression.Parameter(typeof(LuaThread), "lua");
             var arrayParameterExpression = Expression.Parameter(typeof(IEnumerable), "enumerable");
             var convertArrayExpression = Expression.Convert(arrayParameterExpression, enumerableType);
             var callExpression = Expression.Call(typeof(DefaultLuaMarshaler), nameof(PushGenericEnumerable), elementTypes, luaParameterExpression, convertArrayExpression);
@@ -66,7 +66,7 @@ public unsafe partial class DefaultLuaMarshaler
         });
     }
 
-    protected static void PushGenericEnumerable<T>(Lua lua, IEnumerable<T> enumerable)
+    protected static void PushGenericEnumerable<T>(LuaThread lua, IEnumerable<T> enumerable)
     {
         lua.Stack.EnsureFreeCapacity(1);
 
@@ -156,7 +156,7 @@ public unsafe partial class DefaultLuaMarshaler
         }
     }
 
-    protected static void PushGenericEnumerable<TKey, TValue>(Lua lua, IEnumerable<KeyValuePair<TKey, TValue>> enumerable)
+    protected static void PushGenericEnumerable<TKey, TValue>(LuaThread lua, IEnumerable<KeyValuePair<TKey, TValue>> enumerable)
         where TKey : notnull
     {
         lua.Stack.EnsureFreeCapacity(3);
@@ -205,7 +205,7 @@ public unsafe partial class DefaultLuaMarshaler
         }
     }
 
-    protected virtual void PushEnumerable(Lua lua, IEnumerable enumerable)
+    protected virtual void PushEnumerable(LuaThread lua, IEnumerable enumerable)
     {
         var enumerableType = enumerable.GetType();
         var pushDelegate = GetPushGenericEnumerableDelegate(enumerableType);

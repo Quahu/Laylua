@@ -15,7 +15,7 @@ public unsafe partial class DefaultLuaMarshaler
 {
     /// <inheritdoc/>
     [SkipLocalsInit]
-    public override void PushValue<T>(Lua lua, T obj)
+    public override void PushValue<T>(LuaThread lua, T obj)
     {
         var L = lua.GetStatePointer();
         switch (obj)
@@ -147,9 +147,9 @@ public unsafe partial class DefaultLuaMarshaler
                         Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
                         lock (_userDataHandleCaches)
                         {
-                            if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.L, out userDataHandleCache))
+                            if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.State.L, out userDataHandleCache))
                             {
-                                _userDataHandleCaches[(IntPtr) lua.MainThread.L] = userDataHandleCache = new();
+                                _userDataHandleCaches[(IntPtr) lua.MainThread.State.L] = userDataHandleCache = new();
                             }
                         }
 

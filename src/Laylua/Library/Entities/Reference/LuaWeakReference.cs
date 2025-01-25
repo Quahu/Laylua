@@ -13,10 +13,7 @@ namespace Laylua;
 public readonly unsafe struct LuaWeakReference<TReference>
     where TReference : LuaReference
 {
-    /// <summary>
-    ///     Gets the <see cref="Laylua.Lua"/> instance this object is bound to.
-    /// </summary>
-    public Lua Lua
+    internal LuaThread Lua
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
@@ -26,10 +23,10 @@ public readonly unsafe struct LuaWeakReference<TReference>
         }
     }
 
-    private readonly Lua _lua;
+    private readonly LuaThread _lua;
     private readonly void* _pointer;
 
-    internal LuaWeakReference(Lua lua, void* pointer)
+    internal LuaWeakReference(LuaThread lua, void* pointer)
     {
         _lua = lua;
         _pointer = pointer;
@@ -89,7 +86,7 @@ internal static class LuaWeakReference
 {
     internal const string WeakReferencesTableName = "__laylua__internal_weakreferences";
 
-    public static unsafe bool TryCreate<TReference>(Lua lua, int stackIndex, out LuaWeakReference<TReference> weakReference)
+    public static unsafe bool TryCreate<TReference>(LuaThread lua, int stackIndex, out LuaWeakReference<TReference> weakReference)
         where TReference : LuaReference
     {
         if (!TryCreate(lua, stackIndex, out var targetPointer))
@@ -102,7 +99,7 @@ internal static class LuaWeakReference
         return true;
     }
 
-    private static unsafe bool TryCreate(Lua lua, int stackIndex, out void* targetPointer)
+    private static unsafe bool TryCreate(LuaThread lua, int stackIndex, out void* targetPointer)
     {
         var L = lua.GetStatePointer();
         if (!lua_checkstack(L, 4))

@@ -70,9 +70,9 @@ public unsafe class LuaStack
     /// </remarks>
     public LuaStackValue Last => this[-1];
 
-    private readonly Lua _lua;
+    private readonly LuaThread _lua;
 
-    internal LuaStack(Lua lua)
+    internal LuaStack(LuaThread lua)
     {
         _lua = lua;
     }
@@ -364,10 +364,10 @@ public unsafe class LuaStack
         private LuaStackValue _current;
         private int _index;
 
-        private readonly Lua _lua;
+        private readonly LuaThread _lua;
         private readonly int _top;
 
-        internal Enumerator(Lua lua, int top)
+        internal Enumerator(LuaThread lua, int top)
         {
             _lua = lua;
             _top = top;

@@ -10,7 +10,7 @@ public abstract partial class LuaMarshaler
         private readonly ObjectPool<LuaTable>? _tables;
         private readonly ObjectPool<LuaFunction>? _functions;
         private readonly ObjectPool<LuaUserData>? _userData;
-        private readonly ObjectPool<LuaThread>? _threads;
+        private readonly ObjectPool<LuaChildThread>? _threads;
 
         public LuaReferencePool(LuaMarshalerEntityPoolConfiguration configuration)
         {
@@ -45,7 +45,7 @@ public abstract partial class LuaMarshaler
             return _userData?.Rent() ?? new();
         }
 
-        public LuaThread RentThread()
+        public LuaChildThread RentThread()
         {
             return _threads?.Rent() ?? new();
         }
@@ -57,7 +57,7 @@ public abstract partial class LuaMarshaler
                 LuaUserData userData => _userData?.Return(userData) ?? false,
                 LuaTable table => _tables?.Return(table) ?? false,
                 LuaFunction function => _functions?.Return(function) ?? false,
-                LuaThread thread => _threads?.Return(thread) ?? false,
+                LuaChildThread thread => _threads?.Return(thread) ?? false,
                 _ => false
             };
         }
@@ -101,16 +101,16 @@ public abstract partial class LuaMarshaler
             }
         }
 
-        private sealed class LuaThreadObjectPolicy : LuaReferenceObjectPolicy<LuaThread>
+        private sealed class LuaThreadObjectPolicy : LuaReferenceObjectPolicy<LuaChildThread>
         {
             public static readonly LuaThreadObjectPolicy Instance = new();
 
             private LuaThreadObjectPolicy()
             { }
 
-            public override LuaThread Create()
+            public override LuaChildThread Create()
             {
-                return new LuaThread();
+                return new();
             }
         }
 

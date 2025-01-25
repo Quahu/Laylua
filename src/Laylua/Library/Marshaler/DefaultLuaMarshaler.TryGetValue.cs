@@ -11,7 +11,7 @@ namespace Laylua.Marshaling;
 public unsafe partial class DefaultLuaMarshaler
 {
     /// <inheritdoc/>
-    public override bool TryGetValue<T>(Lua lua, int stackIndex, out T? obj)
+    public override bool TryGetValue<T>(LuaThread lua, int stackIndex, out T? obj)
         where T : default
     {
         var L = lua.GetStatePointer();
@@ -517,7 +517,7 @@ public unsafe partial class DefaultLuaMarshaler
                 if (clrType.IsAssignableFrom(typeof(LuaThread)) || clrType == typeof(object))
                 {
                     var threadPtr = lua_tothread(L, stackIndex);
-                    if (threadPtr == lua.MainThread.L)
+                    if (threadPtr == lua.MainThread.State.L)
                     {
                         obj = (T) (object) lua.MainThread;
                         return true;

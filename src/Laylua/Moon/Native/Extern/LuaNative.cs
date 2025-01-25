@@ -493,13 +493,17 @@ public static unsafe partial class LuaNative
     }
 
     [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_pcallk))]
-    private static extern LuaStatus _lua_pcallk(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, LuaKFunction? k);
+    private static extern LuaStatus _lua_pcallk(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, IntPtr k);
 
     public static LuaStatus lua_pcallk(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, LuaKFunction? k)
     {
         using (LayluaState.FromExtraSpace(L).EnterPCallContext())
         {
-            return _lua_pcallk(L, nargs, nresults, errfunc, ctx, k);
+            var wrapperPtr = k != null
+                ? LayluaNative.CreateLuaKFunctionWrapper(k)
+                : IntPtr.Zero;
+
+            return _lua_pcallk(L, nargs, nresults, errfunc, ctx, wrapperPtr);
         }
     }
 

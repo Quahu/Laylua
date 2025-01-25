@@ -244,53 +244,86 @@ public class LuaTests : LuaTestBase
     }
 
     [Test]
-    public void GetThread_MainThread_ReturnsMainThread()
+    public void MainThread_ForMainThread_ReturnsMainThread()
     {
         // Act
-        using var thread = Lua.GetThread();
+        var mainThread = Lua.MainThread;
 
         // Assert
-        Assert.That(thread, Is.EqualTo(Lua.MainThread));
+        Assert.That(mainThread, Is.EqualTo(Lua));
     }
 
     [Test]
-    public unsafe void GetThread_NewThread_ReturnsNewThread()
+    public unsafe void MainThread_ForNewThread_ReturnsMainThread()
     {
         // Arrange
-        using var newLua = Lua.CreateThread();
+        using var newThread = Lua.CreateThread();
 
         // Act
-        using var oldThread = Lua.GetThread();
-        using var newThread = newLua.GetThread();
+        var oldMainThread = Lua.MainThread;
+        var newMainThread = newThread.MainThread;
 
         // Assert
-        Assert.That(newThread, Is.Not.EqualTo(oldThread));
+        Assert.That((IntPtr) lua_getextraspace(oldMainThread.State.L), Is.EqualTo((IntPtr) lua_getextraspace(newMainThread.State.L)));
+        Assert.That(newMainThread, Is.EqualTo(oldMainThread));
     }
 
     [Test]
-    public unsafe void GetThread_WorksWithMultipleThreads()
+    public unsafe void MainThread_WorksWithMultipleThreads()
     {
-        const int ThreadCount = 10;
+        const int ThreadCount = 100;
 
         // Arrange
-        var luas = new Lua[ThreadCount];
-        for (var i = 0; i < ThreadCount; i++)
-        {
-            luas[i] = Lua.CreateThread();
-        }
-
-        // Act
         var threads = new LuaThread[ThreadCount];
         for (var i = 0; i < ThreadCount; i++)
         {
-            threads[i] = luas[i].GetThread();
+            threads[i] = Lua.CreateThread();
+        }
+
+        // Act
+        var mainThreads = new Lua[ThreadCount];
+        for (var i = 0; i < ThreadCount; i++)
+        {
+            mainThreads[i] = threads[i].MainThread;
         }
 
         // Assert
         for (var i = 0; i < ThreadCount; i++)
         {
-            Assert.That((IntPtr) threads[i].L, Is.EqualTo((IntPtr) luas[i].State.L));
+            Assert.That((IntPtr) mainThreads[i].State.L, Is.EqualTo((IntPtr) threads[i].MainThread.State.L));
         }
+    }
+
+    [Test]
+    public unsafe void LuaFromExtraSpace_ForMainThread_ReturnsMainThread()
+    {
+        // Act
+        var fromExtraSpace = Lua.FromExtraSpace(L);
+
+        // Assert
+        Assert.That(fromExtraSpace, Is.EqualTo(Lua));
+    }
+
+    [Test]
+    public unsafe void LuaFromExtraSpace_ForChildThread_ReturnsMainThread()
+    {
+        // Act
+        using var thread = Lua.CreateThread();
+        var fromExtraSpace = Lua.FromExtraSpace(thread.State.L);
+
+        // Assert
+        Assert.That(fromExtraSpace, Is.EqualTo(Lua));
+    }
+
+    [Test]
+    public unsafe void LuaThreadFromExtraSpace_ForChildThread_ReturnsChildThread()
+    {
+        // Act
+        using var thread = Lua.CreateThread();
+        var fromExtraSpace = LuaThread.FromExtraSpace(thread.State.L);
+
+        // Assert
+        Assert.That(fromExtraSpace, Is.EqualTo(thread));
     }
 
     [Test]

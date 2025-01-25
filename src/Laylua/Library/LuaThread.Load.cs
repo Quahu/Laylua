@@ -1,4 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Laylua.Moon;
 using Qommon;
@@ -6,8 +10,10 @@ using Qommon.Pooling;
 
 namespace Laylua;
 
-public unsafe partial class Lua
+public unsafe partial class LuaThread
 {
+    private static ReadOnlySpan<byte> Utf8Preamble => [0xEF, 0xBB, 0xBF];
+
     /// <inheritdoc cref="Evaluate{T}(ReadOnlySpan{char},ReadOnlySpan{char})"/>
     public T? Evaluate<T>(string code, string? chunkName = null)
     {
@@ -59,7 +65,6 @@ public unsafe partial class Lua
             return results.First.GetValue<T>();
         }
     }
-
 
     /// <inheritdoc cref="Evaluate(ReadOnlySpan{char},ReadOnlySpan{char})"/>
     public LuaFunctionResults Evaluate(string code, string? chunkName = null)
@@ -211,6 +216,202 @@ public unsafe partial class Lua
         if (status.IsError())
         {
             ThrowLuaException(this, status);
+        }
+    }
+
+    /// <summary>
+    ///     Loads a Lua chunk from the specified file.
+    ///     This method will skip the UTF-8 byte-order mark (BOM).
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="filePath"> The path to the file to load the Lua chunk from.  </param>
+    /// <param name="chunkName"> The name of the chunk. If not specified, will default to <paramref name="filePath"/>. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
+    public LuaFunction LoadFile(string filePath, ReadOnlySpan<char> chunkName = default)
+    {
+        using (var fileStream = File.OpenRead(filePath))
+        {
+            return LoadFile(fileStream, chunkName);
+        }
+    }
+
+    /// <summary>
+    ///     Loads a Lua chunk from the specified file.
+    ///     This method will skip the UTF-8 byte-order mark (BOM).
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="stream"> The stream with the file contents to load the Lua chunk from.  </param>
+    /// <param name="chunkName"> The name of the chunk. If not specified, will default to <see cref="FileStream.Name"/> if <paramref name="stream"/> is a <see cref="FileStream"/>. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
+    public LuaFunction LoadFile(Stream stream, ReadOnlySpan<char> chunkName = default)
+    {
+        Guard.CanSeek(stream);
+
+        SkipPreamble(stream);
+        return Load(stream, chunkName.Length == 0 && stream is FileStream fileStream ? $"@{fileStream.Name}" : chunkName);
+
+        static void SkipPreamble(Stream stream)
+        {
+            if (stream.Length < Utf8Preamble.Length)
+                return;
+
+            var preambleBuffer = (stackalloc byte[4])[..Utf8Preamble.Length];
+            var bytesRead = stream.Read(preambleBuffer);
+            Debug.Assert(bytesRead == Utf8Preamble.Length);
+
+            if (preambleBuffer.SequenceEqual(Utf8Preamble))
+            {
+                stream.Seek(Utf8Preamble.Length, SeekOrigin.Begin);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Loads a Lua chunk using the specified chunk reader.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="reader"> The chunk reader to load the Lua chunk from. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
+    /// <seealso cref="LuaChunkReader"/>
+    public LuaFunction Load(LuaChunkReader reader, ReadOnlySpan<char> chunkName = default)
+    {
+        using (Stack.SnapshotCount())
+        {
+            LoadReader(reader, chunkName);
+            return Stack[-1].GetValue<LuaFunction>()!;
+        }
+    }
+
+    private void LoadReader(LuaChunkReader reader, ReadOnlySpan<char> chunkName)
+    {
+        Guard.IsNotNull(reader);
+
+        Stack.EnsureFreeCapacity(1);
+
+        var L = State.L;
+        LuaStatus status;
+        var readerHandle = GCHandle.Alloc(reader);
+        try
+        {
+            status = lua_load(L, &ReadWithCustomReader, (void*) (IntPtr) readerHandle, chunkName, null);
+        }
+        finally
+        {
+            readerHandle.Free();
+        }
+
+        if (status.IsError())
+        {
+            ThrowLuaException(this, status);
+        }
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        static byte* ReadWithCustomReader(lua_State* L, void* ud, nuint* sz)
+        {
+            ref var size = ref Unsafe.AsRef<nuint>(sz);
+            var reader = Unsafe.As<LuaChunkReader>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
+            try
+            {
+                return reader.Read(L, out size);
+            }
+            catch (Exception ex)
+            {
+                LuaException.RaiseErrorInfo(L, "An exception occurred while reading from the chunk reader.", ex);
+                return default;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Loads a Lua chunk from the specified UTF-8-encoded stream.
+    ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#3.3.2">Lua manual</a> for more information about chunks. </para>
+    /// </summary>
+    /// <param name="utf8Code"> The UTF-8-encoded stream containing the Lua chunk. </param>
+    /// <param name="chunkName"> The name of the chunk. </param>
+    /// <returns>
+    ///     A <see cref="LuaFunction"/> representing the loaded chunk.
+    /// </returns>
+    public LuaFunction Load(Stream utf8Code, ReadOnlySpan<char> chunkName = default)
+    {
+        using (Stack.SnapshotCount())
+        {
+            LoadStream(utf8Code, chunkName);
+            return Stack[-1].GetValue<LuaFunction>()!;
+        }
+    }
+
+    private void LoadStream(Stream code, ReadOnlySpan<char> chunkName)
+    {
+        Guard.IsNotNull(code);
+        Guard.CanRead(code);
+
+        Stack.EnsureFreeCapacity(1);
+
+        var L = State.L;
+        LuaStatus status;
+        if (code is MemoryStream memoryStream && memoryStream.TryGetBuffer(out var buffer))
+        {
+            var bufferSpan = buffer.AsSpan();
+            fixed (byte* bufferPtr = bufferSpan)
+            {
+                status = luaL_loadbuffer(L, bufferPtr, (nuint) bufferSpan.Length, chunkName);
+            }
+        }
+        else
+        {
+            using (var state = new LuaStreamReader.State(code))
+            {
+                status = lua_load(L, &LuaStreamReader.Read, &state, chunkName, null);
+            }
+        }
+
+        if (status.IsError())
+        {
+            ThrowLuaException(this, status);
+        }
+    }
+
+    private static class LuaStreamReader
+    {
+        private const int BufferSize = 4096;
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        public static byte* Read(lua_State* L, void* ud, nuint* sz)
+        {
+            ref var state = ref Unsafe.AsRef<State>(ud);
+            var stream = Unsafe.As<Stream>(state.StreamHandle.Target!);
+            var bufferSpan = new Span<byte>(state.Buffer, BufferSize);
+            try
+            {
+                *sz = (nuint) stream.Read(bufferSpan);
+            }
+            catch (Exception ex)
+            {
+                LuaException.RaiseErrorInfo(L, "An exception occurred while reading from the stream.", ex);
+            }
+
+            return state.Buffer;
+        }
+
+        public struct State(Stream stream) : IDisposable
+        {
+            public GCHandle StreamHandle = GCHandle.Alloc(stream);
+
+            public byte* Buffer = (byte*) NativeMemory.Alloc(BufferSize);
+
+            public void Dispose()
+            {
+                StreamHandle.Free();
+                NativeMemory.Free(Buffer);
+                Buffer = null;
+            }
         }
     }
 }

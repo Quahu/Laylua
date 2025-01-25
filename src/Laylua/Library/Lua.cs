@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Laylua.Marshaling;
 using Laylua.Moon;
-using Qommon;
 
 namespace Laylua;
 
@@ -16,55 +12,20 @@ namespace Laylua;
 /// <remarks>
 ///     This type is not thread-safe; operations on it are not thread-safe.
 /// </remarks>
-public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
+public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
 {
     /// <summary>
-    ///     Gets the stack of this instance.
+    ///     Gets this instance.
+    ///     This property is useful with child threads, for navigating back to the parent Lua state.
     /// </summary>
-    /// <remarks>
-    ///     <inheritdoc cref="LuaStack"/>
-    /// </remarks>
-    public LuaStack Stack { get; }
+    public override Lua MainThread => this;
 
-    /// <summary>
-    ///     Gets the low-level state of this instance.
-    /// </summary>
-    public LuaState State { get; }
+    /// <inheritdoc/>
+    public override LuaTable Globals { get; }
 
-    /// <summary>
-    ///     Gets the main Lua thread.
-    /// </summary>
-    /// <remarks>
-    ///     The returned object does not have to be disposed.
-    /// </remarks>
-    public LuaThread MainThread { get; }
+    internal override LuaMarshaler Marshaler { get; }
 
-    /// <summary>
-    ///     Gets the table containing the global variables.
-    /// </summary>
-    /// <remarks>
-    ///     The returned object does not have to be disposed.
-    /// </remarks>
-    public LuaTable Globals { get; }
-
-    /// <summary>
-    ///     Gets or sets the value of the global variable with the specified name.
-    /// </summary>
-    /// <remarks>
-    ///     For type safety (especially so you can dispose any <see cref="LuaReference"/>s returned)
-    ///     and for performance reasons you should prefer the generic methods, i.e.
-    ///     <see cref="TryGetGlobal{TValue}"/> and <see cref="SetGlobal{TValue}"/>.
-    /// </remarks>
-    /// <param name="name"> The name of the global variable. </param>
-    public object? this[string name]
-    {
-        get => GetGlobal<object>(name);
-        set => SetGlobal(name, value);
-    }
-
-    internal bool IsDisposed => State.IsDisposed;
-
-    internal LuaMarshaler Marshaler { get; }
+    internal override bool IsDisposed => State.IsDisposed;
 
     private readonly ConcurrentStack<int> _leakedReferences = new();
 
@@ -73,7 +34,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     { }
 
     public Lua(LuaMarshaler marshaler)
-        : this(new LuaState(), marshaler)
+        : this(null!, marshaler)
     { }
 
     public Lua(LuaAllocator allocator)
@@ -81,37 +42,16 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
     { }
 
     public Lua(LuaAllocator allocator, LuaMarshaler marshaler)
-        : this(new LuaState(allocator), marshaler)
-    { }
-
-    private Lua(
-        LuaState state,
-        LuaMarshaler marshaler)
     {
         Stack = new LuaStack(this);
-        State = state;
+        State = new LuaState(allocator);
         State.State = this;
-        Marshaler = marshaler;
-
-        _openLibraries = new List<LuaLibrary>();
-        MainThread = LuaThread.CreateMainThread(this);
+        Reference = LuaRegistry.Indices.MainThread;
         Globals = LuaTable.CreateGlobalsTable(this);
+        Marshaler = marshaler;
+        _openLibraries = [];
 
-        lua_setwarnf(state.L, _warningHandlerWrapperPtr, State.L);
-    }
-
-    private Lua(
-        Lua parent,
-        lua_State* L,
-        int threadReference)
-    {
-        Stack = new LuaStack(this);
-        State = new LuaState(L, threadReference);
-        Marshaler = parent.Marshaler;
-
-        _openLibraries = parent._openLibraries;
-        MainThread = parent.MainThread;
-        Globals = parent.Globals;
+        lua_setwarnf(State.L, _warningHandlerWrapperPtr, State.L);
     }
 
     static Lua()
@@ -132,274 +72,6 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    [DoesNotReturn]
-    internal static void ThrowLuaException(Lua lua)
-    {
-        throw LuaException.ConstructFromStack(lua);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowLuaException(Lua lua, LuaStatus status)
-    {
-        throw LuaException.ConstructFromStack(lua).WithStatus(status);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowLuaException(string message)
-    {
-        throw new LuaException(message);
-    }
-
-    /// <summary>
-    ///     Raises a Lua error.
-    /// </summary>
-    /// <remarks>
-    ///     This should be used to propagate errors
-    ///     from .NET to Lua.
-    ///     <para/>
-    ///     For example, if Lua calls a .NET method
-    ///     with unexpected arguments, this method can be used
-    ///     to indicate the method was called incorrectly.
-    /// </remarks>
-    /// <param name="message"> The error message. </param>
-    /// <returns>
-    ///     This method does not actually return.
-    /// </returns>
-    /// <exception cref="LuaPanicException">
-    ///     The exception thrown if the caller was not called
-    ///     from a protected Lua context.
-    /// </exception>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseError(ReadOnlySpan<char> message)
-    {
-        return luaL_error(State.L, message);
-    }
-
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseError(string message)
-    {
-        return luaL_error(State.L, message);
-    }
-
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseError(string message, Exception exception)
-    {
-        return LuaException.RaiseErrorInfo(State.L, message, exception);
-    }
-
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseArgumentError(int argumentIndex, ReadOnlySpan<char> extraMessage = default)
-    {
-        return luaL_argerror(State.L, argumentIndex, extraMessage);
-    }
-
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseArgumentError(int argumentIndex, string? extraMessage = default)
-    {
-        return luaL_argerror(State.L, argumentIndex, extraMessage);
-    }
-
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseArgumentTypeError(int argumentIndex, ReadOnlySpan<char> typeName)
-    {
-        return luaL_typeerror(State.L, argumentIndex, typeName);
-    }
-
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    [DoesNotReturn]
-    public int RaiseArgumentTypeError(int argumentIndex, string typeName)
-    {
-        return luaL_typeerror(State.L, argumentIndex, typeName);
-    }
-
-    /// <summary>
-    ///     Gets the value of a global variable.
-    /// </summary>
-    /// <remarks>
-    ///     <inheritdoc cref="LuaReference._reference"/>
-    ///     <para/>
-    ///     This method uses raw table access.
-    /// </remarks>
-    /// <param name="name"> The name of the global variable. </param>
-    /// <param name="value"> The result out value. </param>
-    /// <typeparam name="TValue"> The type of the value. </typeparam>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public bool TryGetGlobal<TValue>(ReadOnlySpan<char> name, [MaybeNullWhen(false)] out TValue value)
-        where TValue : notnull
-    {
-        var L = this.GetStatePointer();
-        using (Stack.SnapshotCount())
-        {
-            if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Stack[-1].TryGetValue(out value))
-            {
-                Debug.Assert(value != null);
-                return true;
-            }
-
-            value = default;
-            return false;
-        }
-    }
-
-    /// <summary>
-    ///     Gets the value of a global variable.
-    /// </summary>
-    /// <remarks>
-    ///     <inheritdoc cref="LuaReference._reference"/>
-    ///     <para/>
-    ///     This method uses raw table access.
-    /// </remarks>
-    /// <param name="name"> The name of the global variable. </param>
-    /// <typeparam name="TValue"> The type of the value. </typeparam>
-    /// <exception cref="KeyNotFoundException">
-    ///     Thrown when no global with the specified name is set.
-    /// </exception>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public TValue GetGlobal<TValue>(ReadOnlySpan<char> name)
-        where TValue : notnull
-    {
-        var L = this.GetStatePointer();
-        using (Stack.SnapshotCount())
-        {
-            if (lua_rawgetglobal(L, name).IsNoneOrNil())
-            {
-                Throw.KeyNotFoundException();
-            }
-
-            return Stack[-1].GetValue<TValue>()!;
-        }
-    }
-
-    /// <summary>
-    ///     Sets the value of a global variable.
-    /// </summary>
-    /// <param name="name"> The name of the global variable. </param>
-    /// <param name="value"> The value to set. </param>
-    /// <typeparam name="TValue"> The type of the value. </typeparam>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public void SetGlobal<TValue>(ReadOnlySpan<char> name, TValue? value)
-    {
-        Stack.EnsureFreeCapacity(1);
-
-        var L = this.GetStatePointer();
-        using (Stack.SnapshotCount())
-        {
-            Stack.Push(value);
-            lua_rawsetglobal(L, name);
-        }
-    }
-
-    /// <summary>
-    ///     Instantiates a new <see cref="LuaTable"/>, referencing it in the Lua registry.
-    /// </summary>
-    /// <param name="sequenceCapacity"> The size hint for how many items keyed with integers the table will hold. </param>
-    /// <param name="tableCapacity"> The size hint for how many items keyed with non-integers the table will hold. </param>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public LuaTable CreateTable(int sequenceCapacity = 0, int tableCapacity = 0)
-    {
-        Stack.EnsureFreeCapacity(1);
-
-        var L = this.GetStatePointer();
-        using (Stack.SnapshotCount())
-        {
-            lua_createtable(L, sequenceCapacity, tableCapacity);
-            return Stack[-1].GetValue<LuaTable>()!;
-        }
-    }
-
-    /// <summary>
-    ///     Instantiates a new <see cref="LuaUserData"/>, referencing it in the Lua registry.
-    /// </summary>
-    /// <remarks>
-    ///     Note that this creates a native Lua user data,
-    ///     which may not be particularly useful for your application.
-    ///     Instead, it is recommended to let the marshaler handle user data creation
-    ///     for .NET objects.
-    /// </remarks>
-    /// <param name="size"> The size of the memory to allocate for this user data. </param>
-    /// <param name="userValueCount"> The amount of additional user values to be stored alongside this user data. </param>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public LuaUserData CreateUserData(nuint size, int userValueCount = 0)
-    {
-        Stack.EnsureFreeCapacity(1);
-
-        var L = this.GetStatePointer();
-        using (Stack.SnapshotCount())
-        {
-            _ = lua_newuserdatauv(L, size, userValueCount);
-            return Stack[-1].GetValue<LuaUserData>()!;
-        }
-    }
-
-    /// <summary>
-    ///     Gets the thread of this Lua state.
-    /// </summary>
-    /// <remarks>
-    ///     If this instance is not a state created from another existing state,
-    ///     the returned object can be the same as <see cref="MainThread"/>.
-    /// </remarks>
-    /// <returns>
-    ///     The thread for this instance.
-    /// </returns>
-    public LuaThread GetThread()
-    {
-        var L = this.GetStatePointer();
-        if (L == MainThread.L)
-        {
-            return MainThread;
-        }
-
-        Stack.EnsureFreeCapacity(1);
-
-        using (Stack.SnapshotCount())
-        {
-            _ = lua_pushthread(L);
-            var thread = Stack[-1].GetValue<LuaThread>();
-            if (thread == null)
-            {
-                ThrowLuaException("Failed to get the Lua thread.");
-            }
-
-            return thread;
-        }
-    }
-
-    /// <summary>
-    ///     Creates a thread from this Lua state.
-    /// </summary>
-    /// <returns>
-    ///     The created thread.
-    /// </returns>
-    public Lua CreateThread()
-    {
-        Stack.EnsureFreeCapacity(1);
-
-        var L = this.GetStatePointer();
-        using (Stack.SnapshotCount())
-        {
-            var L1 = lua_newthread(L);
-            if (L1 == null || !LuaReference.TryCreate(L, -1, out var threadReference))
-            {
-                ThrowLuaException("Failed to create the Lua thread.");
-                throw null!;
-            }
-
-            return new Lua(this, L1, threadReference);
-        }
-    }
-
     public override string ToString()
     {
         return ToString(null, null);
@@ -416,7 +88,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         return (State as ISpanFormattable).TryFormat(destination, out charsWritten, format, provider);
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         if (IsDisposed)
             return;
@@ -434,7 +106,7 @@ public sealed unsafe partial class Lua : IDisposable, ISpanFormattable
         }
     }
 
-    public static Lua FromExtraSpace(lua_State* L)
+    public new static Lua FromExtraSpace(lua_State* L)
     {
         var lua = LayluaState.FromExtraSpace(L).State as Lua;
         if (lua == null)

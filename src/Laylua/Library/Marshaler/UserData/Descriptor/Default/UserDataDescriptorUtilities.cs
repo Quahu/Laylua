@@ -12,11 +12,11 @@ namespace Laylua.Marshaling;
 
 public static class UserDataDescriptorUtilities
 {
-    public delegate int MethodInvokerDelegate(Lua lua, LuaStackValueRange arguments);
+    public delegate int MethodInvokerDelegate(LuaThread lua, LuaStackValueRange arguments);
 
-    public delegate int IndexDelegate(Lua lua, LuaStackValue userData, LuaStackValue key);
+    public delegate int IndexDelegate(LuaThread lua, LuaStackValue userData, LuaStackValue key);
 
-    public delegate int NewIndexDelegate(Lua lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value);
+    public delegate int NewIndexDelegate(LuaThread lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value);
 
     private static readonly MethodInfo _pushMethod;
 
@@ -149,7 +149,7 @@ public static class UserDataDescriptorUtilities
         _luaReferenceDisposeKvpEnumerable = luaReferenceDisposeKvpEnumerable;
     }
 
-    private static T?[] GetParamsArgument<T>(Lua lua, int argumentCount, int argumentIndex)
+    private static T?[] GetParamsArgument<T>(LuaThread lua, int argumentCount, int argumentIndex)
     {
         var remainingArgumentCount = argumentCount - (argumentIndex - 1);
         if (remainingArgumentCount == 0)
@@ -184,7 +184,7 @@ public static class UserDataDescriptorUtilities
         Guard.IsNotNull(methodInfo);
 
         var parameters = methodInfo.GetParameters();
-        var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
+        var luaParameterExpression = Expression.Parameter(typeof(LuaThread), "lua");
         var argumentsParameterExpression = Expression.Parameter(typeof(LuaStackValueRange), "arguments");
         var requiredParameterCount = 0;
         for (var i = 0; i < parameters.Length; i++)
@@ -501,7 +501,7 @@ public static class UserDataDescriptorUtilities
         // Index
         var returnLabelTarget = Expression.Label(typeof(int), "returnLabel");
 
-        var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
+        var luaParameterExpression = Expression.Parameter(typeof(LuaThread), "lua");
         var userDataParameterExpression = Expression.Parameter(typeof(LuaStackValue), "userData");
         var keyParameterExpression = Expression.Parameter(typeof(LuaStackValue), "key");
 
@@ -636,7 +636,7 @@ public static class UserDataDescriptorUtilities
     {
         var returnLabelTarget = Expression.Label(typeof(int), "returnLabel");
 
-        var luaParameterExpression = Expression.Parameter(typeof(Lua), "lua");
+        var luaParameterExpression = Expression.Parameter(typeof(LuaThread), "lua");
         var userDataParameterExpression = Expression.Parameter(typeof(LuaStackValue), "userData");
         var keyParameterExpression = Expression.Parameter(typeof(LuaStackValue), "key");
         var valueParameterExpression = Expression.Parameter(typeof(LuaStackValue), "value");

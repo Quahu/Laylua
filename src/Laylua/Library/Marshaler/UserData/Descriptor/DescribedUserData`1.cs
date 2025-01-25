@@ -20,7 +20,7 @@ public class DescribedUserData<T> : DescribedUserData
         Value = value;
     }
 
-    internal override UserDataHandle CreateUserDataHandle(Lua lua)
+    internal override UserDataHandle CreateUserDataHandle(LuaThread lua)
     {
         return new DescriptorUserDataHandle<T>(lua, Value, Descriptor);
     }

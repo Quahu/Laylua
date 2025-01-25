@@ -17,7 +17,7 @@ public unsafe partial class DefaultLuaMarshaler
         if (!handle.TryGetValue<Delegate>(out var @delegate))
             return luaL_error(L, "Failed to retrieve the delegate from the handle.");
 
-        var lua = Lua.FromExtraSpace(L);
+        var lua = LuaThread.FromExtraSpace(L);
         var top = lua_gettop(L);
         var arguments = top == 0
             ? LuaStackValueRange.Empty
@@ -27,7 +27,7 @@ public unsafe partial class DefaultLuaMarshaler
         return invoker(lua, arguments);
     };
 
-    protected virtual void PushDelegate(Lua lua, Delegate @delegate)
+    protected virtual void PushDelegate(LuaThread lua, Delegate @delegate)
     {
         var L = lua.GetStatePointer();
         Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
