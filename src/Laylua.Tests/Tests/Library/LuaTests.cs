@@ -210,7 +210,7 @@ public class LuaTests : LuaTestBase
 
     private sealed class ThrowingLuaChunkReader : LuaChunkReader
     {
-        protected override unsafe byte* Read(lua_State* L, out UIntPtr bytesRead)
+        protected override int Read(Span<byte> buffer)
         {
             throw new IOException("Test IO exception.");
         }
@@ -234,12 +234,9 @@ public class LuaTests : LuaTestBase
 
     private sealed class MyStreamLuaChunkReader(Stream stream) : LuaChunkReader
     {
-        private readonly byte[] _buffer = GC.AllocateArray<byte>(128, pinned: true);
-
-        protected override unsafe byte* Read(lua_State* L, out nuint bytesRead)
+        protected override int Read(Span<byte> buffer)
         {
-            bytesRead = (nuint) stream.Read(_buffer);
-            return (byte*) Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(_buffer));
+            return stream.Read(buffer);
         }
     }
 

@@ -104,7 +104,7 @@ public unsafe partial class LuaFunction
         var writer = Unsafe.As<LuaChunkWriter>(state.Target);
         try
         {
-            return writer.Write(L, (byte*) p, sz);
+            return writer.Write(new ReadOnlySpan<byte>((byte*) p, (int) sz));
         }
         catch (Exception ex)
         {

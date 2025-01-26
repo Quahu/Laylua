@@ -35,9 +35,9 @@ public class LuaFunctionTests : LuaTestBase
 
     private sealed class MyStreamLuaChunkWriter(Stream stream) : LuaChunkWriter
     {
-        protected override unsafe int Write(lua_State* L, byte* data, nuint length)
+        protected override int Write(ReadOnlySpan<byte> data)
         {
-            stream.Write(new Span<byte>(data, (int) length));
+            stream.Write(data);
             return 0;
         }
     }
@@ -80,7 +80,7 @@ public class LuaFunctionTests : LuaTestBase
 
     private sealed class ThrowingLuaChunkWriter : LuaChunkWriter
     {
-        protected override unsafe int Write(lua_State* L, byte* data, UIntPtr length)
+        protected override int Write(ReadOnlySpan<byte> data)
         {
             throw new IOException("Test IO exception.");
         }

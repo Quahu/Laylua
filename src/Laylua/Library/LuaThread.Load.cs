@@ -298,9 +298,11 @@ public unsafe partial class LuaThread
         var L = State.L;
         LuaStatus status;
         var readerHandle = GCHandle.Alloc(reader);
+        var buffer = stackalloc byte[ReaderState.BufferSize];
+        var state = new ReaderState(readerHandle, buffer);
         try
         {
-            status = lua_load(L, &ReadWithCustomReader, (void*) (IntPtr) readerHandle, chunkName, null);
+            status = lua_load(L, &ReadWithCustomReader, &state, chunkName, null);
         }
         finally
         {
@@ -315,11 +317,12 @@ public unsafe partial class LuaThread
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         static byte* ReadWithCustomReader(lua_State* L, void* ud, nuint* sz)
         {
-            ref var size = ref Unsafe.AsRef<nuint>(sz);
-            var reader = Unsafe.As<LuaChunkReader>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
+            var state = *(ReaderState*) ud;
+            var reader = Unsafe.As<LuaChunkReader>(state.ReaderHandle.Target!);
             try
             {
-                return reader.Read(L, out size);
+                *sz = (nuint) reader.Read(new Span<byte>(state.BufferPtr, ReaderState.BufferSize));
+                return state.BufferPtr;
             }
             catch (Exception ex)
             {
@@ -327,6 +330,14 @@ public unsafe partial class LuaThread
                 return default;
             }
         }
+    }
+
+    private readonly struct ReaderState(GCHandle readerHandle, byte* bufferPtr)
+    {
+        public const int BufferSize = 256;
+
+        public readonly GCHandle ReaderHandle = readerHandle;
+        public readonly byte* BufferPtr = bufferPtr;
     }
 
     /// <summary>
