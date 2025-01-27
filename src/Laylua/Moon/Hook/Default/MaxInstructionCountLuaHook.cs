@@ -27,18 +27,18 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(lua_State* L, lua_Debug* ar)
+    protected internal override void Execute(LuaThread lua, LuaDebug debug)
     {
-        lua_getinfo(L, "Sn", ar);
+        lua_getinfo(lua.State.L, "Sn", debug.ActivationRecord);
 
         char[]? rentedArray = null;
         string message;
         try
         {
             scoped Span<char> nameSpan;
-            if (ar->name != null)
+            if (debug.ActivationRecord->name != null)
             {
-                var utf8NameSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(ar->name);
+                var utf8NameSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(debug.ActivationRecord->name);
                 var charCount = Encoding.UTF8.GetCharCount(utf8NameSpan);
                 nameSpan = charCount > 256
                     ? (rentedArray = ArrayPool<char>.Shared.Rent(charCount)).AsSpan(0, charCount)
@@ -61,6 +61,6 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
             }
         }
 
-        luaL_error(L, message);
+        lua.RaiseError(message);
     }
 }

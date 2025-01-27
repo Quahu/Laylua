@@ -3,9 +3,6 @@ using System.Runtime.InteropServices;
 
 namespace Laylua.Moon;
 
-/// <summary>
-///     Represents the debug information of a Lua state.
-/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct lua_Debug
 {

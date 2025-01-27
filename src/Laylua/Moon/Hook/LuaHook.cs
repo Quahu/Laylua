@@ -3,7 +3,7 @@
 /// <summary>
 ///     Represents a Lua hook, i.e. a type that can trigger on various events based on the <see cref="LuaEventMask"/>.
 /// </summary>
-public abstract unsafe class LuaHook
+public abstract class LuaHook
 {
     /// <summary>
     ///     Gets the events this hook is subscribed to.
@@ -19,12 +19,12 @@ public abstract unsafe class LuaHook
     protected internal abstract int InstructionCount { get; }
 
     /// <summary>
-    ///     Executes this hook.
+    ///     Invoked when this hook is triggered.
     /// </summary>
     /// <remarks>
     ///     The code must not throw any exceptions.
     /// </remarks>
-    /// <param name="L"> The Lua state. </param>
-    /// <param name="ar"> The pointer to the debug information. </param>
-    protected internal abstract void Execute(lua_State* L, lua_Debug* ar);
+    /// <param name="lua"> The Lua state. </param>
+    /// <param name="debug"> The debug information. </param>
+    protected internal abstract void Execute(LuaThread lua, LuaDebug debug);
 }

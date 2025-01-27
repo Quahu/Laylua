@@ -6,7 +6,7 @@ namespace Laylua.Moon;
 ///     Represents a Lua hook that raises an error
 ///     when the specified cancellation token signals cancellation.
 /// </summary>
-public sealed unsafe class CancellationTokenLuaHook : LuaHook
+public sealed class CancellationTokenLuaHook : LuaHook
 {
     /// <inheritdoc/>
     protected internal override LuaEventMask EventMask => LuaEventMask.Call | LuaEventMask.Return | LuaEventMask.Line | LuaEventMask.Count;
@@ -26,13 +26,13 @@ public sealed unsafe class CancellationTokenLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(lua_State* L, lua_Debug* ar)
+    protected internal override void Execute(LuaThread lua, LuaDebug debug)
     {
         if (!_cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        luaL_error(L, "The execution has been cancelled.");
+        lua.RaiseError("The execution has been cancelled.");
     }
 }
