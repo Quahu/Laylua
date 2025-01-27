@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Laylua.Marshaling;
 using Laylua.Moon;
 
@@ -54,6 +53,11 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         lua_setwarnf(State.L, _warningHandlerWrapperPtr, State.L);
     }
 
+    ~Lua()
+    {
+        Dispose();
+    }
+
     static Lua()
     {
         _warningHandlerWrapperPtr = LayluaNative.CreateLuaWarnFunctionWrapper(_warningHandler);
@@ -104,6 +108,8 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         {
             State.Close();
         }
+
+        GC.SuppressFinalize(this);
     }
 
     public new static Lua FromExtraSpace(lua_State* L)
