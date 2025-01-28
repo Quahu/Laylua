@@ -65,7 +65,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         if (!LuaRegistry.IsPersistentReference(_reference))
         {
-            Lua!.MainThread.PushLeakedReference(_reference);
+            Laylua.Lua.FromThread(Lua).PushLeakedReference(_reference);
         }
 
         if (Lua!.Marshaler.ReturnReference(this))

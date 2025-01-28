@@ -17,7 +17,7 @@ public unsafe partial class DefaultLuaMarshaler
         if (!handle.TryGetValue<Delegate>(out var @delegate))
             return luaL_error(L, "Failed to retrieve the delegate from the handle.");
 
-        var lua = LuaThread.FromExtraSpace(L);
+        using var lua = LuaThread.FromExtraSpace(L);
         var top = lua_gettop(L);
         var arguments = top == 0
             ? LuaStackValueRange.Empty

@@ -33,7 +33,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     /// <summary>
     ///     Gets the main Lua thread, i.e. the parent of this thread.
     /// </summary>
-    public abstract Lua MainThread { get; }
+    public abstract LuaThread MainThread { get; }
 
     /// <summary>
     ///     Gets the table containing the global variables.
@@ -41,7 +41,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     /// <remarks>
     ///     The returned object does not have to be disposed.
     /// </remarks>
-    public virtual LuaTable Globals => MainThread.Globals;
+    public abstract LuaTable Globals { get; }
 
     /// <summary>
     ///     Gets the status of this thread.
@@ -78,7 +78,7 @@ public abstract unsafe partial class LuaThread : LuaReference
         set => throw new NotSupportedException();
     }
 
-    internal virtual LuaMarshaler Marshaler => MainThread.Marshaler;
+    internal abstract LuaMarshaler Marshaler { get; }
 
     internal LuaThread()
     { }
@@ -375,7 +375,7 @@ public abstract unsafe partial class LuaThread : LuaReference
         var G = lua.State.L;
         if (L == G)
         {
-            return lua;
+            return lua.MainThread;
         }
 
         var top = lua_gettop(L);

@@ -188,9 +188,11 @@ public sealed unsafe class LuaState : ISpanFormattable
 
         _innerHookFunction = (state, ar) =>
         {
-            var thread = LuaThread.FromExtraSpace(state);
-            var debug = new LuaDebug(thread, ar);
-            hook.Execute(thread, debug);
+            using (var thread = LuaThread.FromExtraSpace(state))
+            {
+                var debug = new LuaDebug(thread, ar);
+                hook.Execute(thread, debug);
+            }
         };
 
         _safeHookFunction = Marshal.GetDelegateForFunctionPointer<LuaHookFunction>(LayluaNative.CreateLuaHookFunctionWrapper(_innerHookFunction));

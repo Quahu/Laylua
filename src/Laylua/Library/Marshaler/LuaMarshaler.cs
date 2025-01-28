@@ -65,7 +65,7 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateTableReference(LuaThread lua, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
     {
-        lua.MainThread.UnrefLeakedReferences();
+        Lua.FromThread(lua).UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -91,7 +91,7 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateFunctionReference(LuaThread lua, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
     {
-        lua.MainThread.UnrefLeakedReferences();
+        Lua.FromThread(lua).UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -118,7 +118,7 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateUserDataReference(LuaThread lua, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
     {
-        lua.MainThread.UnrefLeakedReferences();
+        Lua.FromThread(lua).UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {
@@ -146,7 +146,7 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateThreadReference(LuaThread lua, int stackIndex, lua_State* L, [MaybeNullWhen(false)] out LuaThread thread)
     {
-        lua.MainThread.UnrefLeakedReferences();
+        Lua.FromThread(lua).UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
         {

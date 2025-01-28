@@ -7,7 +7,7 @@ using Qommon.Pooling;
 
 namespace Laylua;
 
-public sealed unsafe partial class Lua
+public unsafe partial class Lua
 {
     /// <summary>
     ///     Gets or sets whether <see cref="WarningEmitted"/> should fire for emitted warnings. <br/>

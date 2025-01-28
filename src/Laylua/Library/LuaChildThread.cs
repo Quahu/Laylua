@@ -1,4 +1,5 @@
-﻿using Laylua.Moon;
+﻿using Laylua.Marshaling;
+using Laylua.Moon;
 
 namespace Laylua;
 
@@ -6,6 +7,12 @@ internal sealed unsafe class LuaChildThread : LuaThread
 {
     /// <inheritdoc/>
     public override Lua MainThread => _mainThread;
+
+    /// <inheritdoc />
+    public override LuaTable Globals => MainThread.Globals;
+
+    /// <inheritdoc />
+    internal override LuaMarshaler Marshaler => MainThread.Marshaler;
 
     private Lua _mainThread = null!;
 

@@ -256,8 +256,8 @@ public class LuaMarshalerTests : LuaTestBase
         var weakThreadAsReference = Lua.Stack[-1].GetValue<LuaWeakReference<LuaReference>>();
         Lua.Stack.Pop();
 
-        var weakThreadValue = weakThread.GetValue();
-        var weakThreadAsReferenceValue = weakThreadAsReference.GetValue();
+        using var weakThreadValue = weakThread.GetValue();
+        using var weakThreadAsReferenceValue = weakThreadAsReference.GetValue();
 
         // Assert
         Assert.That(weakTableValue, Is.Not.Null);

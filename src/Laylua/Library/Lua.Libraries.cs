@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Laylua;
 
-public sealed partial class Lua
+public partial class Lua
 {
     /// <summary>
     ///     Gets the currently open libraries.

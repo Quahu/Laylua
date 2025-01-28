@@ -278,7 +278,7 @@ public class LuaTests : LuaTestBase
         }
 
         // Act
-        var mainThreads = new Lua[ThreadCount];
+        var mainThreads = new LuaThread[ThreadCount];
         for (var i = 0; i < ThreadCount; i++)
         {
             mainThreads[i] = threads[i].MainThread;
@@ -289,6 +289,8 @@ public class LuaTests : LuaTestBase
         {
             Assert.That((IntPtr) mainThreads[i].State.L, Is.EqualTo((IntPtr) threads[i].MainThread.State.L));
         }
+
+        LuaReference.Dispose(threads);
     }
 
     [Test]
@@ -317,7 +319,7 @@ public class LuaTests : LuaTestBase
     {
         // Act
         using var thread = Lua.CreateThread();
-        var fromExtraSpace = LuaThread.FromExtraSpace(thread.State.L);
+        using var fromExtraSpace = LuaThread.FromExtraSpace(thread.State.L);
 
         // Assert
         Assert.That(fromExtraSpace, Is.EqualTo(thread));

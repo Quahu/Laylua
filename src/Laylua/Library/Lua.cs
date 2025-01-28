@@ -11,13 +11,10 @@ namespace Laylua;
 /// <remarks>
 ///     This type is not thread-safe; operations on it are not thread-safe.
 /// </remarks>
-public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
+public unsafe partial class Lua : LuaThread, ISpanFormattable
 {
-    /// <summary>
-    ///     Gets this instance.
-    ///     This property is useful with child threads, for navigating back to the parent Lua state.
-    /// </summary>
-    public override Lua MainThread => this;
+    /// <inheritdoc/>
+    public override LuaThread MainThread { get; }
 
     /// <inheritdoc/>
     public override LuaTable Globals { get; }
@@ -46,6 +43,7 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         State = new LuaState(allocator);
         State.State = this;
         Reference = LuaRegistry.Indices.MainThread;
+        MainThread = new LuaMainThread(this);
         Globals = LuaTable.CreateGlobalsTable(this);
         Marshaler = marshaler;
         _openLibraries = [];
@@ -121,5 +119,10 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         }
 
         return lua;
+    }
+
+    public static Lua FromThread(LuaThread thread)
+    {
+        return FromExtraSpace(thread.State.L);
     }
 }

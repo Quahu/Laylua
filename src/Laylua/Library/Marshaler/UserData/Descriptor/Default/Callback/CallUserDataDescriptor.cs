@@ -10,7 +10,7 @@ public abstract unsafe class CallUserDataDescriptor : UserDataDescriptor
     {
         _call = L =>
         {
-            var lua = LuaThread.FromExtraSpace(L);
+            using var lua = LuaThread.FromExtraSpace(L);
             var top = lua_gettop(L);
             var arguments = top == 1
                 ? LuaStackValueRange.Empty

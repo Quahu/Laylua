@@ -54,7 +54,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _pairs ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Pairs(lua, lua.Stack[1]);
                 };
 
@@ -65,7 +65,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _add ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Add(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -76,7 +76,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _subtract ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Subtract(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -87,7 +87,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _multiply ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Multiply(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -98,7 +98,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _modulo ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Modulo(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -109,7 +109,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _power ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Power(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -120,7 +120,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _divide ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Divide(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -131,7 +131,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _floorDivide ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return FloorDivide(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -142,7 +142,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _bitwiseAnd ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return BitwiseAnd(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -153,7 +153,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _bitwiseOr ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return BitwiseOr(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -164,7 +164,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _bitwiseExclusiveOr ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return BitwiseExclusiveOr(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -175,7 +175,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _shiftLeft ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return ShiftLeft(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -186,7 +186,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _shiftRight ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return ShiftRight(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -197,7 +197,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _negate ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Negate(lua, lua.Stack[1]);
                 };
 
@@ -208,7 +208,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _bitwiseNot ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return BitwiseNot(lua, lua.Stack[1]);
                 };
 
@@ -219,7 +219,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _concat ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Concat(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -230,7 +230,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _length ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Length(lua, lua.Stack[1]);
                 };
 
@@ -241,7 +241,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _equal ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Equal(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -252,7 +252,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _lessThan ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return LessThan(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -263,7 +263,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _lessThanOrEqual ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return LessThanOrEqual(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -274,7 +274,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _index ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Index(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -285,7 +285,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _newIndex ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return NewIndex(lua, lua.Stack[1], lua.Stack[2], lua.Stack[3]);
                 };
 
@@ -296,7 +296,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _call ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     var top = lua_gettop(L);
                     var arguments = top == 1
                         ? LuaStackValueRange.Empty
@@ -312,7 +312,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _close ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return Close(lua, lua.Stack[1], lua.Stack[2]);
                 };
 
@@ -323,7 +323,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
             {
                 _toString ??= L =>
                 {
-                    var lua = LuaThread.FromExtraSpace(L);
+                    using var thread = LuaThread.FromExtraSpace(L);
                     return ToString(lua, lua.Stack[1]);
                 };
 
