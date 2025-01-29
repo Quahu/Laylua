@@ -38,6 +38,41 @@ public class LuaStateTests : LuaTestBase
         Assert.Throws<LuaException>(() => Lua.Execute("while true do end"));
     }
 
+    private sealed class InstructionCountLuaHook(int instructionCount) : LuaHook
+    {
+        protected override LuaEventMask EventMask => LuaEventMask.Count;
+
+        protected override int InstructionCount { get; } = instructionCount;
+
+        public int TimesCalled { get; private set; }
+
+        protected override void Execute(LuaThread lua, LuaDebug debug)
+        {
+            TimesCalled++;
+        }
+    }
+
+    [Test]
+    public void CombinedCountLuaHooks_CallsBothAsExpected()
+    {
+        // Arrange
+        var twoInstructionsHook = new InstructionCountLuaHook(2);
+        var fiveInstructionsHook = new InstructionCountLuaHook(5);
+        var combinedHook = LuaHook.Combine(twoInstructionsHook, fiveInstructionsHook);
+        Lua.State.Hook = combinedHook;
+
+        // Act
+        for (var i = 0; i < 10; i++)
+        {
+            Lua.Execute("");
+        }
+
+        // Assert
+        Assert.That(combinedHook.Hooks, Is.EqualTo(new LuaHook[] { twoInstructionsHook, fiveInstructionsHook }));
+        Assert.That(twoInstructionsHook.TimesCalled, Is.EqualTo(5));
+        Assert.That(fiveInstructionsHook.TimesCalled, Is.EqualTo(2));
+    }
+
     [Test]
     public void GC_IsRunning_ReturnsTrue()
     {

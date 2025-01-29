@@ -1,4 +1,6 @@
-﻿namespace Laylua.Moon;
+﻿using System;
+
+namespace Laylua.Moon;
 
 /// <summary>
 ///     Represents a Lua hook, i.e. a type that can trigger on various events based on the <see cref="LuaEventMask"/>.
@@ -27,4 +29,16 @@ public abstract class LuaHook
     /// <param name="lua"> The Lua state. </param>
     /// <param name="debug"> The debug information. </param>
     protected internal abstract void Execute(LuaThread lua, LuaDebug debug);
+
+    /// <summary>
+    ///     Combines multiple hooks into one.
+    /// </summary>
+    /// <param name="hooks"> The hooks to combine. </param>
+    /// <returns>
+    ///     A hook representing the combined hooks.
+    /// </returns>
+    public static CombinedLuaHook Combine(params Span<LuaHook> hooks)
+    {
+        return new CombinedLuaHook(hooks);
+    }
 }
