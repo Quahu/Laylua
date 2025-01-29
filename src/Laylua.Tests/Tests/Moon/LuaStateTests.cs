@@ -25,7 +25,7 @@ public class LuaStateTests : LuaTestBase
         // Act & Assert
         Assert.That(() => Lua.Execute("while true do end"), Throws.TypeOf<LuaException>()
             .With.InnerException.TypeOf<OperationCanceledException>()
-                .And.InnerException.Property(nameof(OperationCanceledException.CancellationToken)).EqualTo(cts.Token));
+            .And.InnerException.Property(nameof(OperationCanceledException.CancellationToken)).EqualTo(cts.Token));
     }
 
     [Test]
@@ -37,7 +37,7 @@ public class LuaStateTests : LuaTestBase
         // Act & Assert
         Assert.That(() => Lua.Execute("while true do end"), Throws.TypeOf<LuaException>()
             .With.InnerException.TypeOf<MaxInstructionCountReachedException>()
-                .And.InnerException.Property(nameof(MaxInstructionCountReachedException.InstructionCount)).EqualTo(100));
+            .And.InnerException.Property(nameof(MaxInstructionCountReachedException.InstructionCount)).EqualTo(100));
     }
 
     private sealed class InstructionCountLuaHook(int instructionCount) : LuaHook
@@ -48,7 +48,7 @@ public class LuaStateTests : LuaTestBase
 
         public int TimesCalled { get; private set; }
 
-        protected override void Execute(LuaThread lua, LuaDebug debug)
+        protected override void Execute(LuaThread lua, ref LuaDebug debug)
         {
             TimesCalled++;
         }
@@ -73,6 +73,42 @@ public class LuaStateTests : LuaTestBase
         Assert.That(combinedHook.Hooks, Is.EqualTo(new LuaHook[] { twoInstructionsHook, fiveInstructionsHook }));
         Assert.That(twoInstructionsHook.TimesCalled, Is.EqualTo(5));
         Assert.That(fiveInstructionsHook.TimesCalled, Is.EqualTo(2));
+    }
+
+    private sealed class FunctionNameGrabberLuaHook : LuaHook
+    {
+        protected override LuaEventMask EventMask => LuaEventMask.Call;
+
+        protected override int InstructionCount => 0;
+
+        public List<string> FunctionNames { get; } = [];
+
+        protected override void Execute(LuaThread lua, ref LuaDebug debug)
+        {
+            var functionName = debug.FunctionName.ToString();
+            if (!string.IsNullOrWhiteSpace(functionName))
+            {
+                FunctionNames.Add(functionName);
+            }
+        }
+    }
+
+    [Test]
+    public void FunctionNameGrabberLuaHook_GrabsFunctionNames()
+    {
+        // Arrange
+        var hook = new FunctionNameGrabberLuaHook();
+        Lua.State.Hook = hook;
+
+        Lua.SetGlobal("func1", static () => { });
+        Lua.SetGlobal("func2", static () => { });
+        Lua.Execute("function func3() end");
+
+        // Act
+        Lua.Execute("func1() func2() func3()");
+
+        // Assert
+        Assert.That(hook.FunctionNames, Is.EqualTo(new[] { "func1", "func2", "func3" }));
     }
 
     [Test]

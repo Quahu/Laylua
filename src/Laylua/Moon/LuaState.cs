@@ -191,7 +191,7 @@ public sealed unsafe class LuaState : ISpanFormattable
             using (var thread = LuaThread.FromExtraSpace(state))
             {
                 var debug = new LuaDebug(thread, ar);
-                hook.Execute(thread, debug);
+                hook.Execute(thread, ref debug);
             }
         };
 

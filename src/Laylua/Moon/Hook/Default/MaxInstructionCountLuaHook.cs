@@ -27,7 +27,7 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(LuaThread lua, LuaDebug debug)
+    protected internal override void Execute(LuaThread lua, ref LuaDebug debug)
     {
         lua_getinfo(lua.State.L, "Sn", debug.ActivationRecord);
 
