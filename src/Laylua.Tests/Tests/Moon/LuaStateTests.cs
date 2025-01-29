@@ -23,7 +23,9 @@ public class LuaStateTests : LuaTestBase
         Lua.State.Hook = new CancellationTokenLuaHook(cts.Token);
 
         // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("while true do end"));
+        Assert.That(() => Lua.Execute("while true do end"), Throws.TypeOf<LuaException>()
+            .With.InnerException.TypeOf<OperationCanceledException>()
+                .And.InnerException.Property(nameof(OperationCanceledException.CancellationToken)).EqualTo(cts.Token));
     }
 
     [Test]

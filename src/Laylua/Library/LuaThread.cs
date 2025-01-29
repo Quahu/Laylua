@@ -139,10 +139,45 @@ public abstract unsafe partial class LuaThread : LuaReference
         return luaL_error(State.L, message);
     }
 
-    /// <inheritdoc cref="RaiseError(ReadOnlySpan{char})"/>
+    /// <summary>
+    ///     Raises a Lua error using an exception.
+    /// </summary>
+    /// <remarks>
+    ///     <inheritdoc cref="RaiseError(System.ReadOnlySpan{char})"/>
+    /// </remarks>
+    /// <param name="exception"> The inner exception to propagate. </param>
+    /// <returns>
+    ///     This method does not actually return.
+    /// </returns>
+    /// <exception cref="LuaPanicException">
+    ///     The exception thrown if the caller was not called
+    ///     from a protected Lua context.
+    /// </exception>
     [MethodImpl(MethodImplOptions.NoInlining)]
     [DoesNotReturn]
-    public int RaiseError(string message, Exception exception)
+    public int RaiseError(Exception exception)
+    {
+        return RaiseError(null, exception);
+    }
+
+    /// <summary>
+    ///     Raises a Lua error using an exception.
+    /// </summary>
+    /// <remarks>
+    ///     <inheritdoc cref="RaiseError(System.ReadOnlySpan{char})"/>
+    /// </remarks>
+    /// <param name="message"> The error message. </param>
+    /// <param name="exception"> The inner exception to propagate. </param>
+    /// <returns>
+    ///     This method does not actually return.
+    /// </returns>
+    /// <exception cref="LuaPanicException">
+    ///     The exception thrown if the caller was not called
+    ///     from a protected Lua context.
+    /// </exception>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    [DoesNotReturn]
+    public int RaiseError(string? message, Exception exception)
     {
         ThrowIfInvalid();
 

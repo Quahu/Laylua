@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 
 namespace Laylua.Moon;
 
@@ -33,6 +34,6 @@ public sealed class CancellationTokenLuaHook : LuaHook
             return;
         }
 
-        lua.RaiseError("The execution has been cancelled.");
+        lua.RaiseError(new OperationCanceledException(_cancellationToken));
     }
 }
