@@ -81,11 +81,11 @@ public readonly unsafe struct LuaString : IEquatable<LuaString>
     ///     Returns a <see cref="string"/> created from this <see cref="LuaString"/>.
     /// </summary>
     /// <returns> The created <see cref="string"/>. </returns>
-    public override string ToString()
+    public override string? ToString()
     {
         return Pointer != null
             ? Encoding.UTF8.GetString(Pointer, (int) Length)
-            : "<invalid string pointer>";
+            : null;
     }
 
     /// <inheritdoc/>

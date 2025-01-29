@@ -200,7 +200,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         {
             PushValue(this);
             var L = Lua.GetStatePointer();
-            return luaL_tostring(L, -1).ToString();
+            return luaL_tostring(L, -1).ToString() ?? "<invalid>";
         }
     }
 

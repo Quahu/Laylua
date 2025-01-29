@@ -72,7 +72,7 @@ public class LuaException : Exception
 
         if (type == LuaType.String)
         {
-            error = (lua_tostring(L, -1).ToString().Replace("\r", "").Replace("\n", ""), Exception: null);
+            error = (lua_tostring(L, -1).ToString()?.Replace("\r", "").Replace("\n", ""), Exception: null);
             return true;
         }
 

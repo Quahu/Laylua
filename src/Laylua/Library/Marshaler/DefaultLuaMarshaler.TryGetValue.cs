@@ -234,7 +234,7 @@ public unsafe partial class DefaultLuaMarshaler
                 var nativeStringValue = lua_tostring(L, stackIndex);
                 if (clrType == typeof(string) || clrType == typeof(object))
                 {
-                    obj = (T) (object) nativeStringValue.ToString();
+                    obj = (T?) (object?) nativeStringValue.ToString();
                     return true;
                 }
 
