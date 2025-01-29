@@ -188,10 +188,17 @@ public sealed unsafe class LuaState : ISpanFormattable
 
         _innerHookFunction = (state, ar) =>
         {
-            using (var thread = LuaThread.FromExtraSpace(state))
+            try
             {
-                var debug = new LuaDebug(thread, ar);
-                hook.Execute(thread, ref debug);
+                using (var thread = LuaThread.FromExtraSpace(state))
+                {
+                    var debug = new LuaDebug(thread, ar);
+                    hook.Execute(thread, ref debug);
+                }
+            }
+            catch (Exception ex)
+            {
+                LuaException.RaiseErrorInfo(state, "An exception occurred while executing the hook.", ex);
             }
         };
 

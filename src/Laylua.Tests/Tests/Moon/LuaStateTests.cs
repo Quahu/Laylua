@@ -111,6 +111,31 @@ public class LuaStateTests : LuaTestBase
         Assert.That(hook.FunctionNames, Is.EqualTo(new[] { "func1", "func2", "func3" }));
     }
 
+    private sealed class ThrowingLuaHook : LuaHook
+    {
+        protected override LuaEventMask EventMask => LuaEventMask.Count;
+
+        protected override int InstructionCount => 1;
+
+        protected override void Execute(LuaThread lua, ref LuaDebug debug)
+        {
+            throw new Exception(nameof(ThrowingLuaHook));
+        }
+    }
+
+    [Test]
+    public void ThrowingLuaHook_ThrowsException()
+    {
+        // Arrange
+        Lua.State.Hook = new ThrowingLuaHook();
+
+        // Act & Assert
+        // Assert
+        Assert.That(() => Lua.Execute(""), Throws.TypeOf<LuaException>()
+            .With.InnerException.TypeOf<Exception>()
+                .And.InnerException.Message.EqualTo(nameof(ThrowingLuaHook)));
+    }
+
     [Test]
     public void GC_IsRunning_ReturnsTrue()
     {
