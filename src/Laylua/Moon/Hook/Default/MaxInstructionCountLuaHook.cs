@@ -32,7 +32,7 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
         lua_getinfo(lua.State.L, "Sn", debug.ActivationRecord);
 
         char[]? rentedArray = null;
-        string message;
+        Exception exception;
         try
         {
             scoped Span<char> nameSpan;
@@ -51,7 +51,7 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
                 nameSpan = Span<char>.Empty;
             }
 
-            message = $"The maximum instruction count of {InstructionCount} was exceeded by {(nameSpan.IsEmpty || MemoryExtensions.IsWhiteSpace(nameSpan) ? "main code" : $"'{nameSpan}'")}.";
+            exception = new MaxInstructionCountReachedException(InstructionCount, nameSpan);
         }
         finally
         {
@@ -61,6 +61,6 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
             }
         }
 
-        lua.RaiseError(message);
+        lua.RaiseError(exception);
     }
 }

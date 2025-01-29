@@ -35,7 +35,9 @@ public class LuaStateTests : LuaTestBase
         Lua.State.Hook = new MaxInstructionCountLuaHook(100);
 
         // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("while true do end"));
+        Assert.That(() => Lua.Execute("while true do end"), Throws.TypeOf<LuaException>()
+            .With.InnerException.TypeOf<MaxInstructionCountReachedException>()
+                .And.InnerException.Property(nameof(MaxInstructionCountReachedException.InstructionCount)).EqualTo(100));
     }
 
     private sealed class InstructionCountLuaHook(int instructionCount) : LuaHook
