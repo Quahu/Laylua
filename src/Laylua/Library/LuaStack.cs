@@ -309,6 +309,29 @@ public unsafe class LuaStack
     }
 
     /// <summary>
+    ///     Moves <paramref name="count"/> stack values from this thread's stack
+    ///     to the <paramref name="target"/> thread's stack.
+    ///     The threads must share the same main thread.
+    /// </summary>
+    /// <remarks>
+    ///     This method ensures <paramref name="target"/> has enough stack space to fit <paramref name="count"/> stack values.
+    /// </remarks>
+    /// <param name="target"> The target thread to move the stack values to. </param>
+    /// <param name="count"> The amount of stack values to move. </param>
+    public void XMove(LuaThread target, int count)
+    {
+        if (count < 0 || count > Count)
+        {
+            Throw.ArgumentOutOfRangeException(nameof(count));
+        }
+
+        LuaReference.ValidateOwnership(_thread, target);
+
+        target.Stack.EnsureFreeCapacity(count);
+        lua_xmove(from: _thread.State.L, to: target.State.L, count);
+    }
+
+    /// <summary>
     ///     Snapshots the current stack count and returns a disposable instance
     ///     that will restore it upon disposal.
     /// </summary>
