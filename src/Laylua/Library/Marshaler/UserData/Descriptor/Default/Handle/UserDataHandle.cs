@@ -19,7 +19,7 @@ public unsafe class UserDataHandle
     internal const string WeakValueModeMetatableName = "__laylua__internal_weakvaluemode";
     internal const string SharedMetatableName = "__laylua__internal_shared"; // shared metatable for when no descriptor is set
 
-    internal readonly LuaThread Thread;
+    internal LuaThread MainThread { get; }
 
     internal IntPtr GCPtr => (IntPtr) _gcHandle;
 
@@ -27,10 +27,7 @@ public unsafe class UserDataHandle
 
     internal UserDataHandle(LuaThread thread)
     {
-        Guard.IsNotNull(thread);
-
-        Thread = thread;
-
+        MainThread = thread.MainThread;
         _gcHandle = GCHandle.Alloc(this);
     }
 
@@ -38,7 +35,7 @@ public unsafe class UserDataHandle
     {
         var handle = FromStackIndex(L, 1);
         handle._gcHandle.Free();
-        handle.Thread.Marshaler.RemoveUserDataHandle(handle);
+        handle.MainThread.Marshaler.RemoveUserDataHandle(handle);
         return 0;
     };
 
@@ -60,9 +57,9 @@ public unsafe class UserDataHandle
         return false;
     }
 
-    internal void Push()
+    internal void Push(LuaThread thread)
     {
-        var L = Thread.State.L;
+        var L = thread.State.L;
         var top = lua_gettop(L);
 
         try
@@ -99,10 +96,10 @@ public unsafe class UserDataHandle
                 Throw.InvalidOperationException($"Failed to set the userdata {nameof(GCPtr)}.");
             }
 
-            PushMetatable();
+            PushMetatable(thread);
             lua_setmetatable(L, -2);
 
-            using (Thread.Stack.SnapshotCount())
+            using (thread.Stack.SnapshotCount())
             {
                 if (!luaL_getsubtable(L, LuaRegistry.Index, UserDataTableName))
                 {
@@ -127,9 +124,9 @@ public unsafe class UserDataHandle
         }
     }
 
-    private void PushMetatable()
+    private void PushMetatable(LuaThread thread)
     {
-        var L = Thread.State.L;
+        var L = thread.State.L;
         var descriptor = GetDescriptor();
         if (descriptor != null)
         {
@@ -139,7 +136,7 @@ public unsafe class UserDataHandle
                 lua_pop(L, 1);
                 lua_createtable(L, 0, 16);
 
-                descriptor.OnMetatableCreated(Thread, Thread.Stack[-1]);
+                descriptor.OnMetatableCreated(thread, thread.Stack[-1]);
 
                 lua_pushvalue(L, -1);
                 lua_setfield(L, LuaRegistry.Index, metatableName);

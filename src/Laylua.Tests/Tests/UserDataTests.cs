@@ -67,4 +67,27 @@ public class UserDataTests : LuaTestBase
         // Assert
         Assert.That(udAsObject, Is.EqualTo(ud));
     }
+
+    [Test]
+    public void MainThreadUserData_PushedToChildThreadStack_IsPushedToChildStack()
+    {
+        // Arrange
+        var descriptorProvider = new DefaultUserDataDescriptorProvider();
+        descriptorProvider.SetInstanceDescriptor<MainThreadUserData>(TypeMemberProvider.Strict);
+        using var lua1 = new Lua(new DefaultLuaMarshaler(descriptorProvider));
+
+        var userData = new MainThreadUserData();
+        lua1.Stack.Push(userData);
+        using var thread = lua1.CreateThread();
+
+        // Act
+        thread.Stack.Push(userData);
+
+        // Assert
+        Assert.That(lua1.Stack.Count, Is.EqualTo(1));
+        Assert.That(thread.Stack.Count, Is.EqualTo(1));
+        Assert.That(lua1.Stack[-1].GetValue<MainThreadUserData>(), Is.EqualTo(thread.Stack[-1].GetValue<MainThreadUserData>()));
+    }
+
+    private sealed class MainThreadUserData;
 }

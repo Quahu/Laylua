@@ -129,14 +129,14 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case UserDataHandle:
             {
-                ((UserDataHandle) (object) obj).Push();
+                ((UserDataHandle) (object) obj).Push(thread);
                 return;
             }
             default:
             {
                 if (obj is DescribedUserData)
                 {
-                    (obj as DescribedUserData)!.CreateUserDataHandle(thread).Push();
+                    (obj as DescribedUserData)!.CreateUserDataHandle(thread).Push(thread);
                     return;
                 }
 
@@ -155,7 +155,7 @@ public unsafe partial class DefaultLuaMarshaler
 
                         if (userDataHandleCache.TryGetValue((obj, descriptor), out var handle))
                         {
-                            handle.Push();
+                            handle.Push(thread);
                             return;
                         }
 
@@ -172,7 +172,7 @@ public unsafe partial class DefaultLuaMarshaler
                             handle = (UserDataHandle) constructor.Invoke([thread, obj, descriptor]);
                         }
 
-                        handle.Push();
+                        handle.Push(thread);
                         userDataHandleCache[(obj, descriptor)] = handle;
                         return;
                     }
@@ -181,7 +181,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        new DescriptorUserDataHandle<T>(thread, obj, descriptor).Push();
+                        new DescriptorUserDataHandle<T>(thread, obj, descriptor).Push(thread);
                         return;
                     }
                 }

@@ -44,7 +44,7 @@ public unsafe partial class DefaultLuaMarshaler
             userDataHandleCache[(@delegate, null)] = handle = new UserDataHandle<Delegate>(thread, @delegate);
         }
 
-        handle.Push();
+        handle.Push(thread);
         lua_pushcclosure(L, DelegateCFunction, 1);
     }
 }
