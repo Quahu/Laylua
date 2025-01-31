@@ -32,10 +32,10 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
         [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
-            if (_lua == null)
+            if (_thread == null)
                 return LuaType.None;
 
-            return lua_type(_lua.GetStatePointer(), Index);
+            return lua_type(_thread.State.L, Index);
         }
     }
 
@@ -55,10 +55,10 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
         [MethodImpl(MethodImplOptions.NoInlining)]
         get
         {
-            if (_lua == null)
+            if (_thread == null)
                 return false;
 
-            return lua_isinteger(_lua.GetStatePointer(), Index);
+            return lua_isinteger(_thread.State.L, Index);
         }
     }
 
@@ -71,11 +71,11 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
         set => SetValue(value);
     }
 
-    private readonly LuaThread _lua;
+    private readonly LuaThread _thread;
 
-    internal LuaStackValue(LuaThread lua, int index)
+    internal LuaStackValue(LuaThread thread, int index)
     {
-        _lua = lua;
+        _thread = thread;
         Index = index;
     }
 
@@ -85,9 +85,9 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
             throw new InvalidOperationException($"The index of this {nameof(LuaStackValue)} is not valid.");
     }
 
-    internal static void ValidateOwnership(LuaThread lua, LuaStackValue value)
+    internal static void ValidateOwnership(LuaThread thread, LuaStackValue value)
     {
-        if (lua.MainThread.State.L != value._lua.MainThread.State.L)
+        if (thread.MainThread.State.L != value._thread.MainThread.State.L)
         {
             throw new InvalidOperationException($"The given stack value is owned by a different Lua state.");
         }
@@ -101,7 +101,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     {
         ThrowIfInvalid();
 
-        var L = _lua.GetStatePointer();
+        var L = _thread.State.L;
         lua_pushvalue(L, Index);
     }
 
@@ -116,7 +116,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     {
         ThrowIfInvalid();
 
-        return _lua.Marshaler.GetValue<T>(_lua, Index);
+        return _thread.Marshaler.GetValue<T>(_thread, Index);
     }
 
     /// <summary>
@@ -134,7 +134,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
             return false;
         }
 
-        return _lua.Marshaler.TryGetValue(_lua, Index, out value);
+        return _thread.Marshaler.TryGetValue(_thread, Index, out value);
     }
 
     /// <summary>
@@ -145,22 +145,22 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     {
         ThrowIfInvalid();
 
-        _lua.Stack.EnsureFreeCapacity(1);
+        _thread.Stack.EnsureFreeCapacity(1);
 
-        _lua.Marshaler.PushValue(_lua, value);
-        lua_replace(_lua.GetStatePointer(), Index);
+        _thread.Marshaler.PushValue(_thread, value);
+        lua_replace(_thread.State.L, Index);
     }
 
     /// <inheritdoc/>
     public bool Equals(LuaStackValue other)
     {
-        if (_lua == null && other._lua == null)
+        if (_thread == null && other._thread == null)
             return true;
 
-        if (_lua != other._lua)
+        if (_thread != other._thread)
             return false;
 
-        return lua_compare(_lua.GetStatePointer(), Index, other.Index, LuaComparison.Equal);
+        return lua_compare(_thread.State.L, Index, other.Index, LuaComparison.Equal);
     }
 
     /// <inheritdoc/>
@@ -182,7 +182,7 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     public override string ToString()
     {
         var type = Type;
-        if (type == LuaType.None || _lua.IsDisposed)
+        if (type == LuaType.None || _thread.IsDisposed)
             return "<no value>";
 
         return $"{Index}: {type}";

@@ -15,9 +15,9 @@ public unsafe partial class DefaultLuaMarshaler
 {
     /// <inheritdoc/>
     [SkipLocalsInit]
-    public override void PushValue<T>(LuaThread lua, T obj)
+    public override void PushValue<T>(LuaThread thread, T obj)
     {
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         switch (obj)
         {
             case null:
@@ -117,13 +117,13 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaStackValue:
             {
-                LuaStackValue.ValidateOwnership(lua, (LuaStackValue) (object) obj);
+                LuaStackValue.ValidateOwnership(thread, (LuaStackValue) (object) obj);
                 ((LuaStackValue) (object) obj).PushValue();
                 return;
             }
             case LuaReference:
             {
-                LuaReference.ValidateOwnership(lua, (LuaReference) (object) obj);
+                LuaReference.ValidateOwnership(thread, (LuaReference) (object) obj);
                 LuaReference.PushValue((LuaReference) (object) obj);
                 return;
             }
@@ -136,7 +136,7 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if (obj is DescribedUserData)
                 {
-                    (obj as DescribedUserData)!.CreateUserDataHandle(lua).Push();
+                    (obj as DescribedUserData)!.CreateUserDataHandle(thread).Push();
                     return;
                 }
 
@@ -147,9 +147,9 @@ public unsafe partial class DefaultLuaMarshaler
                         Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
                         lock (_userDataHandleCaches)
                         {
-                            if (!_userDataHandleCaches.TryGetValue((IntPtr) lua.MainThread.State.L, out userDataHandleCache))
+                            if (!_userDataHandleCaches.TryGetValue((IntPtr) thread.MainThread.State.L, out userDataHandleCache))
                             {
-                                _userDataHandleCaches[(IntPtr) lua.MainThread.State.L] = userDataHandleCache = new();
+                                _userDataHandleCaches[(IntPtr) thread.MainThread.State.L] = userDataHandleCache = new();
                             }
                         }
 
@@ -162,14 +162,14 @@ public unsafe partial class DefaultLuaMarshaler
                         Type clrType;
                         if (typeof(T).IsSealed || (clrType = obj.GetType()) == typeof(T))
                         {
-                            handle = new DescriptorUserDataHandle<T>(lua, obj, descriptor);
+                            handle = new DescriptorUserDataHandle<T>(thread, obj, descriptor);
                         }
                         else
                         {
                             // TODO: possibly improve this in the future
                             var userDataHandleType = typeof(DescriptorUserDataHandle<>).MakeGenericType(clrType);
                             var constructor = userDataHandleType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
-                            handle = (UserDataHandle) constructor.Invoke([lua, obj, descriptor]);
+                            handle = (UserDataHandle) constructor.Invoke([thread, obj, descriptor]);
                         }
 
                         handle.Push();
@@ -181,7 +181,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        new DescriptorUserDataHandle<T>(lua, obj, descriptor).Push();
+                        new DescriptorUserDataHandle<T>(thread, obj, descriptor).Push();
                         return;
                     }
                 }
@@ -196,14 +196,14 @@ public unsafe partial class DefaultLuaMarshaler
                         }
                         else
                         {
-                            PushDelegate(lua, (Delegate) (object) obj);
+                            PushDelegate(thread, (Delegate) (object) obj);
                         }
 
                         return;
                     }
                     case IEnumerable:
                     {
-                        PushEnumerable(lua, (IEnumerable) obj);
+                        PushEnumerable(thread, (IEnumerable) obj);
                         return;
                     }
                     case IConvertible:

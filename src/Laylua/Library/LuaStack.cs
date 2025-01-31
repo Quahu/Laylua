@@ -21,7 +21,7 @@ public unsafe class LuaStack
     public bool IsEmpty
     {
         [MethodImpl(MethodImplOptions.NoInlining)]
-        get => lua_gettop(_lua.GetStatePointer()) == 0;
+        get => lua_gettop(_thread.State.L) == 0;
     }
 
     /// <summary>
@@ -30,10 +30,10 @@ public unsafe class LuaStack
     public int Count
     {
         [MethodImpl(MethodImplOptions.NoInlining)]
-        get => lua_gettop(_lua.GetStatePointer());
+        get => lua_gettop(_thread.State.L);
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        set => lua_settop(_lua.GetStatePointer(), value);
+        set => lua_settop(_thread.State.L, value);
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ public unsafe class LuaStack
         {
             ValidateIndex(index);
 
-            return new(_lua, lua_absindex(_lua.GetStatePointer(), index));
+            return new(_thread, lua_absindex(_thread.State.L, index));
         }
     }
 
@@ -70,11 +70,11 @@ public unsafe class LuaStack
     /// </remarks>
     public LuaStackValue Last => this[-1];
 
-    private readonly LuaThread _lua;
+    private readonly LuaThread _thread;
 
-    internal LuaStack(LuaThread lua)
+    internal LuaStack(LuaThread thread)
     {
-        _lua = lua;
+        _thread = thread;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -141,7 +141,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public int GetAbsoluteIndex(int index)
     {
-        return lua_absindex(_lua.GetStatePointer(), index);
+        return lua_absindex(_thread.State.L, index);
     }
 
     /// <summary>
@@ -154,7 +154,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public bool TryEnsureFreeCapacity(int count)
     {
-        return lua_checkstack(_lua.GetStatePointer(), count);
+        return lua_checkstack(_thread.State.L, count);
     }
 
     /// <summary>
@@ -164,7 +164,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void EnsureFreeCapacity(int count)
     {
-        if (!lua_checkstack(_lua.GetStatePointer(), count))
+        if (!lua_checkstack(_thread.State.L, count))
         {
             Throw.InvalidOperationException($"The stack could not be resized to fit {count} extra values.");
         }
@@ -177,7 +177,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Pop(int count = 1)
     {
-        lua_pop(_lua.GetStatePointer(), count);
+        lua_pop(_thread.State.L, count);
     }
 
     /// <summary>
@@ -192,7 +192,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Push<T>(T value)
     {
-        _lua.Marshaler.PushValue(_lua, value);
+        _thread.Marshaler.PushValue(_thread, value);
     }
 
     /// <summary>
@@ -204,7 +204,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void PushNil()
     {
-        lua_pushnil(_lua.GetStatePointer());
+        lua_pushnil(_thread.State.L);
     }
 
     /// <summary>
@@ -218,7 +218,7 @@ public unsafe class LuaStack
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void PushNewTable(int sequenceCapacity = 0, int tableCapacity = 0)
     {
-        lua_createtable(_lua.GetStatePointer(), sequenceCapacity, tableCapacity);
+        lua_createtable(_thread.State.L, sequenceCapacity, tableCapacity);
     }
 
     /// <summary>
@@ -236,7 +236,7 @@ public unsafe class LuaStack
         ValidateIndex(index);
 
         Push(value);
-        lua_insert(_lua.GetStatePointer(), index);
+        lua_insert(_thread.State.L, index);
     }
 
     /// <summary>
@@ -254,7 +254,7 @@ public unsafe class LuaStack
         ValidateIndex(fromIndex, nameof(fromIndex));
         ValidateIndex(toIndex, nameof(toIndex));
 
-        lua_copy(_lua.GetStatePointer(), fromIndex, toIndex);
+        lua_copy(_thread.State.L, fromIndex, toIndex);
     }
 
     /// <summary>
@@ -267,7 +267,7 @@ public unsafe class LuaStack
     {
         ValidateIndex(index);
 
-        lua_rotate(_lua.GetStatePointer(), index, count);
+        lua_rotate(_thread.State.L, index, count);
     }
 
     /// <summary>
@@ -280,7 +280,7 @@ public unsafe class LuaStack
     {
         ValidateIndex(index);
 
-        lua_remove(_lua.GetStatePointer(), index);
+        lua_remove(_thread.State.L, index);
     }
 
     /// <summary>
@@ -347,7 +347,7 @@ public unsafe class LuaStack
     /// </returns>
     public Enumerator GetEnumerator()
     {
-        return new(_lua, Count);
+        return new(_thread, Count);
     }
 
     /// <summary>
@@ -364,12 +364,12 @@ public unsafe class LuaStack
         private LuaStackValue _current;
         private int _index;
 
-        private readonly LuaThread _lua;
+        private readonly LuaThread _thread;
         private readonly int _top;
 
-        internal Enumerator(LuaThread lua, int top)
+        internal Enumerator(LuaThread thread, int top)
         {
-            _lua = lua;
+            _thread = thread;
             _top = top;
             _current = default;
             _index = 1;
@@ -385,14 +385,14 @@ public unsafe class LuaStack
                 return false;
             }
 
-            _current = _lua.Stack[index];
+            _current = _thread.Stack[index];
             return true;
         }
 
         /// <inheritdoc/>
         public void Reset()
         {
-            this = new Enumerator(_lua, _top);
+            this = new Enumerator(_thread, _top);
         }
 
         /// <inheritdoc/>

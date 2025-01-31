@@ -24,7 +24,7 @@ namespace Laylua;
 /// </remarks>
 public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, IDisposable
 {
-    internal LuaThread Lua
+    internal LuaThread Thread
     {
         get
         {
@@ -35,7 +35,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected internal abstract LuaThread? LuaCore { get; set; }
+    protected abstract LuaThread? LuaCore { get; set; }
 
     internal int Reference
     {
@@ -65,10 +65,10 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         if (!LuaRegistry.IsPersistentReference(_reference))
         {
-            Laylua.Lua.FromThread(Lua).PushLeakedReference(_reference);
+            Lua.FromThread(Thread).PushLeakedReference(_reference);
         }
 
-        if (Lua!.Marshaler.ReturnReference(this))
+        if (Thread!.Marshaler.ReturnReference(this))
         {
             GC.ReRegisterForFinalize(this);
         }
@@ -111,12 +111,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     {
         ThrowIfInvalid();
 
-        Lua.Stack.EnsureFreeCapacity(1);
+        Thread.Stack.EnsureFreeCapacity(1);
 
-        using (Lua.Stack.SnapshotCount())
+        using (Thread.Stack.SnapshotCount())
         {
             PushValue(this);
-            return Lua.Stack[-1].GetValue<T>()!;
+            return Thread.Stack[-1].GetValue<T>()!;
         }
     }
 
@@ -131,12 +131,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     {
         ThrowIfInvalid();
 
-        Lua.Stack.EnsureFreeCapacity(1);
+        Thread.Stack.EnsureFreeCapacity(1);
 
-        using (Lua.Stack.SnapshotCount())
+        using (Thread.Stack.SnapshotCount())
         {
             PushValue(this);
-            if (!LuaWeakReference.TryCreate<TReference>(Lua, -1, out var weakReference))
+            if (!LuaWeakReference.TryCreate<TReference>(Thread, -1, out var weakReference))
             {
                 LuaThread.ThrowLuaException("Failed to create the weak reference.");
             }
@@ -156,13 +156,13 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (_reference == other._reference)
             return true;
 
-        Lua!.Stack.EnsureFreeCapacity(2);
+        Thread!.Stack.EnsureFreeCapacity(2);
 
-        using (Lua.Stack.SnapshotCount())
+        using (Thread.Stack.SnapshotCount())
         {
             PushValue(this);
             PushValue(other);
-            var L = Lua.GetStatePointer();
+            var L = Thread.State.L;
             if (lua_rawequal(L, -2, -1))
                 return true;
         }
@@ -194,12 +194,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (!IsAlive(this))
             return $"<disposed {GetType().ToTypeString()}>";
 
-        Lua.Stack.EnsureFreeCapacity(2);
+        Thread.Stack.EnsureFreeCapacity(2);
 
-        using (Lua.Stack.SnapshotCount())
+        using (Thread.Stack.SnapshotCount())
         {
             PushValue(this);
-            var L = Lua.GetStatePointer();
+            var L = Thread.State.L;
             return luaL_tostring(L, -1).ToString() ?? "<invalid>";
         }
     }
@@ -216,12 +216,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (!IsAlive(this))
             return;
 
-        var L = Lua!.GetStatePointer();
+        var L = Thread!.State.L;
         if (L == null)
             return;
 
         luaL_unref(L, LuaRegistry.Index, _reference);
-        if (!Lua!.Marshaler.ReturnReference(this))
+        if (!Thread!.Marshaler.ReturnReference(this))
         {
             GC.SuppressFinalize(this);
         }
@@ -240,7 +240,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     {
         reference.ThrowIfInvalid();
 
-        var L = reference.Lua.GetStatePointer();
+        var L = reference.Thread.State.L;
         if (lua_rawgeti(L, LuaRegistry.Index, reference._reference).IsNoneOrNil())
         {
             lua_pop(L);
@@ -264,9 +264,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         return true;
     }
 
-    internal static void ValidateOwnership(LuaThread lua, LuaReference reference)
+    internal static void ValidateOwnership(LuaThread thread, LuaReference reference)
     {
-        if (lua.MainThread.State.L != reference.Lua.MainThread.State.L)
+        if (thread.MainThread.State.L != reference.Thread.MainThread.State.L)
         {
             throw new InvalidOperationException($"The given {reference.GetType().Name.SingleQuoted()} is owned by a different Lua state.");
         }

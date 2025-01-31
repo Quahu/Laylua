@@ -101,7 +101,7 @@ public unsafe partial class Lua
                 }
                 catch (Exception ex)
                 {
-                    LuaException.RaiseErrorInfo(lua.GetStatePointer(), "An exception occurred while invoking the warning event.", ex);
+                    LuaException.RaiseErrorInfo(lua.State.L, "An exception occurred while invoking the warning event.", ex);
                 }
             }
         }

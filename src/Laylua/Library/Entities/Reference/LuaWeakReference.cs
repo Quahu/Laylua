@@ -13,22 +13,22 @@ namespace Laylua;
 public readonly unsafe struct LuaWeakReference<TReference>
     where TReference : LuaReference
 {
-    internal LuaThread Lua
+    internal LuaThread Thread
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
             ThrowIfInvalid();
-            return _lua;
+            return _thread;
         }
     }
 
-    private readonly LuaThread _lua;
+    private readonly LuaThread _thread;
     private readonly void* _pointer;
 
-    internal LuaWeakReference(LuaThread lua, void* pointer)
+    internal LuaWeakReference(LuaThread thread, void* pointer)
     {
-        _lua = lua;
+        _thread = thread;
         _pointer = pointer;
     }
 
@@ -40,12 +40,12 @@ public readonly unsafe struct LuaWeakReference<TReference>
     /// </returns>
     public TReference? GetValue()
     {
-        if (_lua == null || !_lua.Stack.TryEnsureFreeCapacity(2))
+        if (_thread == null || !_thread.Stack.TryEnsureFreeCapacity(2))
         {
             return default;
         }
 
-        var L = _lua.GetStatePointer();
+        var L = _thread.State.L;
         var top = lua_gettop(L);
         try
         {
@@ -60,7 +60,7 @@ public readonly unsafe struct LuaWeakReference<TReference>
                 return default;
             }
 
-            return Lua.Stack[-1].TryGetValue(out TReference? value) ? value : null;
+            return Thread.Stack[-1].TryGetValue(out TReference? value) ? value : null;
         }
         catch
         {
@@ -72,10 +72,10 @@ public readonly unsafe struct LuaWeakReference<TReference>
         }
     }
 
-    [MemberNotNull(nameof(_lua))]
+    [MemberNotNull(nameof(_thread))]
     private void ThrowIfInvalid()
     {
-        if (_lua == null)
+        if (_thread == null)
         {
             throw new InvalidOperationException($"This '{GetType().ToTypeString()}' has not been initialized.");
         }
@@ -86,22 +86,22 @@ internal static class LuaWeakReference
 {
     internal const string WeakReferencesTableName = "__laylua__internal_weakreferences";
 
-    public static unsafe bool TryCreate<TReference>(LuaThread lua, int stackIndex, out LuaWeakReference<TReference> weakReference)
+    public static unsafe bool TryCreate<TReference>(LuaThread thread, int stackIndex, out LuaWeakReference<TReference> weakReference)
         where TReference : LuaReference
     {
-        if (!TryCreate(lua, stackIndex, out var targetPointer))
+        if (!TryCreate(thread, stackIndex, out var targetPointer))
         {
             weakReference = default;
             return false;
         }
 
-        weakReference = new LuaWeakReference<TReference>(lua, targetPointer);
+        weakReference = new LuaWeakReference<TReference>(thread, targetPointer);
         return true;
     }
 
-    private static unsafe bool TryCreate(LuaThread lua, int stackIndex, out void* targetPointer)
+    private static unsafe bool TryCreate(LuaThread thread, int stackIndex, out void* targetPointer)
     {
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         if (!lua_checkstack(L, 4))
         {
             targetPointer = null;

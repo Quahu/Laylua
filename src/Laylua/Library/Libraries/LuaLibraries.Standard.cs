@@ -149,7 +149,7 @@ public unsafe partial class LuaLibraries
             {
                 lua.Stack.EnsureFreeCapacity(1);
 
-                var L = lua.GetStatePointer();
+                var L = lua.State.L;
                 luaopen_base(L);
 
                 if (!leaveOnStack)
@@ -160,7 +160,7 @@ public unsafe partial class LuaLibraries
             {
                 lua.Stack.EnsureFreeCapacity(2);
 
-                var L = lua.GetStatePointer();
+                var L = lua.State.L;
                 using (lua.Stack.SnapshotCount())
                 {
                     lua_pushglobaltable(L);
@@ -194,7 +194,7 @@ public unsafe partial class LuaLibraries
             {
                 lua.Stack.EnsureFreeCapacity(1);
 
-                var L = lua.GetStatePointer();
+                var L = lua.State.L;
                 luaL_requiref(L, _global, _openFunction, true);
 
                 if (!leaveOnStack)
@@ -205,7 +205,7 @@ public unsafe partial class LuaLibraries
             {
                 base.Close(lua);
 
-                var L = lua.GetStatePointer();
+                var L = lua.State.L;
                 using (lua.Stack.SnapshotCount())
                 {
                     luaL_getsubtable(L, LuaRegistry.Index, LUA_LOADED_TABLE);

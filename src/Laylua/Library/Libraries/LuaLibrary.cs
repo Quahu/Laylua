@@ -27,13 +27,13 @@ public abstract class LuaLibrary
     /// <summary>
     ///     Opens this library, loading it into the Lua state.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="leaveOnStack"> Whether to leave the module on the stack. </param>
     protected internal abstract void Open(Lua lua, bool leaveOnStack);
 
     /// <summary>
     ///     Closes this library, unloading it from the Lua state.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     protected internal abstract void Close(Lua lua);
 }

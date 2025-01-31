@@ -27,13 +27,13 @@ public sealed class CancellationTokenLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(LuaThread lua, ref LuaDebug debug)
+    protected internal override void Execute(LuaThread thread, ref LuaDebug debug)
     {
         if (!_cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        lua.RaiseError(new OperationCanceledException(_cancellationToken));
+        thread.RaiseError(new OperationCanceledException(_cancellationToken));
     }
 }

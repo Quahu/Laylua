@@ -23,9 +23,9 @@ public abstract class LuaHook
     /// <summary>
     ///     Invoked when this hook is triggered.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="debug"> The debug information. </param>
-    protected internal abstract void Execute(LuaThread lua, ref LuaDebug debug);
+    protected internal abstract void Execute(LuaThread thread, ref LuaDebug debug);
 
     /// <summary>
     ///     Combines multiple hooks into one.

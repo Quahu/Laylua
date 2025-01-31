@@ -17,11 +17,11 @@ public sealed unsafe partial class LuaFunction
 
         public int Count()
         {
-            using (_function.Lua.Stack.SnapshotCount())
+            using (_function.Thread.Stack.SnapshotCount())
             {
                 PushValue(_function);
 
-                var L = _function.Lua.GetStatePointer();
+                var L = _function.Thread.State.L;
                 var index = 1;
                 while (lua_getupvalue(L, -1, lua_upvalueindex(index)).Pointer != null)
                 {
@@ -55,13 +55,13 @@ public sealed unsafe partial class LuaFunction
             {
                 _function = function;
                 PushValue(_function);
-                _functionIndex = lua_absindex(_function.Lua.GetStatePointer(), -1);
+                _functionIndex = lua_absindex(_function.Thread.State.L, -1);
             }
 
             /// <inheritdoc/>
             public bool MoveNext()
             {
-                var L = _function.Lua.GetStatePointer();
+                var L = _function.Thread.State.L;
                 if (_index != 0)
                 {
                     lua_remove(L, _current.Value.Index);
@@ -74,7 +74,7 @@ public sealed unsafe partial class LuaFunction
                     return false;
                 }
 
-                _current = new(name, new LuaStackValue(_function.Lua, -1));
+                _current = new(name, new LuaStackValue(_function.Thread, -1));
                 return true;
             }
 
@@ -83,7 +83,7 @@ public sealed unsafe partial class LuaFunction
             {
                 if (_index != 0)
                 {
-                    var L = _function.Lua.GetStatePointer();
+                    var L = _function.Thread.State.L;
                     lua_remove(L, _current.Value.Index);
                 }
 
@@ -94,7 +94,7 @@ public sealed unsafe partial class LuaFunction
             /// <inheritdoc/>
             public void Dispose()
             {
-                var L = _function.Lua.GetStatePointer();
+                var L = _function.Thread.State.L;
                 lua_remove(L, _functionIndex);
             }
         }

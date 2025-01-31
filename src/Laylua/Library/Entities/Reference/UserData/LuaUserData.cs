@@ -37,12 +37,12 @@ public sealed unsafe class LuaUserData : LuaTable
         {
             ThrowIfInvalid();
 
-            Lua.Stack.EnsureFreeCapacity(1);
+            Thread.Stack.EnsureFreeCapacity(1);
 
-            using (Lua.Stack.SnapshotCount())
+            using (Thread.Stack.SnapshotCount())
             {
                 PushValue(this);
-                var L = Lua.GetStatePointer();
+                var L = Thread.State.L;
                 return lua_rawlen(L, -1);
             }
         }

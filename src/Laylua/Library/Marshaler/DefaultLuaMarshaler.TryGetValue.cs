@@ -11,10 +11,10 @@ namespace Laylua.Marshaling;
 public unsafe partial class DefaultLuaMarshaler
 {
     /// <inheritdoc/>
-    public override bool TryGetValue<T>(LuaThread lua, int stackIndex, out T? obj)
+    public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj)
         where T : default
     {
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         var luaType = lua_type(L, stackIndex);
         if (luaType == LuaType.None)
         {
@@ -402,7 +402,7 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if (clrType.IsAssignableFrom(typeof(LuaTable)) || clrType == typeof(object))
                 {
-                    if (TryCreateTableReference(lua, stackIndex, out var table))
+                    if (TryCreateTableReference(thread, stackIndex, out var table))
                     {
                         obj = (T) (object) table;
                         return true;
@@ -412,7 +412,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (clrType == typeof(LuaWeakReference<LuaTable>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaTable>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaTable>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -420,7 +420,7 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                     else if (clrType == typeof(LuaWeakReference<LuaReference>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaReference>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -435,7 +435,7 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if (clrType.IsAssignableFrom(typeof(LuaFunction)) || clrType == typeof(object))
                 {
-                    if (TryCreateFunctionReference(lua, stackIndex, out var function))
+                    if (TryCreateFunctionReference(thread, stackIndex, out var function))
                     {
                         obj = (T) (object) function;
                         return true;
@@ -445,7 +445,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (clrType == typeof(LuaWeakReference<LuaFunction>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaFunction>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaFunction>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -453,7 +453,7 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                     else if (clrType == typeof(LuaWeakReference<LuaReference>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaReference>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -483,7 +483,7 @@ public unsafe partial class DefaultLuaMarshaler
                 if (clrType.IsAssignableFrom(typeof(LuaUserData)) || clrType == typeof(object))
                 {
                     var ptr = lua_touserdata(L, stackIndex);
-                    if (ptr != null && TryCreateUserDataReference(lua, stackIndex, (IntPtr) ptr, out var userData))
+                    if (ptr != null && TryCreateUserDataReference(thread, stackIndex, (IntPtr) ptr, out var userData))
                     {
                         obj = (T) (object) userData;
                         return true;
@@ -493,7 +493,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (clrType == typeof(LuaWeakReference<LuaUserData>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaUserData>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaUserData>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -501,7 +501,7 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                     else if (clrType == typeof(LuaWeakReference<LuaReference>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaReference>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -517,18 +517,18 @@ public unsafe partial class DefaultLuaMarshaler
                 if (clrType.IsAssignableFrom(typeof(LuaThread)) || clrType == typeof(object))
                 {
                     var threadPtr = lua_tothread(L, stackIndex);
-                    if (threadPtr == lua.MainThread.State.L)
+                    if (threadPtr == thread.MainThread.State.L)
                     {
                         obj = clrType == typeof(Lua)
-                            ? (T) (object) Lua.FromThread(lua)
-                            : (T) (object) lua.MainThread;
+                            ? (T) (object) Lua.FromThread(thread)
+                            : (T) (object) thread.MainThread;
 
                         return true;
                     }
 
-                    if (TryCreateThreadReference(lua, stackIndex, threadPtr, out var thread))
+                    if (TryCreateThreadReference(thread, stackIndex, threadPtr, out var createdThread))
                     {
-                        obj = (T) (object) thread;
+                        obj = (T) (object) createdThread;
                         return true;
                     }
                 }
@@ -536,7 +536,7 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (clrType == typeof(LuaWeakReference<LuaThread>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaThread>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaThread>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;
@@ -544,7 +544,7 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                     else if (clrType == typeof(LuaWeakReference<LuaReference>))
                     {
-                        if (LuaWeakReference.TryCreate<LuaReference>(lua, stackIndex, out var weakReference))
+                        if (LuaWeakReference.TryCreate<LuaReference>(thread, stackIndex, out var weakReference))
                         {
                             obj = (T) (object) weakReference;
                             return true;

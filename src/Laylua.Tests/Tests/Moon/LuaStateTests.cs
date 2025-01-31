@@ -48,7 +48,7 @@ public class LuaStateTests : LuaTestBase
 
         public int TimesCalled { get; private set; }
 
-        protected override void Execute(LuaThread lua, ref LuaDebug debug)
+        protected override void Execute(LuaThread thread, ref LuaDebug debug)
         {
             TimesCalled++;
         }
@@ -83,7 +83,7 @@ public class LuaStateTests : LuaTestBase
 
         public List<string> FunctionNames { get; } = [];
 
-        protected override void Execute(LuaThread lua, ref LuaDebug debug)
+        protected override void Execute(LuaThread thread, ref LuaDebug debug)
         {
             var functionName = debug.FunctionName.ToString();
             if (!string.IsNullOrWhiteSpace(functionName))
@@ -117,7 +117,7 @@ public class LuaStateTests : LuaTestBase
 
         protected override int InstructionCount => 1;
 
-        protected override void Execute(LuaThread lua, ref LuaDebug debug)
+        protected override void Execute(LuaThread thread, ref LuaDebug debug)
         {
             throw new Exception(nameof(ThrowingLuaHook));
         }

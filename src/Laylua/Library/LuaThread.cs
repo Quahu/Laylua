@@ -72,7 +72,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected internal override LuaThread? LuaCore
+    protected override LuaThread? LuaCore
     {
         get => this;
         set => throw new NotSupportedException();
@@ -84,15 +84,15 @@ public abstract unsafe partial class LuaThread : LuaReference
     { }
 
     [DoesNotReturn]
-    internal static void ThrowLuaException(LuaThread lua)
+    internal static void ThrowLuaException(LuaThread thread)
     {
-        throw LuaException.ConstructFromStack(lua);
+        throw LuaException.ConstructFromStack(thread);
     }
 
     [DoesNotReturn]
-    internal static void ThrowLuaException(LuaThread lua, LuaStatus status)
+    internal static void ThrowLuaException(LuaThread thread, LuaStatus status)
     {
-        throw LuaException.ConstructFromStack(lua).WithStatus(status);
+        throw LuaException.ConstructFromStack(thread).WithStatus(status);
     }
 
     [DoesNotReturn]
@@ -258,7 +258,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     {
         ThrowIfInvalid();
 
-        var L = this.GetStatePointer();
+        var L = State.L;
         using (Stack.SnapshotCount())
         {
             if (!lua_rawgetglobal(L, name).IsNoneOrNil() && Stack[-1].TryGetValue(out value))
@@ -291,7 +291,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     {
         ThrowIfInvalid();
 
-        var L = this.GetStatePointer();
+        var L = State.L;
         using (Stack.SnapshotCount())
         {
             if (lua_rawgetglobal(L, name).IsNoneOrNil())
@@ -316,7 +316,7 @@ public abstract unsafe partial class LuaThread : LuaReference
 
         Stack.EnsureFreeCapacity(1);
 
-        var L = this.GetStatePointer();
+        var L = State.L;
         using (Stack.SnapshotCount())
         {
             Stack.Push(value);
@@ -336,7 +336,7 @@ public abstract unsafe partial class LuaThread : LuaReference
 
         Stack.EnsureFreeCapacity(1);
 
-        var L = this.GetStatePointer();
+        var L = State.L;
         using (Stack.SnapshotCount())
         {
             lua_createtable(L, sequenceCapacity, tableCapacity);
@@ -362,7 +362,7 @@ public abstract unsafe partial class LuaThread : LuaReference
 
         Stack.EnsureFreeCapacity(1);
 
-        var L = this.GetStatePointer();
+        var L = State.L;
         using (Stack.SnapshotCount())
         {
             _ = lua_newuserdatauv(L, size, userValueCount);
@@ -385,7 +385,7 @@ public abstract unsafe partial class LuaThread : LuaReference
 
         Stack.EnsureFreeCapacity(1);
 
-        var L = this.GetStatePointer();
+        var L = State.L;
         using (Stack.SnapshotCount())
         {
             var L1 = lua_newthread(L);

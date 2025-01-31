@@ -27,9 +27,9 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(LuaThread lua, ref LuaDebug debug)
+    protected internal override void Execute(LuaThread thread, ref LuaDebug debug)
     {
-        lua_getinfo(lua.State.L, "Sn", debug.ActivationRecord);
+        lua_getinfo(thread.State.L, "Sn", debug.ActivationRecord);
 
         char[]? rentedArray = null;
         Exception exception;
@@ -61,6 +61,6 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
             }
         }
 
-        lua.RaiseError(exception);
+        thread.RaiseError(exception);
     }
 }

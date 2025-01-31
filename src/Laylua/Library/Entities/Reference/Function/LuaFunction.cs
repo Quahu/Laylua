@@ -19,7 +19,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     public UpvalueCollection Upvalues => new(this);
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected internal override LuaThread? LuaCore { get; set; }
+    protected override LuaThread? LuaCore { get; set; }
 
     internal LuaFunction()
     { }
@@ -39,25 +39,25 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
     private static void PrepareFunction(LuaReference reference, out int top, int argumentCount)
     {
-        reference.Lua.Stack.EnsureFreeCapacity(argumentCount + 1);
+        reference.Thread.Stack.EnsureFreeCapacity(argumentCount + 1);
 
-        var L = reference.Lua.GetStatePointer();
+        var L = reference.Thread.State.L;
         top = lua_gettop(L);
 
         PushValue(reference);
     }
 
-    internal static LuaFunctionResults PCall(LuaThread lua, int oldTop, int argumentCount)
+    internal static LuaFunctionResults PCall(LuaThread thread, int oldTop, int argumentCount)
     {
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         var status = lua_pcall(L, argumentCount, LUA_MULTRET, 0);
         if (status.IsError())
         {
-            LuaThread.ThrowLuaException(lua, status);
+            LuaThread.ThrowLuaException(thread, status);
         }
 
         var newTop = lua_gettop(L);
-        var range = LuaStackValueRange.FromTop(lua.Stack, oldTop, newTop);
+        var range = LuaStackValueRange.FromTop(thread.Stack, oldTop, newTop);
         return new LuaFunctionResults(range);
     }
 
@@ -73,7 +73,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         PrepareFunction(this, out var top, 0);
 
-        return PCall(Lua, top, 0);
+        return PCall(Thread, top, 0);
     }
 
     /// <summary>
@@ -92,13 +92,13 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Stack.Push(argument);
+            Thread.Stack.Push(argument);
 
-            return PCall(Lua, top, 1);
+            return PCall(Thread, top, 1);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }
@@ -121,14 +121,14 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Stack.Push(argument1);
-            Lua.Stack.Push(argument2);
+            Thread.Stack.Push(argument1);
+            Thread.Stack.Push(argument2);
 
-            return PCall(Lua, top, 2);
+            return PCall(Thread, top, 2);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }
@@ -153,15 +153,15 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Stack.Push(argument1);
-            Lua.Stack.Push(argument2);
-            Lua.Stack.Push(argument3);
+            Thread.Stack.Push(argument1);
+            Thread.Stack.Push(argument2);
+            Thread.Stack.Push(argument3);
 
-            return PCall(Lua, top, 3);
+            return PCall(Thread, top, 3);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }
@@ -188,16 +188,16 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         try
         {
-            Lua.Stack.Push(argument1);
-            Lua.Stack.Push(argument2);
-            Lua.Stack.Push(argument3);
-            Lua.Stack.Push(argument4);
+            Thread.Stack.Push(argument1);
+            Thread.Stack.Push(argument2);
+            Thread.Stack.Push(argument3);
+            Thread.Stack.Push(argument4);
 
-            return PCall(Lua, top, 4);
+            return PCall(Thread, top, 4);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }
@@ -233,14 +233,14 @@ public sealed unsafe partial class LuaFunction : LuaReference
         {
             foreach (var argument in arguments)
             {
-                Lua.Stack.Push(argument);
+                Thread.Stack.Push(argument);
             }
 
-            return PCall(Lua, top, argumentCount);
+            return PCall(Thread, top, argumentCount);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }
@@ -279,11 +279,11 @@ public sealed unsafe partial class LuaFunction : LuaReference
                 argument.PushValue();
             }
 
-            return PCall(Lua, top, argumentCount);
+            return PCall(Thread, top, argumentCount);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }
@@ -310,11 +310,11 @@ public sealed unsafe partial class LuaFunction : LuaReference
                 argument.PushValue();
             }
 
-            return PCall(Lua, top, argumentCount);
+            return PCall(Thread, top, argumentCount);
         }
         catch
         {
-            lua_settop(Lua.GetStatePointer(), top);
+            lua_settop(Thread.State.L, top);
             throw;
         }
     }

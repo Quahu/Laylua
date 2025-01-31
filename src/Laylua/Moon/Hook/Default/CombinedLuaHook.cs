@@ -46,7 +46,7 @@ public sealed class CombinedLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(LuaThread lua, ref LuaDebug debug)
+    protected internal override void Execute(LuaThread thread, ref LuaDebug debug)
     {
         for (var hookIndex = 0; hookIndex < _hooks.Length; hookIndex++)
         {
@@ -65,7 +65,7 @@ public sealed class CombinedLuaHook : LuaHook
                 _instructionCounts[hookIndex] = 0;
             }
 
-            hook.Execute(lua, ref debug);
+            hook.Execute(thread, ref debug);
         }
     }
 

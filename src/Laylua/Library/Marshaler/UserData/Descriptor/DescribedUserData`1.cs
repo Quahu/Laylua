@@ -20,9 +20,9 @@ public class DescribedUserData<T> : DescribedUserData
         Value = value;
     }
 
-    internal override UserDataHandle CreateUserDataHandle(LuaThread lua)
+    internal override UserDataHandle CreateUserDataHandle(LuaThread thread)
     {
-        return new DescriptorUserDataHandle<T>(lua, Value, Descriptor);
+        return new DescriptorUserDataHandle<T>(thread, Value, Descriptor);
     }
 
     /// <inheritdoc/>

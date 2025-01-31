@@ -40,9 +40,9 @@ public unsafe partial class LuaFunction
 
     private int DumpInternal(object target, bool stripDebugInformation)
     {
-        Lua.Stack.EnsureFreeCapacity(1);
+        Thread.Stack.EnsureFreeCapacity(1);
 
-        using (Lua.Stack.SnapshotCount())
+        using (Thread.Stack.SnapshotCount())
         {
             PushValue(this);
 
@@ -64,7 +64,7 @@ public unsafe partial class LuaFunction
             var handle = GCHandle.Alloc(state);
             try
             {
-                var L = Lua.GetStatePointer();
+                var L = Thread.State.L;
                 var result = lua_dump(L, writerFunctionPtr, (void*) (IntPtr) handle, stripDebugInformation);
                 if (state.Exception != null)
                 {

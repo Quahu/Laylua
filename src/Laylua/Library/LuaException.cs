@@ -49,9 +49,9 @@ public class LuaException : Exception
         return this;
     }
 
-    internal static unsafe LuaException ConstructFromStack(LuaThread lua)
+    internal static unsafe LuaException ConstructFromStack(LuaThread thread)
     {
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         if (TryGetError(L, out var error))
         {
             lua_pop(L);

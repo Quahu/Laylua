@@ -153,7 +153,6 @@ public unsafe ref struct LuaDebug
         }
     }
 
-    // TODO: xmldocs
     /// <summary>
     ///     Gets the index in the stack of the first value being "transferred", that is,
     ///     parameters in a call or return values in a return. (The other values are in consecutive indices.)
@@ -170,7 +169,6 @@ public unsafe ref struct LuaDebug
         }
     }
 
-    // TODO: xmldocs
     /// <summary>
     ///     The number of values being transferred (see previous item).
     ///     (For calls of Lua functions, this value is always equal to nparams.)

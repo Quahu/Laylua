@@ -43,19 +43,19 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
     { }
 
     /// <inheritdoc/>
-    public override void OnMetatableCreated(LuaThread lua, LuaStackValue metatable)
+    public override void OnMetatableCreated(LuaThread thread, LuaStackValue metatable)
     {
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         var metatableIndex = metatable.Index;
         var callbacks = Callbacks;
-        using (lua.Stack.SnapshotCount())
+        using (thread.Stack.SnapshotCount())
         {
             if (callbacks.HasFlag(CallbackUserDataDescriptorFlags.Pairs))
             {
                 _pairs ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Pairs(lua, lua.Stack[1]);
+                    return Pairs(thread, thread.Stack[1]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__pairs, _pairs, metatableIndex);
@@ -66,7 +66,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _add ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Add(lua, lua.Stack[1], lua.Stack[2]);
+                    return Add(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__add, _add, metatableIndex);
@@ -77,7 +77,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _subtract ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Subtract(lua, lua.Stack[1], lua.Stack[2]);
+                    return Subtract(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__sub, _subtract, metatableIndex);
@@ -88,7 +88,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _multiply ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Multiply(lua, lua.Stack[1], lua.Stack[2]);
+                    return Multiply(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__mul, _multiply, metatableIndex);
@@ -99,7 +99,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _modulo ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Modulo(lua, lua.Stack[1], lua.Stack[2]);
+                    return Modulo(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__mod, _modulo, metatableIndex);
@@ -110,7 +110,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _power ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Power(lua, lua.Stack[1], lua.Stack[2]);
+                    return Power(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__pow, _power, metatableIndex);
@@ -121,7 +121,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _divide ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Divide(lua, lua.Stack[1], lua.Stack[2]);
+                    return Divide(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__div, _divide, metatableIndex);
@@ -132,7 +132,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _floorDivide ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return FloorDivide(lua, lua.Stack[1], lua.Stack[2]);
+                    return FloorDivide(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__idiv, _floorDivide, metatableIndex);
@@ -143,7 +143,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _bitwiseAnd ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return BitwiseAnd(lua, lua.Stack[1], lua.Stack[2]);
+                    return BitwiseAnd(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__band, _bitwiseAnd, metatableIndex);
@@ -154,7 +154,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _bitwiseOr ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return BitwiseOr(lua, lua.Stack[1], lua.Stack[2]);
+                    return BitwiseOr(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__bor, _bitwiseOr, metatableIndex);
@@ -165,7 +165,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _bitwiseExclusiveOr ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return BitwiseExclusiveOr(lua, lua.Stack[1], lua.Stack[2]);
+                    return BitwiseExclusiveOr(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__bxor, _bitwiseExclusiveOr, metatableIndex);
@@ -176,7 +176,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _shiftLeft ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return ShiftLeft(lua, lua.Stack[1], lua.Stack[2]);
+                    return ShiftLeft(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__shl, _shiftLeft, metatableIndex);
@@ -187,7 +187,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _shiftRight ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return ShiftRight(lua, lua.Stack[1], lua.Stack[2]);
+                    return ShiftRight(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__shr, _shiftRight, metatableIndex);
@@ -198,7 +198,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _negate ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Negate(lua, lua.Stack[1]);
+                    return Negate(thread, thread.Stack[1]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__unm, _negate, metatableIndex);
@@ -209,7 +209,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _bitwiseNot ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return BitwiseNot(lua, lua.Stack[1]);
+                    return BitwiseNot(thread, thread.Stack[1]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__bnot, _bitwiseNot, metatableIndex);
@@ -220,7 +220,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _concat ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Concat(lua, lua.Stack[1], lua.Stack[2]);
+                    return Concat(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__concat, _concat, metatableIndex);
@@ -231,7 +231,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _length ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Length(lua, lua.Stack[1]);
+                    return Length(thread, thread.Stack[1]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__len, _length, metatableIndex);
@@ -242,7 +242,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _equal ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Equal(lua, lua.Stack[1], lua.Stack[2]);
+                    return Equal(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__eq, _equal, metatableIndex);
@@ -253,7 +253,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _lessThan ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return LessThan(lua, lua.Stack[1], lua.Stack[2]);
+                    return LessThan(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__lt, _lessThan, metatableIndex);
@@ -264,7 +264,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _lessThanOrEqual ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return LessThanOrEqual(lua, lua.Stack[1], lua.Stack[2]);
+                    return LessThanOrEqual(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__le, _lessThanOrEqual, metatableIndex);
@@ -275,7 +275,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _index ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Index(lua, lua.Stack[1], lua.Stack[2]);
+                    return Index(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__index, _index, metatableIndex);
@@ -286,7 +286,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _newIndex ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return NewIndex(lua, lua.Stack[1], lua.Stack[2], lua.Stack[3]);
+                    return NewIndex(thread, thread.Stack[1], thread.Stack[2], thread.Stack[3]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__newindex, _newIndex, metatableIndex);
@@ -300,9 +300,9 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                     var top = lua_gettop(L);
                     var arguments = top == 1
                         ? LuaStackValueRange.Empty
-                        : lua.Stack.GetRange(2);
+                        : thread.Stack.GetRange(2);
 
-                    return Call(lua, lua.Stack[1], arguments);
+                    return Call(thread, thread.Stack[1], arguments);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__call, _call, metatableIndex);
@@ -313,7 +313,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _close ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return Close(lua, lua.Stack[1], lua.Stack[2]);
+                    return Close(thread, thread.Stack[1], thread.Stack[2]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__close, _close, metatableIndex);
@@ -324,7 +324,7 @@ public abstract unsafe partial class CallbackUserDataDescriptor : UserDataDescri
                 _toString ??= L =>
                 {
                     using var thread = LuaThread.FromExtraSpace(L);
-                    return ToString(lua, lua.Stack[1]);
+                    return ToString(thread, thread.Stack[1]);
                 };
 
                 SetFunction(L, LuaMetatableKeysUtf8.__tostring, _toString, metatableIndex);

@@ -56,25 +56,25 @@ public abstract partial class LuaMarshaler
     /// <summary>
     ///     Attempts to create a <see cref="LuaTable"/> reference.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
     /// <param name="table"> The referenced Lua table. </param>
     /// <returns>
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateTableReference(LuaThread lua, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
+    protected unsafe bool TryCreateTableReference(LuaThread thread, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
     {
-        Lua.FromThread(lua).UnrefLeakedReferences();
+        Lua.FromThread(thread).UnrefLeakedReferences();
 
-        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
             table = default;
             return false;
         }
 
         table = _entityPool?.RentTable() ?? new();
-        table.Lua = lua;
+        table.Thread = thread;
         table.Reference = reference;
         return true;
     }
@@ -82,25 +82,25 @@ public abstract partial class LuaMarshaler
     /// <summary>
     ///     Attempts to create a <see cref="LuaFunction"/> reference.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
     /// <param name="function"> The referenced Lua function. </param>
     /// <returns>
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateFunctionReference(LuaThread lua, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
+    protected unsafe bool TryCreateFunctionReference(LuaThread thread, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
     {
-        Lua.FromThread(lua).UnrefLeakedReferences();
+        Lua.FromThread(thread).UnrefLeakedReferences();
 
-        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
             function = default;
             return false;
         }
 
         function = _entityPool?.RentFunction() ?? new();
-        function.Lua = lua;
+        function.Thread = thread;
         function.Reference = reference;
         return true;
     }
@@ -108,7 +108,7 @@ public abstract partial class LuaMarshaler
     /// <summary>
     ///     Attempts to create a <see cref="LuaUserData"/> reference.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
     /// <param name="pointer"> The pointer to the user data. </param>
     /// <param name="userData"> The referenced Lua user data. </param>
@@ -116,18 +116,18 @@ public abstract partial class LuaMarshaler
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateUserDataReference(LuaThread lua, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
+    protected unsafe bool TryCreateUserDataReference(LuaThread thread, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
     {
-        Lua.FromThread(lua).UnrefLeakedReferences();
+        Lua.FromThread(thread).UnrefLeakedReferences();
 
-        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
             userData = default;
             return false;
         }
 
         userData = _entityPool?.RentUserData() ?? new();
-        userData.Lua = lua;
+        userData.Thread = thread;
         userData.Reference = reference;
         userData.Pointer = pointer;
         return true;
@@ -136,27 +136,27 @@ public abstract partial class LuaMarshaler
     /// <summary>
     ///     Attempts to create a <see cref="LuaThread"/> reference.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
-    /// <param name="L"> The thread state pointer. </param>
-    /// <param name="thread"> The referenced Lua thread. </param>
+    /// <param name="L1"> The thread state pointer of the target thread. </param>
+    /// <param name="createdThread"> The referenced Lua thread. </param>
     /// <returns>
     ///     <see langword="true"/> if succeeded, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected unsafe bool TryCreateThreadReference(LuaThread lua, int stackIndex, lua_State* L, [MaybeNullWhen(false)] out LuaThread thread)
+    protected unsafe bool TryCreateThreadReference(LuaThread thread, int stackIndex, lua_State* L1, [MaybeNullWhen(false)] out LuaThread createdThread)
     {
-        Lua.FromThread(lua).UnrefLeakedReferences();
+        Lua.FromThread(thread).UnrefLeakedReferences();
 
-        if (!LuaReference.TryCreate(lua.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
-            thread = default;
+            createdThread = default;
             return false;
         }
 
         var childThread = _entityPool?.RentThread() ?? new();
-        childThread.Initialize(L, reference);
-        thread = childThread;
+        childThread.Initialize(L1, reference);
+        createdThread = childThread;
         return true;
     }
 
@@ -164,14 +164,14 @@ public abstract partial class LuaMarshaler
     ///     Tries to convert the Lua value at the specified stack index
     ///     to a .NET value of type <typeparamref name="T"/>.
     /// </summary>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="stackIndex"> The index on the Lua stack. </param>
     /// <param name="obj"> The output value. </param>
     /// <typeparam name="T"> The type of the value. </typeparam>
     /// <returns>
     ///     <see langword="true"/> if successful.
     /// </returns>
-    public abstract bool TryGetValue<T>(LuaThread lua, int stackIndex, out T? obj);
+    public abstract bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj);
 
     /// <summary>
     ///     Pushes the specified .NET value onto the Lua stack,
@@ -181,8 +181,8 @@ public abstract partial class LuaMarshaler
     ///     The marshaler expects space on the stack for the value to be pushed.
     ///     Use <see cref="LuaStack.EnsureFreeCapacity"/> prior to calling this method.
     /// </remarks>
-    /// <param name="lua"> The Lua state. </param>
+    /// <param name="thread"> The Lua thread. </param>
     /// <param name="obj"> The value to push. </param>
     /// <typeparam name="T"> The type of the value. </typeparam>
-    public abstract void PushValue<T>(LuaThread lua, T obj);
+    public abstract void PushValue<T>(LuaThread thread, T obj);
 }

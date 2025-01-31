@@ -23,7 +23,7 @@ public abstract class UserDataDescriptor
     /// <summary>
     ///     Invoked upon metatable creation of the described userdata.
     /// </summary>
-    /// <param name="lua"> The Lua instance. </param>
-    /// <param name="metatable"> The metatable of the described userdata. </param>
-    public abstract void OnMetatableCreated(LuaThread lua, LuaStackValue metatable);
+    /// <param name="thread"> The Lua thread. </param>
+    /// <param name="metatable"> The metatable on the Lua stack of the described userdata. </param>
+    public abstract void OnMetatableCreated(LuaThread thread, LuaStackValue metatable);
 }

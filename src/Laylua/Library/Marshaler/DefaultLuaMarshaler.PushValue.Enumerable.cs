@@ -9,7 +9,7 @@ namespace Laylua.Marshaling;
 
 public unsafe partial class DefaultLuaMarshaler
 {
-    protected delegate void PushGenericEnumerableDelegate(LuaThread lua, IEnumerable enumerable);
+    protected delegate void PushGenericEnumerableDelegate(LuaThread thread, IEnumerable enumerable);
 
     protected static ConditionalWeakTable<Type, PushGenericEnumerableDelegate?> PushGenericEnumerableDelegateCache { get; } = new();
 
@@ -66,11 +66,11 @@ public unsafe partial class DefaultLuaMarshaler
         });
     }
 
-    protected static void PushGenericEnumerable<T>(LuaThread lua, IEnumerable<T> enumerable)
+    protected static void PushGenericEnumerable<T>(LuaThread thread, IEnumerable<T> enumerable)
     {
-        lua.Stack.EnsureFreeCapacity(1);
+        thread.Stack.EnsureFreeCapacity(1);
 
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         if (enumerable is T[] array)
         {
             var length = array.Length;
@@ -81,7 +81,7 @@ public unsafe partial class DefaultLuaMarshaler
                 for (var i = 0; i < length; i++)
                 {
                     var item = array[i];
-                    lua.Marshaler.PushValue(lua, item);
+                    thread.Stack.Push(item);
 
                     lua_rawseti(L, tableIndex, i + 1);
                 }
@@ -102,7 +102,7 @@ public unsafe partial class DefaultLuaMarshaler
                 for (var i = 0; i < count; i++)
                 {
                     var item = stdList[i];
-                    lua.Marshaler.PushValue(lua, item);
+                    thread.Stack.Push(item);
 
                     lua_rawseti(L, tableIndex, i + 1);
                 }
@@ -123,7 +123,7 @@ public unsafe partial class DefaultLuaMarshaler
                 for (var i = 0; i < count; i++)
                 {
                     var item = list[i];
-                    lua.Marshaler.PushValue(lua, item);
+                    thread.Stack.Push(item);
 
                     lua_rawseti(L, tableIndex, i + 1);
                 }
@@ -143,7 +143,7 @@ public unsafe partial class DefaultLuaMarshaler
                 var i = 1;
                 foreach (var item in enumerable)
                 {
-                    lua.Marshaler.PushValue(lua, item);
+                    thread.Stack.Push(item);
 
                     lua_rawseti(L, tableIndex, i++);
                 }
@@ -156,13 +156,12 @@ public unsafe partial class DefaultLuaMarshaler
         }
     }
 
-    protected static void PushGenericEnumerable<TKey, TValue>(LuaThread lua, IEnumerable<KeyValuePair<TKey, TValue>> enumerable)
+    protected static void PushGenericEnumerable<TKey, TValue>(LuaThread thread, IEnumerable<KeyValuePair<TKey, TValue>> enumerable)
         where TKey : notnull
     {
-        lua.Stack.EnsureFreeCapacity(3);
+        thread.Stack.EnsureFreeCapacity(3);
 
-        var L = lua.GetStatePointer();
-
+        var L = thread.State.L;
         if (enumerable is Dictionary<TKey, TValue> stdDictionary)
         {
             lua_createtable(L, 0, stdDictionary.Count);
@@ -171,8 +170,8 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 foreach (var kvp in stdDictionary)
                 {
-                    lua.Marshaler.PushValue(lua, kvp.Key);
-                    lua.Marshaler.PushValue(lua, kvp.Value);
+                    thread.Stack.Push(kvp.Key);
+                    thread.Stack.Push(kvp.Value);
 
                     lua_rawset(L, tableIndex);
                 }
@@ -191,8 +190,8 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 foreach (var kvp in enumerable)
                 {
-                    lua.Marshaler.PushValue(lua, kvp.Key);
-                    lua.Marshaler.PushValue(lua, kvp.Value);
+                    thread.Stack.Push(kvp.Key);
+                    thread.Stack.Push(kvp.Value);
 
                     lua_rawset(L, tableIndex);
                 }
@@ -205,22 +204,22 @@ public unsafe partial class DefaultLuaMarshaler
         }
     }
 
-    protected virtual void PushEnumerable(LuaThread lua, IEnumerable enumerable)
+    protected virtual void PushEnumerable(LuaThread thread, IEnumerable enumerable)
     {
         var enumerableType = enumerable.GetType();
         var pushDelegate = GetPushGenericEnumerableDelegate(enumerableType);
         if (pushDelegate != null)
         {
-            pushDelegate(lua, enumerable);
+            pushDelegate(thread, enumerable);
             return;
         }
 
-        var L = lua.GetStatePointer();
+        var L = thread.State.L;
         switch (enumerable)
         {
             case Array array:
             {
-                lua.Stack.EnsureFreeCapacity(1);
+                thread.Stack.EnsureFreeCapacity(1);
 
                 var length = array.Length;
                 lua_createtable(L, length, 0);
@@ -230,7 +229,7 @@ public unsafe partial class DefaultLuaMarshaler
                     for (var i = 0; i < length; i++)
                     {
                         var item = array.GetValue(i);
-                        PushValue(lua, item);
+                        thread.Stack.Push(item);
 
                         lua_rawseti(L, tableIndex, i + 1);
                     }
@@ -245,7 +244,7 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case IDictionary dictionary:
             {
-                lua.Stack.EnsureFreeCapacity(2);
+                thread.Stack.EnsureFreeCapacity(2);
 
                 lua_createtable(L, 0, dictionary.Count);
                 var tableIndex = lua_gettop(L);
@@ -257,8 +256,8 @@ public unsafe partial class DefaultLuaMarshaler
                         while (enumerator.MoveNext())
                         {
                             var entry = enumerator.Entry;
-                            PushValue(lua, entry.Key);
-                            PushValue(lua, entry.Value);
+                            thread.Stack.Push(entry.Key);
+                            thread.Stack.Push(entry.Value);
 
                             lua_rawset(L, tableIndex);
                         }
@@ -278,7 +277,7 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case IList list:
             {
-                lua.Stack.EnsureFreeCapacity(1);
+                thread.Stack.EnsureFreeCapacity(1);
 
                 var count = list.Count;
                 lua_createtable(L, count, 0);
@@ -288,7 +287,7 @@ public unsafe partial class DefaultLuaMarshaler
                     for (var i = 0; i < count; i++)
                     {
                         var item = list[i];
-                        PushValue(lua, item);
+                        thread.Stack.Push(item);
 
                         lua_rawseti(L, tableIndex, i + 1);
                     }
@@ -303,7 +302,7 @@ public unsafe partial class DefaultLuaMarshaler
             }
             default:
             {
-                lua.Stack.EnsureFreeCapacity(1);
+                thread.Stack.EnsureFreeCapacity(1);
 
                 lua_newtable(L);
                 var tableIndex = lua_gettop(L);
@@ -312,7 +311,7 @@ public unsafe partial class DefaultLuaMarshaler
                     var i = 1;
                     foreach (var item in enumerable)
                     {
-                        PushValue(lua, item);
+                        thread.Stack.Push(item);
 
                         lua_rawseti(L, tableIndex, i++);
                     }

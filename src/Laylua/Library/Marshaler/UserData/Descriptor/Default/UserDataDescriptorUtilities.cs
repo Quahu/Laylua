@@ -12,11 +12,11 @@ namespace Laylua.Marshaling;
 
 public static class UserDataDescriptorUtilities
 {
-    public delegate int MethodInvokerDelegate(LuaThread lua, LuaStackValueRange arguments);
+    public delegate int MethodInvokerDelegate(LuaThread thread, LuaStackValueRange arguments);
 
-    public delegate int IndexDelegate(LuaThread lua, LuaStackValue userData, LuaStackValue key);
+    public delegate int IndexDelegate(LuaThread thread, LuaStackValue userData, LuaStackValue key);
 
-    public delegate int NewIndexDelegate(LuaThread lua, LuaStackValue userData, LuaStackValue key, LuaStackValue value);
+    public delegate int NewIndexDelegate(LuaThread thread, LuaStackValue userData, LuaStackValue key, LuaStackValue value);
 
     private static readonly MethodInfo _pushMethod;
 
@@ -149,7 +149,7 @@ public static class UserDataDescriptorUtilities
         _luaReferenceDisposeKvpEnumerable = luaReferenceDisposeKvpEnumerable;
     }
 
-    private static T?[] GetParamsArgument<T>(LuaThread lua, int argumentCount, int argumentIndex)
+    private static T?[] GetParamsArgument<T>(LuaThread thread, int argumentCount, int argumentIndex)
     {
         var remainingArgumentCount = argumentCount - (argumentIndex - 1);
         if (remainingArgumentCount == 0)
@@ -158,9 +158,9 @@ public static class UserDataDescriptorUtilities
         var paramsArgument = new T?[remainingArgumentCount];
         for (var i = 0; i < remainingArgumentCount; i++)
         {
-            if (!lua.Marshaler.TryGetValue<T>(lua, argumentIndex + i, out var convertedArgument))
+            if (!thread.Stack[argumentIndex + i].TryGetValue<T>(out var convertedArgument))
             {
-                lua.RaiseArgumentTypeError(argumentIndex + i, typeof(T).Name);
+                thread.RaiseArgumentTypeError(argumentIndex + i, typeof(T).Name);
             }
 
             paramsArgument[i] = convertedArgument;
