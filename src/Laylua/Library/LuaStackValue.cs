@@ -157,7 +157,10 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
         if (_thread == null && other._thread == null)
             return true;
 
-        if (_thread != other._thread)
+        if (_thread == null || other._thread == null)
+            return false;
+
+        if (_thread.State.L != other._thread.State.L)
             return false;
 
         return lua_compare(_thread.State.L, Index, other.Index, LuaComparison.Equal);
