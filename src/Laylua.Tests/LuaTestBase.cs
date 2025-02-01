@@ -28,7 +28,7 @@ public abstract unsafe class LuaTestBase
             .WriteTo.Console(theme: AnsiConsoleTheme.Code, outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
-        LoggerFactory = new SerilogLoggerFactory(serilogLogger);
+        LoggerFactory = new SerilogLoggerFactory(serilogLogger, dispose: true);
 
         LuaMarshaler.Default.FormatProvider = CultureInfo.InvariantCulture;
     }
@@ -74,6 +74,12 @@ public abstract unsafe class LuaTestBase
             Logger.LogInformation("Lua allocated {0} times for a total of {1}KiB", nativeMemoryLuaAllocator.TimesAllocated, Math.Round(nativeMemoryLuaAllocator.TotalAllocatedBytes / 1024.0, 2));
 #endif
         }
+    }
+
+    [OneTimeTearDown]
+    public static void OneTimeTearDown()
+    {
+        LoggerFactory.Dispose();
     }
 
     protected virtual LuaAllocator CreateLuaAllocator(nuint maxBytes = 0)
