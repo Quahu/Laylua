@@ -94,18 +94,6 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     }
 
     /// <summary>
-    ///     Pushes the value of this stack value
-    ///     onto the stack.
-    /// </summary>
-    public void PushValue()
-    {
-        ThrowIfInvalid();
-
-        var L = _thread.State.L;
-        lua_pushvalue(L, Index);
-    }
-
-    /// <summary>
     ///     Gets the .NET value of this stack value.
     /// </summary>
     /// <typeparam name="T"> The expected type of the value. </typeparam>

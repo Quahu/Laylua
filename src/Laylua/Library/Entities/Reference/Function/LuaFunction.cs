@@ -276,7 +276,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         {
             foreach (var argument in arguments)
             {
-                argument.PushValue();
+                Thread.Stack.Push(argument);
             }
 
             return PCall(Thread, top, argumentCount);
@@ -307,7 +307,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         {
             foreach (var argument in arguments)
             {
-                argument.PushValue();
+                Thread.Stack.Push(argument);
             }
 
             return PCall(Thread, top, argumentCount);
