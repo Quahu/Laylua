@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using Qommon;
 
 namespace Laylua.Moon;
 
@@ -20,7 +21,22 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
     ///     Gets the maximum amount of bytes this allocator can allocate.
     ///     <c>0</c> indicates no limit.
     /// </summary>
-    public nuint MaxBytes { get; }
+    /// <remarks>
+    ///     This cannot be set to a lower value than <see cref="CurrentlyAllocatedBytes"/>.
+    /// </remarks>
+    public nuint MaxBytes
+    {
+        get => _maxBytes;
+        set
+        {
+            if (value != 0 && value < CurrentlyAllocatedBytes)
+            {
+                Throw.ArgumentOutOfRangeException(nameof(value), value, $"Value cannot be lower than {nameof(CurrentlyAllocatedBytes)}.");
+            }
+
+            _maxBytes = value;
+        }
+    }
 
     /// <summary>
     ///     Gets the current amount of bytes allocated by this allocator.
@@ -78,6 +94,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
     /// </remarks>
     public event EventHandler<MemoryOutOfMemoryEventArgs>? MemoryOutOfMemory;
 
+    private nuint _maxBytes;
     private nuint _currentlyAllocatedBytes;
     private nuint _totalAllocatedBytes;
     private nuint _timesAllocated;
@@ -89,7 +106,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
     /// <param name="maxBytes"> The maximum amount of bytes. <c>0</c> indicates no limit. </param>
     public NativeMemoryLuaAllocator(nuint maxBytes = 0)
     {
-        MaxBytes = maxBytes;
+        _maxBytes = maxBytes;
     }
 
     /// <inheritdoc/>
@@ -118,7 +135,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
             return null;
         }
 
-        if (MaxBytes != 0 && size > oldSizeOrType && _currentlyAllocatedBytes + (size - oldSizeOrType) > MaxBytes)
+        if (_maxBytes > 0 && size > oldSizeOrType && _currentlyAllocatedBytes + (size - oldSizeOrType) > _maxBytes)
         {
             MemoryDenied?.Invoke(this, new MemoryDeniedEventArgs(size));
 
@@ -137,9 +154,9 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
             return null;
         }
 
-        var allocatedBytes = (nint) size - (nint) oldSizeOrType;
-        _currentlyAllocatedBytes = (nuint) ((nint) _currentlyAllocatedBytes + allocatedBytes);
-        _totalAllocatedBytes = (nuint) ((nint) _totalAllocatedBytes + allocatedBytes);
+        var allocatedBytes = size - oldSizeOrType;
+        _currentlyAllocatedBytes += allocatedBytes;
+        _totalAllocatedBytes += allocatedBytes;
         _timesAllocated++;
 
         if (oldPtr == null)
