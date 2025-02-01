@@ -6,10 +6,8 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <IsPackable>false</IsPackable>
         <ImplicitUsings>true</ImplicitUsings>
-        
-<!--        <DefineConstants>-->
-<!--            TRACE_ALLOCS-->
-<!--        </DefineConstants>-->
+
+<!--        <DefineConstants>TRACE_ALLOCS</DefineConstants>-->
     </PropertyGroup>
 
     <ItemGroup>
