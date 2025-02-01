@@ -44,7 +44,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         var L = reference.Thread.State.L;
         top = lua_gettop(L);
 
-        PushValue(reference);
+        reference.Thread.Stack.Push(reference);
     }
 
     internal static LuaFunctionResults PCall(LuaThread thread, int oldTop, int argumentCount)

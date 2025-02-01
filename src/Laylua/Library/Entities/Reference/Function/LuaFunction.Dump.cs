@@ -44,7 +44,7 @@ public unsafe partial class LuaFunction
 
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
 
             delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writerFunctionPtr;
             if (target is Stream)

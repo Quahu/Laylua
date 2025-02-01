@@ -50,7 +50,7 @@ public unsafe partial class LuaTable : LuaReference
             var L = Thread.State.L;
             using (Thread.Stack.SnapshotCount())
             {
-                PushValue(this);
+                Thread.Stack.Push(this);
                 lua_pushnil(L);
                 return !lua_next(L, -2);
             }
@@ -83,7 +83,7 @@ public unsafe partial class LuaTable : LuaReference
             var L = Thread.State.L;
             using (Thread.Stack.SnapshotCount())
             {
-                PushValue(this);
+                Thread.Stack.Push(this);
                 return luaL_len(L, -1);
             }
         }
@@ -153,7 +153,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             var hasMetatable = lua_getmetatable(L, -1);
             if (hasMetatable)
             {
@@ -197,7 +197,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             Thread.Stack.Push(metatable);
             lua_setmetatable(L, -2);
         }
@@ -217,7 +217,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -245,7 +245,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             Thread.Stack.Push(key);
             return lua_gettable(L, -2) > LuaType.Nil;
         }
@@ -268,7 +268,7 @@ public unsafe partial class LuaTable : LuaReference
         using (Thread.Stack.SnapshotCount())
         {
             Thread.Marshaler.PushValue(Thread, value);
-            PushValue(this);
+            Thread.Stack.Push(this);
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -302,7 +302,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             Thread.Stack.Push(key);
             if (!lua_gettable(L, -2).IsNoneOrNil() && Thread.Stack[-1].TryGetValue(out value))
             {
@@ -340,7 +340,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             Thread.Stack.Push(key);
             if (lua_gettable(L, -2).IsNoneOrNil())
             {
@@ -389,7 +389,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             Thread.Stack.Push(key);
             Thread.Stack.Push(value);
             lua_settable(L, -3);
@@ -412,7 +412,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             Thread.Stack.Push(key);
             Thread.Stack.PushNil();
             lua_settable(L, -3);
@@ -432,7 +432,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -461,8 +461,8 @@ public unsafe partial class LuaTable : LuaReference
         var L = Thread.State.L;
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(table);
-            PushValue(this);
+            Thread.Stack.Push(table);
+            Thread.Stack.Push(this);
 
             if (lua_rawequal(L, -2, -1))
             {
@@ -509,7 +509,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = thread.State.L;
         using (thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -573,7 +573,7 @@ public unsafe partial class LuaTable : LuaReference
         var L = thread.State.L;
         using (thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
@@ -705,7 +705,7 @@ public unsafe partial class LuaTable : LuaReference
 
             try
             {
-                PushValue(_table);
+                table.Thread.Stack.Push(_table);
                 lua_pushnil(L);
             }
             catch

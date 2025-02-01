@@ -121,10 +121,18 @@ public unsafe partial class DefaultLuaMarshaler
                 ((LuaStackValue) (object) obj).PushValue();
                 return;
             }
-            case LuaReference:
+            case LuaReference reference:
             {
-                LuaReference.ValidateOwnership(thread, (LuaReference) (object) obj);
-                LuaReference.PushValue((LuaReference) (object) obj);
+                thread.ThrowIfInvalid();
+                reference.ThrowIfInvalid();
+                LuaReference.ValidateOwnership(thread, reference);
+
+                if (lua_rawgeti(L, LuaRegistry.Index, LuaReference.GetReference(reference)).IsNoneOrNil())
+                {
+                    lua_pop(L);
+                    LuaThread.ThrowLuaException("Failed to push the value of the Lua reference.");
+                }
+
                 return;
             }
             case UserDataHandle:

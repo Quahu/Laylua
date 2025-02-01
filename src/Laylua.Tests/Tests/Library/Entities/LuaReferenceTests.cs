@@ -54,4 +54,19 @@ public class LuaReferenceTests : LuaTestBase
         // after 5.4.2 causing the lookup to return some dummy number at the end instead of nil.
         Assert.That(type, Is.Not.EqualTo(LuaType.Table), "The disposed LuaReference's object was not garbage collected.");
     }
+
+    [Test]
+    public void MainThreadReference_PushedToChildThreadStack_PushesReferenceToChildThreadStack()
+    {
+        // Arrange
+        var reference = Lua.Evaluate<LuaTable>("return {}")!;
+        using var thread = Lua.CreateThread();
+
+        // Act
+        thread.Stack.Push(reference);
+
+        // Assert
+        Assert.That(Lua.Stack.Count, Is.Zero);
+        Assert.That(thread.Stack.Count, Is.EqualTo(1));
+    }
 }

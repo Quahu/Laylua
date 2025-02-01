@@ -61,7 +61,7 @@ public unsafe partial class LuaTable
             var L = thread.State.L;
             using (_table.Thread.Stack.SnapshotCount())
             {
-                PushValue(_table);
+                thread.Stack.Push(_table);
                 var length = (int) luaL_len(L, -1);
                 var list = new List<T>(Math.Min(length, 256));
                 lua_pushnil(L);
@@ -170,7 +170,7 @@ public unsafe partial class LuaTable
 
                 try
                 {
-                    PushValue(_table);
+                    table.Thread.Stack.Push(_table);
                     lua_pushnil(L);
                 }
                 catch

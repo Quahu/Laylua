@@ -41,7 +41,7 @@ public sealed unsafe class LuaUserData : LuaTable
 
             using (Thread.Stack.SnapshotCount())
             {
-                PushValue(this);
+                Thread.Stack.Push(this);
                 var L = Thread.State.L;
                 return lua_rawlen(L, -1);
             }

@@ -81,7 +81,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     }
 
     [MemberNotNull(nameof(LuaCore))]
-    protected void ThrowIfInvalid()
+    internal void ThrowIfInvalid()
     {
         if (LuaCore == null)
         {
@@ -115,7 +115,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             return Thread.Stack[-1].GetValue<T>()!;
         }
     }
@@ -135,7 +135,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             if (!LuaWeakReference.TryCreate<TReference>(Thread, -1, out var weakReference))
             {
                 LuaThread.ThrowLuaException("Failed to create the weak reference.");
@@ -160,8 +160,8 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
-            PushValue(other);
+            Thread.Stack.Push(this);
+            Thread.Stack.Push(other);
             var L = Thread.State.L;
             if (lua_rawequal(L, -2, -1))
                 return true;
@@ -198,7 +198,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         using (Thread.Stack.SnapshotCount())
         {
-            PushValue(this);
+            Thread.Stack.Push(this);
             var L = Thread.State.L;
             return luaL_tostring(L, -1).ToString() ?? "<invalid>";
         }
@@ -234,18 +234,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         reference.ThrowIfInvalid();
 
         return reference._reference;
-    }
-
-    internal static void PushValue(LuaReference reference)
-    {
-        reference.ThrowIfInvalid();
-
-        var L = reference.Thread.State.L;
-        if (lua_rawgeti(L, LuaRegistry.Index, reference._reference).IsNoneOrNil())
-        {
-            lua_pop(L);
-            LuaThread.ThrowLuaException("Failed to push the referenced object.");
-        }
     }
 
     internal static bool TryCreate(lua_State* L, int stackIndex, out int reference)
