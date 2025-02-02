@@ -10,7 +10,6 @@ namespace Laylua;
 
 internal static partial class StringExtensions
 {
-#if NET7_0_OR_GREATER
     [GeneratedRegex("[^a-zA-Z0-9_]+", RegexOptions.Compiled)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static partial Regex GetInvalidCharsRegex();
@@ -18,23 +17,6 @@ internal static partial class StringExtensions
     [GeneratedRegex("^\\d", RegexOptions.Compiled)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static partial Regex GetStartsWithDigitsRegex();
-#else
-    private static readonly Regex _invalidCharsRegex = new("[^a-zA-Z0-9_]+", RegexOptions.Compiled);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Regex GetInvalidCharsRegex()
-    {
-        return _invalidCharsRegex;
-    }
-
-    private static readonly Regex _startsWithDigitsRegex = new("^\\d", RegexOptions.Compiled);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Regex GetStartsWithDigitsRegex()
-    {
-        return _startsWithDigitsRegex;
-    }
-#endif
 
     public static string ValidateIdentifier(this string input)
     {
