@@ -87,9 +87,9 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
 
     internal static void ValidateOwnership(LuaThread thread, LuaStackValue value)
     {
-        if (thread.MainThread.State.L != value._thread.MainThread.State.L)
+        if (thread.State.L != value._thread.State.L)
         {
-            throw new InvalidOperationException($"The given stack value is owned by a different Lua state.");
+            throw new InvalidOperationException($"The given stack value is owned by a different Lua thread.");
         }
     }
 
