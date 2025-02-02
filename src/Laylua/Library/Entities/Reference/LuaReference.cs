@@ -29,13 +29,13 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         get
         {
             ThrowIfInvalid();
-            return LuaCore;
+            return ThreadCore;
         }
-        set => LuaCore = value;
+        set => ThreadCore = value;
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected abstract LuaThread? LuaCore { get; set; }
+    protected abstract LuaThread? ThreadCore { get; set; }
 
     internal int Reference
     {
@@ -80,10 +80,10 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         IsDisposed = false;
     }
 
-    [MemberNotNull(nameof(LuaCore))]
+    [MemberNotNull(nameof(ThreadCore))]
     internal void ThrowIfInvalid()
     {
-        if (LuaCore == null)
+        if (ThreadCore == null)
         {
             throw new InvalidOperationException($"This {GetType().Name.SingleQuoted()} has not been initialized.");
         }
@@ -262,7 +262,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
     internal static bool IsAlive(LuaReference reference)
     {
-        var lua = reference.LuaCore;
+        var lua = reference.ThreadCore;
         return lua != null && !lua.IsDisposed && !reference.IsDisposed && !lua.MainThread.IsDisposed;
     }
 }

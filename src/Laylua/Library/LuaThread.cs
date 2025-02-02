@@ -72,7 +72,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected override LuaThread? LuaCore
+    protected override LuaThread? ThreadCore
     {
         get => this;
         set => throw new NotSupportedException();

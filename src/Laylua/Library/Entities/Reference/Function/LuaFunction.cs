@@ -19,7 +19,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     public UpvalueCollection Upvalues => new(this);
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected override LuaThread? LuaCore { get; set; }
+    protected override LuaThread? ThreadCore { get; set; }
 
     internal LuaFunction()
     { }
