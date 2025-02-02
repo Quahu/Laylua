@@ -37,7 +37,7 @@ public abstract unsafe class LuaTestBase
     { }
 
     [SetUp]
-    public virtual void Setup()
+    public virtual void SetUp()
     {
         Context = TestContext.CurrentContext;
         Logger = LoggerFactory.CreateLogger(Context.Test.Name);
@@ -48,7 +48,7 @@ public abstract unsafe class LuaTestBase
     }
 
     [TearDown]
-    public virtual void Teardown()
+    public virtual void TearDown()
     {
         var allocator = Lua.State.Allocator;
         using (Lua)
@@ -63,6 +63,10 @@ public abstract unsafe class LuaTestBase
                 {
                     throw new AssertionException("Garbage on the Lua stack.", ex);
                 }
+            }
+            else
+            {
+                DumpStack(nameof(TearDown));
             }
         }
 
