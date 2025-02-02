@@ -149,9 +149,9 @@ internal unsafe class Program
             lua.OpenLibrary(LuaLibraries.Standard.IO);
             using (var stdout = lua.Evaluate<LuaTable>("return io.stdout")!)
             {
-                if (stdout.TryGetMetatable(out var fileMetatable))
+                using (var fileMetatable = stdout.GetMetatable())
                 {
-                    using (fileMetatable)
+                    if (fileMetatable != null)
                     {
                         var metaDictionary = fileMetatable.ToDictionary<object, object>();
                         Logger.LogInformation("File metatable: {0}", metaDictionary);

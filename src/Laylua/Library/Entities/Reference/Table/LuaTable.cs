@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -139,12 +138,11 @@ public unsafe partial class LuaTable : LuaReference
     /// <summary>
     ///     Attempts to get the metatable of this table.
     /// </summary>
-    /// <param name="metatable"> The metatable or <see langword="null"/> if one is not set. </param>
     /// <returns>
-    ///     <see langword="true"/> if this table has a metatable; <see langword="false"/> otherwise.
+    ///     The metatable or <see langword="null"/> if this table does not have a metatable.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public bool TryGetMetatable([NotNullWhen(true)] out LuaTable? metatable)
+    public LuaTable? GetMetatable()
     {
         ThrowIfInvalid();
 
@@ -157,30 +155,11 @@ public unsafe partial class LuaTable : LuaReference
             var hasMetatable = lua_getmetatable(L, -1);
             if (hasMetatable)
             {
-                metatable = Thread.Stack[-1].GetValue<LuaTable>()!;
-                return true;
+                return Thread.Stack[-1].GetValue<LuaTable>();
             }
 
-            metatable = null;
-            return false;
+            return null;
         }
-    }
-
-    /// <summary>
-    ///     Attempts to get the metatable of this table.
-    /// </summary>
-    /// <returns>
-    ///     The metatable of this table.
-    /// </returns>
-    /// <exception cref="InvalidOperationException">
-    ///     This table does not have a metatable set.
-    /// </exception>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public LuaTable GetMetatable()
-    {
-        return TryGetMetatable(out var metatable)
-            ? metatable
-            : throw new InvalidOperationException("This table does not have a metatable set.");
     }
 
     /// <summary>
