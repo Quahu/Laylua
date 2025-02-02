@@ -33,9 +33,10 @@ public unsafe partial class DefaultLuaMarshaler
         Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
         lock (_userDataHandleCaches)
         {
-            if (!_userDataHandleCaches.TryGetValue((IntPtr) L, out userDataHandleCache))
+            var G = thread.MainThread.State.L;
+            if (!_userDataHandleCaches.TryGetValue((IntPtr) G, out userDataHandleCache))
             {
-                _userDataHandleCaches[(IntPtr) L] = userDataHandleCache = new();
+                _userDataHandleCaches[(IntPtr) G] = userDataHandleCache = new();
             }
         }
 
