@@ -110,6 +110,16 @@ public unsafe partial class Lua : LuaThread, ISpanFormattable
         GC.SuppressFinalize(this);
     }
 
+    public static Lua FromThread(LuaThread thread)
+    {
+        if (thread is Lua lua)
+        {
+            return lua;
+        }
+
+        return FromExtraSpace(thread.State.L);
+    }
+
     public new static Lua FromExtraSpace(lua_State* L)
     {
         var lua = LayluaState.FromExtraSpace(L).State as Lua;
@@ -119,10 +129,5 @@ public unsafe partial class Lua : LuaThread, ISpanFormattable
         }
 
         return lua;
-    }
-
-    public static Lua FromThread(LuaThread thread)
-    {
-        return FromExtraSpace(thread.State.L);
     }
 }
