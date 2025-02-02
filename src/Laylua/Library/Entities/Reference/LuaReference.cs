@@ -9,18 +9,10 @@ namespace Laylua;
 
 /// <summary>
 ///     Represents a reference to a Lua object.
+///     As long as an object has any references, it will not be garbage collected by Lua.
 /// </summary>
 /// <remarks>
-///     If an instance of this type is not given to you via a method parameter
-///     you must ensure that you dispose of it manually after you are done working with it,
-///     because as long as that instance exists the Lua garbage collector will not free
-///     the memory allocated by the referenced Lua object.
-///     <para/>
-///     The exception to this are the main <see cref="LuaThread"/> and the globals <see cref="LuaTable"/>.
-///     These are always referenced by the Lua state and do not have to be disposed.
-///     <para/>
 ///     This type is not thread-safe; operations on it are not thread-safe.
-///     Ensure neither you nor Lua modify the object concurrently.
 /// </remarks>
 public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, IDisposable
 {
@@ -34,9 +26,6 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         set => ThreadCore = value;
     }
 
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected abstract LuaThread? ThreadCore { get; set; }
-
     internal int Reference
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -49,10 +38,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         set => _reference = value ? LUA_NOREF : LUA_REFNIL;
     }
 
-    /// <remarks>
-    ///     Ensure you dispose of all <see cref="LuaReference"/>s returned.
-    ///     See the remarks on <see cref="LuaReference"/> for details.
-    /// </remarks>
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    protected abstract LuaThread? ThreadCore { get; set; }
+
     private int _reference;
 
     private protected LuaReference()
@@ -95,14 +83,8 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     }
 
     /// <summary>
-    ///     Clones this reference.
+    ///     Clones this reference, creating a new reference to the same object.
     /// </summary>
-    /// <remarks>
-    ///     By using this method you can hold onto a Lua object as long as you want.
-    ///     This means that you must dispose of the cloned reference, even if the original reference
-    ///     was disposed automatically by the library.
-    ///     See the remarks on <see cref="LuaReference"/> for details.
-    /// </remarks>
     /// <returns>
     ///     A new <see cref="LuaReference"/> to the <b>same</b> Lua object.
     /// </returns>

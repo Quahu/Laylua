@@ -88,15 +88,9 @@ public unsafe partial class LuaTable : LuaReference
         }
     }
 
-    /// <inheritdoc cref="LuaReference._reference"/>
     /// <summary>
     ///     Gets or sets a value with the given key in the table.
     /// </summary>
-    /// <remarks>
-    ///     For type safety (especially so you can dispose any <see cref="LuaReference"/>s returned)
-    ///     and for performance reasons you should prefer the generic methods, i.e.
-    ///     <see cref="TryGetValue{TKey,TValue}"/> and <see cref="SetValue{TKey,TValue}"/>.
-    /// </remarks>
     /// <param name="key"> The key of the value to get or set. </param>
     /// <exception cref="KeyNotFoundException">
     ///     Thrown when the table does not contain a value with the specified key.
@@ -261,7 +255,6 @@ public unsafe partial class LuaTable : LuaReference
         return false;
     }
 
-    /// <inheritdoc cref="LuaReference._reference"/>
     /// <summary>
     ///     Gets a value with the given key in the table.
     /// </summary>
@@ -294,7 +287,6 @@ public unsafe partial class LuaTable : LuaReference
         }
     }
 
-    /// <inheritdoc cref="LuaReference._reference"/>
     /// <summary>
     ///     Gets a value with the given key in the table.
     /// </summary>
@@ -330,7 +322,6 @@ public unsafe partial class LuaTable : LuaReference
         }
     }
 
-    /// <inheritdoc cref="LuaReference._reference"/>
     /// <summary>
     ///     Gets a value with the given key in the table.
     /// </summary>

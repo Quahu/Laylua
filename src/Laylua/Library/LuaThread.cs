@@ -59,11 +59,6 @@ public abstract unsafe partial class LuaThread : LuaReference
     /// <summary>
     ///     Gets or sets the value of the global variable with the specified name.
     /// </summary>
-    /// <remarks>
-    ///     For type safety (especially so you can dispose any <see cref="LuaReference"/>s returned)
-    ///     and for performance reasons you should prefer the generic methods, i.e.
-    ///     <see cref="TryGetGlobal{TValue}"/> and <see cref="SetGlobal{TValue}"/>.
-    /// </remarks>
     /// <param name="name"> The name of the global variable. </param>
     public object? this[string name]
     {

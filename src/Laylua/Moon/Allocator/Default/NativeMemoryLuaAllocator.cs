@@ -57,8 +57,7 @@ public sealed unsafe class NativeMemoryLuaAllocator : LuaAllocator
     ///     Fired when Lua allocates memory.
     /// </summary>
     /// <remarks>
-    ///     Subscribed event handlers should be as lightweight as possible
-    ///     and must not throw any exceptions.
+    ///     Subscribed event handlers must not throw any exceptions.
     /// </remarks>
     public event EventHandler<MemoryAllocatedEventArgs>? MemoryAllocated;
 
