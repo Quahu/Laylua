@@ -23,7 +23,7 @@ public sealed class CombinedLuaHook : LuaHook
     private readonly LuaHook[] _hooks;
     private readonly int[] _instructionCounts;
 
-    public CombinedLuaHook(params Span<LuaHook> hooks)
+    public CombinedLuaHook(params ReadOnlySpan<LuaHook> hooks)
     {
         _hooks = hooks.ToArray();
         _instructionCounts = new int[_hooks.Length];

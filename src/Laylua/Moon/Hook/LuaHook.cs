@@ -34,7 +34,7 @@ public abstract class LuaHook
     /// <returns>
     ///     A hook representing the combined hooks.
     /// </returns>
-    public static CombinedLuaHook Combine(params Span<LuaHook> hooks)
+    public static CombinedLuaHook Combine(params ReadOnlySpan<LuaHook> hooks)
     {
         return new CombinedLuaHook(hooks);
     }
