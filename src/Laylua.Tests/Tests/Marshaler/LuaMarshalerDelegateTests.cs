@@ -235,6 +235,6 @@ public class LuaMarshalerDelegateTests : LuaTestBase
 
     private static bool IsReferenceAlive(LuaReference? reference)
     {
-        return (bool) typeof(LuaReference).GetMethod("IsAlive", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [reference])!;
+        return (bool) typeof(LuaReference).GetMethod("IsAlive", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [reference, null])!;
     }
 }
