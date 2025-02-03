@@ -118,7 +118,7 @@ public unsafe partial class LuaTable : LuaReference
 
     /// <inheritdoc cref="LuaReference.Clone{T}"/>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public virtual LuaTable Clone()
+    public virtual LuaTable CloneReference()
     {
         return Clone<LuaTable>();
     }

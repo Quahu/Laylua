@@ -26,7 +26,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
     /// <inheritdoc cref="LuaReference.Clone{T}"/>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public LuaFunction Clone()
+    public LuaFunction CloneReference()
     {
         return Clone<LuaFunction>();
     }

@@ -78,6 +78,27 @@ public abstract unsafe partial class LuaThread : LuaReference
     internal LuaThread()
     { }
 
+    /// <inheritdoc cref="LuaReference.Clone{T}"/>
+    /// <remarks>
+    ///     Does nothing for the main thread.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public LuaThread CloneReference()
+    {
+        if (MainThread.State.L == State.L)
+        {
+            return this;
+        }
+
+        return Clone<LuaThread>();
+    }
+
+    /// <inheritdoc cref="LuaReference.CreateWeakReference{TReference}"/>
+    public LuaWeakReference<LuaThread> CreateWeakReference()
+    {
+        return CreateWeakReference<LuaThread>();
+    }
+
     [DoesNotReturn]
     internal static void ThrowLuaException(LuaThread thread)
     {

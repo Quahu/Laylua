@@ -55,7 +55,7 @@ public sealed unsafe class LuaUserData : LuaTable
 
     /// <inheritdoc cref="LuaReference.Clone{T}"/>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public override LuaUserData Clone()
+    public override LuaUserData CloneReference()
     {
         return Clone<LuaUserData>();
     }
