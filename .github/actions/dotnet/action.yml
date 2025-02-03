@@ -28,7 +28,7 @@ runs:
         if ($LastExitCode -ne 0) { $Host.SetShouldExit($LastExitCode) }
       shell: pwsh
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifacts
         path: ./artifacts/
