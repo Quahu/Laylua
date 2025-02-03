@@ -34,13 +34,12 @@ public sealed class CombinedLuaHook : LuaHook
             InstructionCount = _hooks.Select(static hook => hook.InstructionCount).Aggregate(static (a, b) =>
             {
                 // GCD
-                while (true)
+                while (b != 0)
                 {
-                    if (b == 0)
-                        return a;
-
                     (a, b) = (b, a % b);
                 }
+
+                return a;
             });
         }
     }
