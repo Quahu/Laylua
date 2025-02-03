@@ -741,15 +741,18 @@ public static unsafe partial class LuaNative
     public static extern bool lua_getstack(lua_State* L, int level, lua_Debug* ar);
 
     [UnmanagedFunctionPointer(Cdecl)]
-    private delegate bool _lua_getinfoDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPStr)] string what, lua_Debug* ar);
+    private delegate bool _lua_getinfoDelegate(lua_State* L, byte* what, lua_Debug* ar);
 
     private static _lua_getinfoDelegate _lua_getinfo = null!;
 
     [ErrorExport]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool lua_getinfo(lua_State* L, string what, lua_Debug* ar)
+    public static bool lua_getinfo(lua_State* L, ReadOnlySpan<byte> what, lua_Debug* ar)
     {
-        return _lua_getinfo(L, what, ar);
+        fixed (byte* whatPtr = what)
+        {
+            return _lua_getinfo(L, whatPtr, ar);
+        }
     }
 
     [DllImport(DllName, CallingConvention = Cdecl)]

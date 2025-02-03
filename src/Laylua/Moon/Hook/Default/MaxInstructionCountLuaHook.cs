@@ -29,7 +29,7 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
     /// <inheritdoc/>
     protected internal override void Execute(LuaThread thread, ref LuaDebug debug)
     {
-        lua_getinfo(thread.State.L, "Sn", debug.ActivationRecord);
+        lua_getinfo(thread.State.L, "Sn"u8, debug.ActivationRecord);
 
         char[]? rentedArray = null;
         Exception exception;

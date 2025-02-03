@@ -220,7 +220,7 @@ public unsafe ref struct LuaDebug
     /// <returns></returns>
     public readonly LuaFunction GetRunningFunction()
     {
-        lua_getinfo(_thread.State.L, "f", ActivationRecord);
+        lua_getinfo(_thread.State.L, "f"u8, ActivationRecord);
         try
         {
             return _thread.Stack[-1].GetValue<LuaFunction>()!;
@@ -238,7 +238,7 @@ public unsafe ref struct LuaDebug
     /// <returns></returns>
     public readonly LuaTable GetLinesTable()
     {
-        lua_getinfo(_thread.State.L, "L", ActivationRecord);
+        lua_getinfo(_thread.State.L, "L"u8, ActivationRecord);
         try
         {
             return _thread.Stack[-1].GetValue<LuaTable>()!;
@@ -249,17 +249,17 @@ public unsafe ref struct LuaDebug
         }
     }
 
-    private static string GetStringForInfo(LuaDebugInfo what)
+    private static ReadOnlySpan<byte> GetStringForInfo(LuaDebugInfo what)
     {
         return what switch
         {
-            LuaDebugInfo.CurrentLine => "l",
-            LuaDebugInfo.Name => "n",
-            LuaDebugInfo.Transfer => "r",
-            LuaDebugInfo.Source => "S",
-            LuaDebugInfo.TailCall => "t",
-            LuaDebugInfo.Upvalues => "u",
-            _ => Throw.ArgumentOutOfRangeException<string>(nameof(what))
+            LuaDebugInfo.CurrentLine => "l"u8,
+            LuaDebugInfo.Name => "n"u8,
+            LuaDebugInfo.Transfer => "r"u8,
+            LuaDebugInfo.Source => "S"u8,
+            LuaDebugInfo.TailCall => "t"u8,
+            LuaDebugInfo.Upvalues => "u"u8,
+            _ => throw new ArgumentOutOfRangeException(nameof(what), what, null)
         };
     }
 
