@@ -2,9 +2,6 @@ using System;
 using System.Buffers;
 using Laylua.Moon;
 using Qommon;
-#if !NET7_0_OR_GREATER
-using System.Globalization;
-#endif
 
 namespace Laylua.Marshaling;
 
@@ -253,7 +250,6 @@ public unsafe partial class DefaultLuaMarshaler
                 try
                 {
                     nativeStringValue.GetChars(charSpan);
-#if NET7_0_OR_GREATER
                     if (clrType == typeof(int) && int.TryParse(charSpan, FormatProvider, out var intValue))
                     {
                         obj = (T) (object) intValue;
@@ -319,73 +315,6 @@ public unsafe partial class DefaultLuaMarshaler
                         obj = (T) (object) decimalValue;
                         return true;
                     }
-#else
-                    if (clrType == typeof(int) && int.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var intValue))
-                    {
-                        obj = (T) (object) intValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(uint) && uint.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var uintValue))
-                    {
-                        obj = (T) (object) uintValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(long) && long.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var longValue))
-                    {
-                        obj = (T) (object) longValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(ulong) && ulong.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var ulongValue))
-                    {
-                        obj = (T) (object) ulongValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(double) && double.TryParse(charSpan, NumberStyles.Float | NumberStyles.AllowThousands, FormatProvider, out var doubleValue))
-                    {
-                        obj = (T) (object) doubleValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(float) && float.TryParse(charSpan, NumberStyles.Float | NumberStyles.AllowThousands, FormatProvider, out var floatValue))
-                    {
-                        obj = (T) (object) floatValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(sbyte) && sbyte.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var sbyteValue))
-                    {
-                        obj = (T) (object) sbyteValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(byte) && byte.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var byteValue))
-                    {
-                        obj = (T) (object) byteValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(short) && short.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var shortValue))
-                    {
-                        obj = (T) (object) shortValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(ushort) && ushort.TryParse(charSpan, NumberStyles.Integer, FormatProvider, out var ushortValue))
-                    {
-                        obj = (T) (object) ushortValue;
-                        return true;
-                    }
-
-                    if (clrType == typeof(decimal) && decimal.TryParse(charSpan, NumberStyles.Number, FormatProvider, out var decimalValue))
-                    {
-                        obj = (T) (object) decimalValue;
-                        return true;
-                    }
-#endif
 
                     obj = default;
                     return false;

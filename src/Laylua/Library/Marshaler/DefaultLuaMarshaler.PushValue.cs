@@ -5,9 +5,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
 using Qommon;
-#if !NET7_0_OR_GREATER
-using System.Runtime.InteropServices;
-#endif
 
 namespace Laylua.Marshaling;
 
@@ -88,11 +85,7 @@ public unsafe partial class DefaultLuaMarshaler
             case char:
             {
                 var charValue = (char) (object) obj;
-#if NET7_0_OR_GREATER
                 lua_pushstring(L, new ReadOnlySpan<char>(in charValue));
-#else
-                lua_pushstring(L, MemoryMarshal.CreateReadOnlySpan(ref charValue, 1));
-#endif
                 return;
             }
             case string:
@@ -245,11 +238,7 @@ public unsafe partial class DefaultLuaMarshaler
                             case TypeCode.Char:
                             {
                                 var charValue = ((IConvertible) obj).ToChar(FormatProvider);
-#if NET7_0_OR_GREATER
                                 lua_pushstring(L, new ReadOnlySpan<char>(in charValue));
-#else
-                                lua_pushstring(L, MemoryMarshal.CreateReadOnlySpan(ref charValue, 1));
-#endif
                                 return;
                             }
                             case TypeCode.String:
