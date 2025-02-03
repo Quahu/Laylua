@@ -23,7 +23,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             ThrowIfInvalid();
             return ThreadCore;
         }
-        set => ThreadCore = value;
+        set
+        {
+            ThreadCore = value is Lua lua 
+                ? lua.MainThread 
+                : value.CloneReference();
+        }
     }
 
     internal int Reference
@@ -203,9 +208,14 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             return;
 
         luaL_unref(L, LuaRegistry.Index, _reference);
-        if (!Thread!.Marshaler.ReturnReference(this))
+        if (!Thread.Marshaler.ReturnReference(this))
         {
             GC.SuppressFinalize(this);
+        }
+
+        if (this is not LuaThread)
+        {
+            Thread.Dispose();
         }
 
         IsDisposed = true;
