@@ -11,6 +11,8 @@ internal sealed class LuaMainThread : LuaThread
 
     internal override LuaMarshaler Marshaler => _lua.Marshaler;
 
+    internal override bool IsDisposed => _lua.IsDisposed;
+
     private readonly Lua _lua;
 
     public LuaMainThread(Lua lua)

@@ -69,4 +69,18 @@ public class LuaReferenceTests : LuaTestBase
         Assert.That(Lua.Stack.Count, Is.Zero);
         Assert.That(thread.Stack.Count, Is.EqualTo(1));
     }
+
+    [Test]
+    public void MainThreadReference_MainThreadDisposed_InvalidatesReference()
+    {
+        // Arrange
+        var lua1 = CreateLua();
+        var reference = lua1.Evaluate<LuaTable>("return {}")!;
+
+        // Act
+        lua1.Dispose();
+
+        // Assert
+        Assert.That(() => reference.IsEmpty, Throws.TypeOf<ObjectDisposedException>().With.Property(nameof(ObjectDisposedException.ObjectName)).EqualTo(typeof(LuaTable).FullName));
+    }
 }

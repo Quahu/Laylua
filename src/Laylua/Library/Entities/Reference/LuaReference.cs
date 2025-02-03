@@ -36,7 +36,14 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
     internal virtual bool IsDisposed
     {
-        get => _reference == LUA_NOREF;
+        get
+        {
+            if (_reference is LUA_NOREF)
+                return true;
+
+            var thread = ThreadCore;
+            return thread == null || thread.MainThread.IsDisposed;
+        }
         set => _reference = value ? LUA_NOREF : LUA_REFNIL;
     }
 
@@ -58,7 +65,7 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             Lua.FromThread(thread).PushLeakedReference(_reference);
         }
 
-        if (Thread!.Marshaler.ReturnReference(this))
+        if (thread.Marshaler.ReturnReference(this))
         {
             GC.ReRegisterForFinalize(this);
         }
