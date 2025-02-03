@@ -192,18 +192,18 @@ public unsafe ref struct LuaDebug
 
     private readonly lua_Debug* Ar => (lua_Debug*) Unsafe.AsPointer(ref Unsafe.AsRef(in _activationRecord));
 
-    private readonly LuaThread _thread;
+    private readonly lua_State* L;
     private readonly lua_Debug _activationRecord;
     private LuaDebugInfo _currentInfo;
 
-    internal LuaDebug(LuaThread thread)
+    internal LuaDebug(lua_State* L)
     {
-        _thread = thread;
+        this.L = L;
     }
 
-    internal LuaDebug(LuaThread thread, lua_Debug* activationRecord)
+    internal LuaDebug(lua_State* L, lua_Debug* activationRecord)
     {
-        _thread = thread;
+        this.L = L;
         _activationRecord = *activationRecord;
     }
 
@@ -228,13 +228,17 @@ public unsafe ref struct LuaDebug
     public readonly LuaFunction GetRunningFunction()
     {
         GetInfo("f"u8);
-        try
+
+        using (var thread = LuaThread.FromExtraSpace(L))
         {
-            return _thread.Stack[-1].GetValue<LuaFunction>()!;
-        }
-        finally
-        {
-            _thread.Stack.Pop();
+            try
+            {
+                return thread.Stack[-1].GetValue<LuaFunction>()!;
+            }
+            finally
+            {
+                thread.Stack.Pop();
+            }
         }
     }
 
@@ -246,19 +250,23 @@ public unsafe ref struct LuaDebug
     public readonly LuaTable GetLinesTable()
     {
         GetInfo("L"u8);
-        try
+
+        using (var thread = LuaThread.FromExtraSpace(L))
         {
-            return _thread.Stack[-1].GetValue<LuaTable>()!;
-        }
-        finally
-        {
-            _thread.Stack.Pop();
+            try
+            {
+                return thread.Stack[-1].GetValue<LuaTable>()!;
+            }
+            finally
+            {
+                thread.Stack.Pop();
+            }
         }
     }
 
     private readonly void GetInfo(ReadOnlySpan<byte> what)
     {
-        lua_getinfo(_thread.State.L, what, Ar);
+        lua_getinfo(L, what, Ar);
     }
 
     private static ReadOnlySpan<byte> GetStringForInfo(LuaDebugInfo what)
