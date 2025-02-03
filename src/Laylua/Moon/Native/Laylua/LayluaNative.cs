@@ -126,11 +126,11 @@ internal static unsafe partial class LayluaNative
             var asmSpan = Alloc(PanicAsmBytes, out var asmPtr);
 
             var returnAddr = asmPtr + 0x1A;
-            MemoryMarshal.Write(asmSpan[3..], ref returnAddr);
+            MemoryMarshal.Write(asmSpan[3..], in returnAddr);
 
             RuntimeHelpers.PrepareMethod(panicMethodHandle);
             var panicPtr = panicMethodHandle.GetFunctionPointer();
-            MemoryMarshal.Write(asmSpan[18..], ref panicPtr);
+            MemoryMarshal.Write(asmSpan[18..], in panicPtr);
 
 #if TRACE_PANIC
             // Console.WriteLine("Stack State at 0x{0:X}", (IntPtr) stackState);
@@ -232,13 +232,13 @@ internal static unsafe partial class LayluaNative
             var asmSpan = Alloc(HookAsmBytes, out var asmPtr);
 
             var panicJmpAddr = asmPtr + 202 + 10 + 216 * 2 + 136 + 50 + 19;
-            MemoryMarshal.Write(asmSpan.Slice(29 + 216), ref panicJmpAddr);
-            MemoryMarshal.Write(asmSpan.Slice(29 + 10 + 216), ref panicJmpAddr);
-            MemoryMarshal.Write(asmSpan.Slice(45 + 10 + 216), ref mPtr);
-            MemoryMarshal.Write(asmSpan.Slice(533), ref export);
-            MemoryMarshal.Write(asmSpan.Slice(161 + 10 + 216 * 2 + 136 + 50 + 19), ref export);
-            MemoryMarshal.Write(asmSpan.Slice(188 + 10 + 216 * 2 + 136 + 50 + 19), ref popPanicPtr);
-            MemoryMarshal.Write(asmSpan.Slice(275 + 10 + 216 * 2 + 136 * 2 + 50 + 19), ref throwPanicExceptionPtr);
+            MemoryMarshal.Write(asmSpan.Slice(29 + 216), in panicJmpAddr);
+            MemoryMarshal.Write(asmSpan.Slice(29 + 10 + 216), in panicJmpAddr);
+            MemoryMarshal.Write(asmSpan.Slice(45 + 10 + 216), in mPtr);
+            MemoryMarshal.Write(asmSpan.Slice(533), in export);
+            MemoryMarshal.Write(asmSpan.Slice(161 + 10 + 216 * 2 + 136 + 50 + 19), in export);
+            MemoryMarshal.Write(asmSpan.Slice(188 + 10 + 216 * 2 + 136 + 50 + 19), in popPanicPtr);
+            MemoryMarshal.Write(asmSpan.Slice(275 + 10 + 216 * 2 + 136 * 2 + 50 + 19), in throwPanicExceptionPtr);
 
 #if TRACE_PANIC
             Console.WriteLine("SetPanicJump: 0x{0:X}\nlua_error hook 1: 0x{1:X}\nlongjmp panic addr: 0x{2:X}\npopPanicPtr: 0x{3:X}\nthrowPanicExceptionPtr: 0x{4:X}", mPtr, asmPtr, panicJmpAddr, popPanicPtr, throwPanicExceptionPtr);

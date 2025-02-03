@@ -337,7 +337,7 @@ internal static unsafe partial class LayluaNative
 
     private static void WriteFunctionWrapperPointers(Span<byte> asmSpan, IntPtr functionWrapperPtr)
     {
-        MemoryMarshal.Write(asmSpan.Slice(40 - 13), ref functionWrapperPtr);
-        MemoryMarshal.Write(asmSpan.Slice(71 - 13), ref getPotentialPanicPtr);
+        MemoryMarshal.Write(asmSpan.Slice(40 - 13), in functionWrapperPtr);
+        MemoryMarshal.Write(asmSpan.Slice(71 - 13), in getPotentialPanicPtr);
     }
 }
