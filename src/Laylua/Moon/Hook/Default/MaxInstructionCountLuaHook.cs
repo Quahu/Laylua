@@ -27,28 +27,26 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(LuaThread thread, ref LuaDebug debug)
+    protected internal override void Execute(LuaThread thread, LuaEvent @event, ref LuaDebug debug)
     {
-        lua_getinfo(thread.State.L, "Sn"u8, debug.ActivationRecord);
-
         char[]? rentedArray = null;
         Exception exception;
         try
         {
             scoped Span<char> nameSpan;
-            if (debug.ActivationRecord->name != null)
+            var functionName = debug.FunctionName;
+            if (functionName.Pointer != null)
             {
-                var utf8NameSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(debug.ActivationRecord->name);
-                var charCount = Encoding.UTF8.GetCharCount(utf8NameSpan);
+                var charCount = functionName.CharLength;
                 nameSpan = charCount > 256
                     ? (rentedArray = ArrayPool<char>.Shared.Rent(charCount)).AsSpan(0, charCount)
                     : stackalloc char[charCount];
 
-                Encoding.UTF8.GetChars(utf8NameSpan, nameSpan);
+                functionName.GetChars(nameSpan);
             }
             else
             {
-                nameSpan = Span<char>.Empty;
+                nameSpan = [];
             }
 
             exception = new MaxInstructionCountReachedException(InstructionCount, nameSpan);

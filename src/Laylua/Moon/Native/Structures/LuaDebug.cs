@@ -24,7 +24,7 @@ public unsafe struct lua_Debug
     public ushort ntransfer; /* (r) number of transferred values */
     public fixed byte short_src[LUA_IDSIZE]; /* (S) */
 
-    private IntPtr i_ci; /* call info */
+    public void* i_ci; /* call info */
 
     public string? GetName()
     {

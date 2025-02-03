@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Qommon;
 
 namespace Laylua.Moon;
@@ -11,11 +12,6 @@ namespace Laylua.Moon;
 public unsafe ref struct LuaDebug
 {
     /// <summary>
-    ///     Gets the event that triggered the hook.
-    /// </summary>
-    public readonly LuaEvent Event => ActivationRecord->@event;
-
-    /// <summary>
     ///     Gets a reasonable name for the given function.
     /// </summary>
     public LuaString FunctionName
@@ -23,7 +19,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Name);
-            return new(ActivationRecord->name);
+            return new(Ar->name);
         }
     }
 
@@ -36,7 +32,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Name);
-            return new(ActivationRecord->namewhat);
+            return new(Ar->namewhat);
         }
     }
 
@@ -48,7 +44,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Source);
-            return new(ActivationRecord->what);
+            return new(Ar->what);
         }
     }
 
@@ -63,7 +59,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Source);
-            return new(ActivationRecord->source, ActivationRecord->srclen);
+            return new(Ar->source, Ar->srclen);
         }
     }
 
@@ -76,7 +72,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.CurrentLine);
-            return ActivationRecord->currentline;
+            return Ar->currentline;
         }
     }
 
@@ -88,7 +84,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Source);
-            return ActivationRecord->linedefined;
+            return Ar->linedefined;
         }
     }
 
@@ -100,7 +96,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Source);
-            return ActivationRecord->lastlinedefined;
+            return Ar->lastlinedefined;
         }
     }
 
@@ -112,7 +108,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Upvalues);
-            return ActivationRecord->nups;
+            return Ar->nups;
         }
     }
 
@@ -124,7 +120,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Upvalues);
-            return ActivationRecord->nparams;
+            return Ar->nparams;
         }
     }
 
@@ -136,7 +132,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Upvalues);
-            return ActivationRecord->isvararg;
+            return Ar->isvararg;
         }
     }
 
@@ -149,7 +145,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.TailCall);
-            return ActivationRecord->istailcall;
+            return Ar->istailcall;
         }
     }
 
@@ -165,7 +161,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Transfer);
-            return ActivationRecord->ftransfer;
+            return Ar->ftransfer;
         }
     }
 
@@ -178,7 +174,7 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Transfer);
-            return ActivationRecord->ntransfer;
+            return Ar->ntransfer;
         }
     }
 
@@ -190,26 +186,37 @@ public unsafe ref struct LuaDebug
         get
         {
             EnsureInfoRetrieved(LuaDebugInfo.Source);
-            return new(ActivationRecord->short_src, LUA_IDSIZE);
+            return new(Ar->short_src, LUA_IDSIZE);
         }
     }
 
-    internal readonly lua_Debug* ActivationRecord;
+    private readonly lua_Debug* Ar => (lua_Debug*) Unsafe.AsPointer(ref Unsafe.AsRef(in _activationRecord));
 
     private readonly LuaThread _thread;
+    private readonly lua_Debug _activationRecord;
     private LuaDebugInfo _currentInfo;
+
+    internal LuaDebug(LuaThread thread)
+    {
+        _thread = thread;
+    }
 
     internal LuaDebug(LuaThread thread, lua_Debug* activationRecord)
     {
         _thread = thread;
-        ActivationRecord = activationRecord;
+        _activationRecord = *activationRecord;
     }
 
     private void EnsureInfoRetrieved(LuaDebugInfo neededInfo)
     {
+        if (Ar->i_ci == null)
+        {
+            Throw.InvalidOperationException($"This {nameof(LuaDebug)} instance has not been initialized.");
+        }
+
         if (!_currentInfo.HasFlag(neededInfo))
         {
-            lua_getinfo(_thread.State.L, GetStringForInfo(neededInfo), ActivationRecord);
+            GetInfo(GetStringForInfo(neededInfo));
             _currentInfo |= neededInfo;
         }
     }
@@ -220,7 +227,7 @@ public unsafe ref struct LuaDebug
     /// <returns></returns>
     public readonly LuaFunction GetRunningFunction()
     {
-        lua_getinfo(_thread.State.L, "f"u8, ActivationRecord);
+        GetInfo("f"u8);
         try
         {
             return _thread.Stack[-1].GetValue<LuaFunction>()!;
@@ -238,7 +245,7 @@ public unsafe ref struct LuaDebug
     /// <returns></returns>
     public readonly LuaTable GetLinesTable()
     {
-        lua_getinfo(_thread.State.L, "L"u8, ActivationRecord);
+        GetInfo("L"u8);
         try
         {
             return _thread.Stack[-1].GetValue<LuaTable>()!;
@@ -247,6 +254,11 @@ public unsafe ref struct LuaDebug
         {
             _thread.Stack.Pop();
         }
+    }
+
+    private readonly void GetInfo(ReadOnlySpan<byte> what)
+    {
+        lua_getinfo(_thread.State.L, what, Ar);
     }
 
     private static ReadOnlySpan<byte> GetStringForInfo(LuaDebugInfo what)

@@ -48,7 +48,7 @@ public class LuaStateTests : LuaTestBase
 
         public int TimesCalled { get; private set; }
 
-        protected override void Execute(LuaThread thread, ref LuaDebug debug)
+        protected override void Execute(LuaThread thread, LuaEvent @event, ref LuaDebug debug)
         {
             TimesCalled++;
         }
@@ -83,7 +83,7 @@ public class LuaStateTests : LuaTestBase
 
         public List<string> FunctionNames { get; } = [];
 
-        protected override void Execute(LuaThread thread, ref LuaDebug debug)
+        protected override void Execute(LuaThread thread, LuaEvent @event, ref LuaDebug debug)
         {
             var functionName = debug.FunctionName.ToString();
             if (!string.IsNullOrWhiteSpace(functionName))
@@ -117,7 +117,7 @@ public class LuaStateTests : LuaTestBase
 
         protected override int InstructionCount => 1;
 
-        protected override void Execute(LuaThread thread, ref LuaDebug debug)
+        protected override void Execute(LuaThread thread, LuaEvent @event, ref LuaDebug debug)
         {
             throw new Exception(nameof(ThrowingLuaHook));
         }
@@ -133,7 +133,7 @@ public class LuaStateTests : LuaTestBase
         // Assert
         Assert.That(() => Lua.Execute(""), Throws.TypeOf<LuaException>()
             .With.InnerException.TypeOf<Exception>()
-                .And.InnerException.Message.EqualTo(nameof(ThrowingLuaHook)));
+            .And.InnerException.Message.EqualTo(nameof(ThrowingLuaHook)));
     }
 
     [Test]

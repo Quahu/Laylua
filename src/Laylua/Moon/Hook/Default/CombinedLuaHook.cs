@@ -45,12 +45,12 @@ public sealed class CombinedLuaHook : LuaHook
     }
 
     /// <inheritdoc/>
-    protected internal override void Execute(LuaThread thread, ref LuaDebug debug)
+    protected internal override void Execute(LuaThread thread, LuaEvent @event, ref LuaDebug debug)
     {
         for (var hookIndex = 0; hookIndex < _hooks.Length; hookIndex++)
         {
             var hook = _hooks[hookIndex];
-            var maskFlag = GetMaskForEvent(debug.Event);
+            var maskFlag = GetMaskForEvent(@event);
             if (!hook.EventMask.HasFlag(maskFlag))
                 continue;
 
@@ -64,7 +64,7 @@ public sealed class CombinedLuaHook : LuaHook
                 _instructionCounts[hookIndex] = 0;
             }
 
-            hook.Execute(thread, ref debug);
+            hook.Execute(thread, @event, ref debug);
         }
     }
 
