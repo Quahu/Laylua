@@ -65,7 +65,8 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateTableReference(LuaThread thread, int stackIndex, [MaybeNullWhen(false)] out LuaTable table)
     {
-        Lua.FromThread(thread).UnrefLeakedReferences();
+        var lua = Lua.FromThread(thread);
+        lua.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
@@ -74,7 +75,7 @@ public abstract partial class LuaMarshaler
         }
 
         table = _entityPool?.RentTable() ?? new();
-        table.Thread = thread;
+        table.Lua = lua;
         table.Reference = reference;
         return true;
     }
@@ -91,7 +92,8 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateFunctionReference(LuaThread thread, int stackIndex, [MaybeNullWhen(false)] out LuaFunction function)
     {
-        Lua.FromThread(thread).UnrefLeakedReferences();
+        var lua = Lua.FromThread(thread);
+        lua.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
@@ -100,7 +102,7 @@ public abstract partial class LuaMarshaler
         }
 
         function = _entityPool?.RentFunction() ?? new();
-        function.Thread = thread;
+        function.Lua = lua;
         function.Reference = reference;
         return true;
     }
@@ -118,7 +120,8 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateUserDataReference(LuaThread thread, int stackIndex, IntPtr pointer, [MaybeNullWhen(false)] out LuaUserData userData)
     {
-        Lua.FromThread(thread).UnrefLeakedReferences();
+        var lua = Lua.FromThread(thread);
+        lua.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
@@ -127,7 +130,7 @@ public abstract partial class LuaMarshaler
         }
 
         userData = _entityPool?.RentUserData() ?? new();
-        userData.Thread = thread;
+        userData.Lua = lua;
         userData.Reference = reference;
         userData.Pointer = pointer;
         return true;

@@ -17,11 +17,11 @@ public sealed unsafe partial class LuaFunction
 
         public int Count()
         {
-            using (_function.Thread.Stack.SnapshotCount())
+            using (_function.Lua.Stack.SnapshotCount())
             {
-                _function.Thread.Stack.Push(_function);
+                _function.Lua.Stack.Push(_function);
 
-                var L = _function.Thread.State.L;
+                var L = _function.Lua.State.L;
                 var index = 1;
                 while (lua_getupvalue(L, -1, lua_upvalueindex(index)).Pointer != null)
                 {
@@ -54,14 +54,14 @@ public sealed unsafe partial class LuaFunction
             public Enumerator(LuaFunction function)
             {
                 _function = function;
-                function.Thread.Stack.Push(_function);
-                _functionIndex = lua_absindex(_function.Thread.State.L, -1);
+                function.Lua.Stack.Push(_function);
+                _functionIndex = lua_absindex(_function.Lua.State.L, -1);
             }
 
             /// <inheritdoc/>
             public bool MoveNext()
             {
-                var L = _function.Thread.State.L;
+                var L = _function.Lua.State.L;
                 if (_index != 0)
                 {
                     lua_remove(L, _current.Value.Index);
@@ -74,7 +74,7 @@ public sealed unsafe partial class LuaFunction
                     return false;
                 }
 
-                _current = new(name, new LuaStackValue(_function.Thread, -1));
+                _current = new(name, new LuaStackValue(_function.Lua, -1));
                 return true;
             }
 
@@ -83,7 +83,7 @@ public sealed unsafe partial class LuaFunction
             {
                 if (_index != 0)
                 {
-                    var L = _function.Thread.State.L;
+                    var L = _function.Lua.State.L;
                     lua_remove(L, _current.Value.Index);
                 }
 
@@ -94,7 +94,7 @@ public sealed unsafe partial class LuaFunction
             /// <inheritdoc/>
             public void Dispose()
             {
-                var L = _function.Thread.State.L;
+                var L = _function.Lua.State.L;
                 lua_remove(L, _functionIndex);
             }
         }

@@ -16,16 +16,14 @@ namespace Laylua;
 /// </remarks>
 public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, IDisposable
 {
-    internal LuaThread Thread
+    internal Lua Lua
     {
         get
         {
             ThrowIfInvalid();
-            return ThreadCore;
+            return LuaCore;
         }
-        set => ThreadCore = value is Lua lua
-            ? lua.MainThread
-            : value.CloneReference();
+        set => LuaCore = value;
     }
 
     internal int Reference
@@ -41,14 +39,14 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             if (_reference is LUA_NOREF)
                 return true;
 
-            var thread = ThreadCore;
+            var thread = LuaCore;
             return thread == null || thread.MainThread.IsDisposed;
         }
         set => _reference = value ? LUA_NOREF : LUA_REFNIL;
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected abstract LuaThread? ThreadCore { get; set; }
+    protected abstract Lua? LuaCore { get; set; }
 
     private int _reference;
 
@@ -57,15 +55,15 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
     ~LuaReference()
     {
-        if (!IsAlive(this, out var thread))
+        if (!IsAlive(this, out var lua))
             return;
 
         if (!LuaRegistry.IsPersistentReference(_reference))
         {
-            Lua.FromThread(thread).PushLeakedReference(_reference);
+            lua.PushLeakedReference(_reference);
         }
 
-        if (thread.Marshaler.ReturnReference(this))
+        if (lua.Marshaler.ReturnReference(this))
         {
             GC.ReRegisterForFinalize(this);
         }
@@ -77,10 +75,10 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         IsDisposed = false;
     }
 
-    [MemberNotNull(nameof(ThreadCore))]
+    [MemberNotNull(nameof(LuaCore))]
     internal void ThrowIfInvalid()
     {
-        if (ThreadCore == null)
+        if (LuaCore == null)
         {
             throw new InvalidOperationException($"This {GetType().Name.SingleQuoted()} has not been initialized.");
         }
@@ -102,12 +100,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     {
         ThrowIfInvalid();
 
-        Thread.Stack.EnsureFreeCapacity(1);
+        Lua.Stack.EnsureFreeCapacity(1);
 
-        using (Thread.Stack.SnapshotCount())
+        using (Lua.Stack.SnapshotCount())
         {
-            Thread.Stack.Push(this);
-            return Thread.Stack[-1].GetValue<T>()!;
+            Lua.Stack.Push(this);
+            return Lua.Stack[-1].GetValue<T>()!;
         }
     }
 
@@ -122,12 +120,12 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     {
         ThrowIfInvalid();
 
-        Thread.Stack.EnsureFreeCapacity(1);
+        Lua.Stack.EnsureFreeCapacity(1);
 
-        using (Thread.Stack.SnapshotCount())
+        using (Lua.Stack.SnapshotCount())
         {
-            Thread.Stack.Push(this);
-            if (!LuaWeakReference.TryCreate<TReference>(Thread, -1, out var weakReference))
+            Lua.Stack.Push(this);
+            if (!LuaWeakReference.TryCreate<TReference>(Lua, -1, out var weakReference))
             {
                 LuaThread.ThrowLuaException("Failed to create the weak reference.");
             }
@@ -141,19 +139,22 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         if (other == null)
             return false;
 
-        if (!IsAlive(this, out var thread) || !IsAlive(other, out var otherThread))
+        if (!IsAlive(this, out var lua) || !IsAlive(other, out var otherLua))
+            return false;
+
+        if (lua.State.L != otherLua.State.L)
             return false;
 
         if (_reference == other._reference)
             return true;
 
-        thread.Stack.EnsureFreeCapacity(2);
+        lua.Stack.EnsureFreeCapacity(2);
 
-        using (thread.Stack.SnapshotCount())
+        using (lua.Stack.SnapshotCount())
         {
-            thread.Stack.Push(this);
-            thread.Stack.Push(other);
-            var L = thread.State.L;
+            lua.Stack.Push(this);
+            lua.Stack.Push(other);
+            var L = lua.State.L;
             if (lua_rawequal(L, -2, -1))
                 return true;
         }
@@ -182,15 +183,15 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     /// </returns>
     public override string ToString()
     {
-        if (!IsAlive(this, out var thread))
+        if (!IsAlive(this, out var lua))
             return $"<disposed {GetType().ToTypeString()}>";
 
-        thread.Stack.EnsureFreeCapacity(2);
+        lua.Stack.EnsureFreeCapacity(2);
 
-        using (thread.Stack.SnapshotCount())
+        using (lua.Stack.SnapshotCount())
         {
-            thread.Stack.Push(this);
-            var L = thread.State.L;
+            lua.Stack.Push(this);
+            var L = lua.State.L;
             return luaL_tostring(L, -1).ToString() ?? "<invalid>";
         }
     }
@@ -212,14 +213,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
             return;
 
         luaL_unref(L, LuaRegistry.Index, _reference);
-        if (!Thread.Marshaler.ReturnReference(this))
+        if (!Lua.Marshaler.ReturnReference(this))
         {
             GC.SuppressFinalize(this);
-        }
-
-        if (this is not LuaThread)
-        {
-            thread.Dispose();
         }
 
         IsDisposed = true;
@@ -250,15 +246,15 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
     internal static void ValidateOwnership(LuaThread thread, LuaReference reference)
     {
-        if (thread.MainThread.State.L != reference.Thread.MainThread.State.L)
+        if (thread.MainThread.State.L != reference.Lua.MainThread.State.L)
         {
             throw new InvalidOperationException($"The given {reference.GetType().Name.SingleQuoted()} is owned by a different Lua state.");
         }
     }
 
-    internal static bool IsAlive(LuaReference reference, [MaybeNullWhen(false)] out LuaThread thread)
+    internal static bool IsAlive(LuaReference reference, [MaybeNullWhen(false)] out Lua lua)
     {
-        thread = reference.ThreadCore;
-        return thread != null && !thread.IsDisposed && !reference.IsDisposed && !thread.MainThread.IsDisposed;
+        lua = reference.LuaCore;
+        return lua != null && !lua.IsDisposed && !reference.IsDisposed;
     }
 }

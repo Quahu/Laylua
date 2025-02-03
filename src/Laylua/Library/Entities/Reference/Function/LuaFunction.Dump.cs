@@ -40,11 +40,11 @@ public unsafe partial class LuaFunction
 
     private int DumpInternal(object target, bool stripDebugInformation)
     {
-        Thread.Stack.EnsureFreeCapacity(1);
+        Lua.Stack.EnsureFreeCapacity(1);
 
-        using (Thread.Stack.SnapshotCount())
+        using (Lua.Stack.SnapshotCount())
         {
-            Thread.Stack.Push(this);
+            Lua.Stack.Push(this);
 
             delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writerFunctionPtr;
             if (target is Stream)
@@ -64,7 +64,7 @@ public unsafe partial class LuaFunction
             var handle = GCHandle.Alloc(state);
             try
             {
-                var L = Thread.State.L;
+                var L = Lua.State.L;
                 var result = lua_dump(L, writerFunctionPtr, (void*) (IntPtr) handle, stripDebugInformation);
                 if (state.Exception != null)
                 {

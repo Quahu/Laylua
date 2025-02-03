@@ -1,4 +1,6 @@
-﻿using Laylua.Marshaling;
+﻿using System;
+using System.Diagnostics;
+using Laylua.Marshaling;
 using Laylua.Moon;
 
 namespace Laylua;
@@ -13,6 +15,13 @@ internal sealed unsafe class LuaChildThread : LuaThread
 
     /// <inheritdoc />
     internal override LuaMarshaler Marshaler => MainThread.Marshaler;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    protected override Lua? LuaCore
+    {
+        get => Lua.FromExtraSpace(State.L);
+        set => throw new InvalidOperationException();
+    }
 
     internal void Initialize(lua_State* L, int reference)
     {

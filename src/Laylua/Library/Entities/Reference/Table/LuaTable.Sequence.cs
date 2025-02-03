@@ -56,11 +56,11 @@ public unsafe partial class LuaTable
         public List<T> ToList<T>(bool throwOnNonConvertible = true)
             where T : notnull
         {
-            var thread = _table.Thread;
+            var thread = _table.Lua;
             thread.Stack.EnsureFreeCapacity(3);
 
-            var L = thread.Thread.State.L;
-            using (_table.Thread.Stack.SnapshotCount())
+            var L = thread.Lua.State.L;
+            using (_table.Lua.Stack.SnapshotCount())
             {
                 thread.Stack.Push(_table);
                 var length = (int) luaL_len(L, -1);
@@ -151,7 +151,7 @@ public unsafe partial class LuaTable
                     if (_moveTop == 0)
                         return default;
 
-                    var value = _table.Thread.Stack[-1];
+                    var value = _table.Lua.Stack[-1];
                     return new(_index, value);
                 }
             }
@@ -168,16 +168,16 @@ public unsafe partial class LuaTable
                 table.ThrowIfInvalid();
 
                 _table = table;
-                var L = _table.Thread.State.L;
+                var L = _table.Lua.State.L;
                 _initialTop = lua_gettop(L);
                 _moveTop = 0;
                 _index = 0;
 
-                table.Thread.Stack.EnsureFreeCapacity(2);
+                table.Lua.Stack.EnsureFreeCapacity(2);
 
                 try
                 {
-                    _table.Thread.Stack.Push(_table);
+                    _table.Lua.Stack.Push(_table);
                 }
                 catch
                 {
@@ -189,7 +189,7 @@ public unsafe partial class LuaTable
             /// <inheritdoc/>
             public bool MoveNext()
             {
-                var L = _table.Thread.State.L;
+                var L = _table.Lua.State.L;
                 if (_moveTop != 0)
                 {
                     lua_settop(L, _moveTop);
@@ -220,7 +220,7 @@ public unsafe partial class LuaTable
             {
                 _moveTop = 0;
                 _index = 0;
-                var L = _table.Thread.State.L;
+                var L = _table.Lua.State.L;
                 lua_settop(L, _initialTop);
             }
         }

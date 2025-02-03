@@ -1,4 +1,6 @@
-﻿using Laylua.Marshaling;
+﻿using System;
+using System.Diagnostics;
+using Laylua.Marshaling;
 using Laylua.Moon;
 
 namespace Laylua;
@@ -12,6 +14,13 @@ internal sealed class LuaMainThread : LuaThread
     internal override LuaMarshaler Marshaler => _lua.Marshaler;
 
     internal override bool IsDisposed => _lua.IsDisposed;
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    protected override Lua? LuaCore
+    {
+        get => _lua;
+        set => throw new InvalidOperationException();
+    }
 
     private readonly Lua _lua;
 

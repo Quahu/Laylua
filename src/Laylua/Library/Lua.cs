@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Laylua.Marshaling;
 using Laylua.Moon;
 
@@ -24,6 +25,13 @@ public unsafe partial class Lua : LuaThread, ISpanFormattable
     internal override bool IsDisposed => State.IsDisposed;
 
     private readonly ConcurrentStack<int> _leakedReferences = new();
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    protected override Lua? LuaCore
+    {
+        get => this;
+        set => throw new InvalidOperationException();
+    }
 
     public Lua()
         : this(LuaMarshaler.Default)

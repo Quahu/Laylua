@@ -66,13 +66,6 @@ public abstract unsafe partial class LuaThread : LuaReference
         set => SetGlobal(name, value);
     }
 
-    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected override LuaThread? ThreadCore
-    {
-        get => this;
-        set => throw new NotSupportedException();
-    }
-
     internal abstract LuaMarshaler Marshaler { get; }
 
     internal LuaThread()
