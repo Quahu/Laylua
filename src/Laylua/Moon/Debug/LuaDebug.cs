@@ -229,16 +229,14 @@ public unsafe ref struct LuaDebug
     {
         GetInfo("f"u8);
 
-        using (var thread = LuaThread.FromExtraSpace(L))
+        var lua = Lua.FromExtraSpace(L);
+        try
         {
-            try
-            {
-                return thread.Stack[-1].GetValue<LuaFunction>()!;
-            }
-            finally
-            {
-                thread.Stack.Pop();
-            }
+            return lua.Stack[-1].GetValue<LuaFunction>()!;
+        }
+        finally
+        {
+            lua.Stack.Pop();
         }
     }
 
@@ -251,16 +249,14 @@ public unsafe ref struct LuaDebug
     {
         GetInfo("L"u8);
 
-        using (var thread = LuaThread.FromExtraSpace(L))
+        var lua = Lua.FromExtraSpace(L);
+        try
         {
-            try
-            {
-                return thread.Stack[-1].GetValue<LuaTable>()!;
-            }
-            finally
-            {
-                thread.Stack.Pop();
-            }
+            return lua.Stack[-1].GetValue<LuaTable>()!;
+        }
+        finally
+        {
+            lua.Stack.Pop();
         }
     }
 
