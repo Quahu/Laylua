@@ -416,6 +416,8 @@ public abstract unsafe partial class LuaThread : LuaReference
             luaL_error(L, "Laylua is not attached to this Lua state.");
         }
 
+        lua.ThrowIfInvalid();
+
         var G = lua.State.L;
         if (L == G)
         {
