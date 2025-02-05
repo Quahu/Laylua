@@ -20,7 +20,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     /// <summary>
     ///     Gets the low-level state of this thread.
     /// </summary>
-    public LuaState State { get; protected set; } = null!;
+    public abstract LuaState State { get; }
 
     /// <summary>
     ///     Gets the Lua stack of this thread.
@@ -28,7 +28,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     /// <remarks>
     ///     <inheritdoc cref="LuaStack"/>
     /// </remarks>
-    public LuaStack Stack { get; protected set; } = null!;
+    public abstract LuaStack Stack { get; }
 
     /// <summary>
     ///     Gets the main Lua thread, i.e. the parent of this thread.

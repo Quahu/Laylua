@@ -7,6 +7,12 @@ namespace Laylua;
 
 internal sealed class LuaMainThread : LuaThread
 {
+    /// <inheritdoc />
+    public override LuaState State => _lua.State;
+
+    /// <inheritdoc />
+    public override LuaStack Stack => _lua.Stack;
+
     public override LuaThread MainThread => this;
 
     public override LuaTable Globals => _lua.Globals;
@@ -27,8 +33,6 @@ internal sealed class LuaMainThread : LuaThread
     public LuaMainThread(Lua lua)
     {
         _lua = lua;
-        Stack = lua.Stack;
-        State = lua.State;
         Reference = LuaRegistry.Indices.MainThread;
     }
 }

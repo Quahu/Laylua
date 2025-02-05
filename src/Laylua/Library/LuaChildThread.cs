@@ -7,6 +7,12 @@ namespace Laylua;
 
 internal sealed unsafe class LuaChildThread : LuaThread
 {
+    /// <inheritdoc />
+    public override LuaState State => _state;
+
+    /// <inheritdoc />
+    public override LuaStack Stack { get; }
+
     /// <inheritdoc/>
     public override LuaThread MainThread => Lua.FromExtraSpace(State.L).MainThread;
 
@@ -23,10 +29,25 @@ internal sealed unsafe class LuaChildThread : LuaThread
         set => throw new InvalidOperationException();
     }
 
-    internal void Initialize(lua_State* L, int reference)
+    private readonly LuaChildState _state;
+
+    public LuaChildThread()
     {
         Stack = new LuaStack(this);
-        State = new LuaState(L);
+        _state = new LuaChildState();
+    }
+
+    internal void Initialize(lua_State* L, int reference)
+    {
         Reference = reference;
+
+        _state.Initialize(Lua.FromExtraSpace(L).State, L);
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+
+        _state.Close();
     }
 }
