@@ -83,4 +83,62 @@ public class LuaReferenceTests : LuaTestBase
         // Assert
         Assert.That(() => reference.IsEmpty, Throws.TypeOf<ObjectDisposedException>().With.Property(nameof(ObjectDisposedException.ObjectName)).EqualTo(typeof(LuaTable).FullName));
     }
+
+    [Test]
+    public void GCCallback_TableGarbageCollectedObject_InvokesCallbacks()
+    {
+        // Arrange
+        var callback1Invoked = false;
+        var callback2Invoked = false;
+        var callback3Invoked = false;
+        Action callback1 = () => callback1Invoked = true;
+        Action callback2 = () => callback2Invoked = true;
+        Action callback3 = () => callback3Invoked = true;
+        var table = Lua.CreateTable();
+
+        Lua.State.GC.RegisterCallback(table, callback1);
+        Lua.State.GC.RegisterCallback(table, callback2);
+        Lua.State.GC.RegisterCallback(table, callback3);
+
+        // Act
+        table.Dispose();
+        Lua.State.GC.Collect();
+
+        // Assert
+        Assert.That(callback1Invoked, Is.True);
+        Assert.That(callback2Invoked, Is.True);
+        Assert.That(callback3Invoked, Is.True);
+        GC.KeepAlive(callback1);
+        GC.KeepAlive(callback2);
+        GC.KeepAlive(callback3);
+    }
+
+    [Test]
+    public void GCCallback_ThreadGarbageCollectedObject_InvokesCallbacks()
+    {
+        // Arrange
+        var callback1Invoked = false;
+        var callback2Invoked = false;
+        var callback3Invoked = false;
+        Action callback1 = () => callback1Invoked = true;
+        Action callback2 = () => callback2Invoked = true;
+        Action callback3 = () => callback3Invoked = true;
+        var thread = Lua.CreateThread();
+
+        Lua.State.GC.RegisterCallback(thread, callback1);
+        Lua.State.GC.RegisterCallback(thread, callback2);
+        Lua.State.GC.RegisterCallback(thread, callback3);
+
+        // Act
+        thread.Dispose();
+        Lua.State.GC.Collect();
+
+        // Assert
+        Assert.That(callback1Invoked, Is.True);
+        Assert.That(callback2Invoked, Is.True);
+        Assert.That(callback3Invoked, Is.True);
+        GC.KeepAlive(callback1);
+        GC.KeepAlive(callback2);
+        GC.KeepAlive(callback3);
+    }
 }
