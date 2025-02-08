@@ -95,14 +95,7 @@ public unsafe partial class Lua
 
             using (message)
             {
-                try
-                {
-                    lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
-                }
-                catch (Exception ex)
-                {
-                    LuaException.RaiseErrorInfo(lua.State.L, "An exception occurred while invoking the warning event.", ex);
-                }
+                lua.WarningEmitted?.Invoke(lua, new LuaWarningEmittedEventArgs(message));
             }
         }
 

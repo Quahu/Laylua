@@ -40,7 +40,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                     Console.WriteLine($"LuaKFunction: panic is null, throwing exception: {ex}");
 #endif
-                    luaL_error(L, ex.Message);
+                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
                 }
             }
 #if TRACE_PANIC
@@ -88,7 +88,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                     Console.WriteLine($"LuaCFunction: panic is null, throwing exception: {ex}");
 #endif
-                    luaL_error(L, ex.Message);
+                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
                 }
             }
 #if TRACE_PANIC
@@ -137,7 +137,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                     Console.WriteLine($"LuaReaderFunction: panic is null, throwing exception: {ex}");
 #endif
-                    luaL_error(L, ex.Message);
+                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
                 }
             }
 #if TRACE_PANIC
@@ -187,7 +187,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                     Console.WriteLine($"LuaWriterFunction: panic is null, throwing exception: {ex}");
 #endif
-                    luaL_error(L, ex.Message);
+                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
                 }
             }
 #if TRACE_PANIC
@@ -237,7 +237,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                     Console.WriteLine($"LuaWarnFunction: panic is null, throwing exception: {ex}");
 #endif
-                    luaL_error(L, ex.Message);
+                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
                 }
             }
 #if TRACE_PANIC
@@ -285,7 +285,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                     Console.WriteLine($"LuaHookFunction: panic is null, throwing exception: {ex}");
 #endif
-                    luaL_error(L, ex.Message);
+                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
                 }
             }
 #if TRACE_PANIC

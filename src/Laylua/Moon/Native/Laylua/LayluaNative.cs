@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -71,37 +73,33 @@ internal static unsafe partial class LayluaNative
     private static void* Panic(lua_State* L)
     {
         var laylua = LayluaState.FromExtraSpace(L);
-        var hasDupedStackMessage = false;
+        var panic = laylua.Panic;
         if (LuaException.TryGetError(L, out var error))
         {
             // On Lua compiled with GCC there's some issue here with the error message
             // appearing twice on the stack, so this code checks for it.
-            if (lua_gettop(L) > 1 && lua_rawequal(L, -1, -2))
-            {
-                hasDupedStackMessage = true;
-            }
-
+            var hasDupedStackMessage = lua_gettop(L) > 1 && lua_rawequal(L, -1, -2);
             lua_pop(L, hasDupedStackMessage ? 2 : 1);
         }
-
-        ExceptionDispatchInfo exception;
-        var panic = laylua.Panic;
-
-        error.Message ??= "An unhandled error occurred.";
-
-        if (panic == null)
+        else if (laylua.Panic?.Exception != null)
         {
-            exception = ExceptionDispatchInfo.Capture(new LuaPanicException(error.Message, error.Exception));
+            var ex = laylua.Panic.Exception.SourceException;
+            error.Message = ex.Message;
+            error.Exception = ex;
         }
         else
         {
-            if (panic.Exception == null)
-            {
-                var ex = new LuaPanicException(error.Message, error.Exception);
-                panic.Exception = ExceptionDispatchInfo.Capture(ex);
-            }
+            error.Message = "An unhandled error occurred.";
+        }
 
-            exception = panic.Exception;
+        var exception = ExceptionDispatchInfo.Capture(new LuaPanicException(error.Message, error.Exception));
+        if (panic == null)
+        {
+            Debug.Assert(laylua.IsPCall);
+        }
+        else
+        {
+            panic.Exception = exception;
         }
 
         if (panic == null)
@@ -133,6 +131,7 @@ internal static unsafe partial class LayluaNative
             MemoryMarshal.Write(asmSpan[18..], in panicPtr);
 
 #if TRACE_PANIC
+
             // Console.WriteLine("Stack State at 0x{0:X}", (IntPtr) stackState);
             Console.WriteLine("asmPtr: 0x{0:X}\nmPtr: 0x{1:X}", asmPtr, panicPtr);
 #endif
@@ -169,7 +168,6 @@ internal static unsafe partial class LayluaNative
         var panic = state.PushPanic();
         var stackState = panic.StackStatePtr;
 
-        //if (!panic.HasStackState)
         *(void**) stackState = retAddress;
 
 #if TRACE_PANIC
@@ -182,7 +180,7 @@ internal static unsafe partial class LayluaNative
     internal static void PopPanic(lua_State* L)
     {
 #if TRACE_PANIC
-        Console.WriteLine($"{nameof(PopPanic)} L: 0x{(IntPtr) L:X}");
+        Console.WriteLine($"{nameof(PopPanic)} L: 0x{(IntPtr) L:X}\n{Stacktrace()}");
 #endif
         var state = LayluaState.FromExtraSpace(L);
         var panic = state.PopPanic();
@@ -284,4 +282,11 @@ internal static unsafe partial class LayluaNative
             field.SetValue(null, @delegate);
         }
     }
+
+#if TRACE_PANIC
+    public static string Stacktrace()
+    {
+        return string.Join('\n', Environment.StackTrace.Split('\n').Where(x => x.TrimStart().StartsWith("at Laylua")));
+    }
+#endif
 }

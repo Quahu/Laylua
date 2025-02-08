@@ -76,7 +76,7 @@ internal sealed unsafe class LayluaState : IDisposable
         var currentPanic = Panic = _panicInfoPool.Rent();
         currentPanic.Parent = previousPanic;
 #if TRACE_PANIC
-        Console.WriteLine($"Pushed panic with stack state 0x{(IntPtr) currentPanic.StackStatePtr:X}, parent is {(currentPanic.Parent == null ? "null" : $"0x{(IntPtr) currentPanic.Parent.StackStatePtr:X}")}");
+        Console.WriteLine($"Pushed panic with stack state 0x{(IntPtr) currentPanic.StackStatePtr:X}, parent is {(currentPanic.Parent == null ? "null" : $"0x{(IntPtr) currentPanic.Parent.StackStatePtr:X}")}\n{LayluaNative.Stacktrace()}");
 #endif
         return currentPanic;
     }
