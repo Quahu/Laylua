@@ -18,11 +18,140 @@ public unsafe partial class LuaTable
     /// </remarks>
     public readonly struct SequenceCollection
     {
+        /// <summary>
+        ///     Gets the length of the sequence part.
+        /// </summary>
+        public lua_Integer Length => _table.Length;
+
         private readonly LuaTable _table;
 
         internal SequenceCollection(LuaTable table)
         {
             _table = table;
+        }
+
+        /// <summary>
+        ///     Adds the value at the end of the sequence.
+        /// </summary>
+        /// <remarks>
+        ///     <inheritdoc cref="Add{T}"/>
+        /// </remarks>
+        /// <param name="value"> The value to add. </param>
+        public void Add<T>(T value)
+        {
+            var length = Length;
+            var lua = _table.Lua;
+            var L = lua.State.L;
+
+            lua.Stack.EnsureFreeCapacity(2);
+
+            using (lua.Stack.SnapshotCount())
+            {
+                lua.Stack.Push(_table);
+                lua.Stack.Push(value);
+                lua_seti(L, -2, length + 1);
+            }
+        }
+
+        /// <summary>
+        ///     Inserts the value at the given index in the sequence.
+        ///     Shifts other values accordingly.
+        /// </summary>
+        /// <remarks>
+        ///     <inheritdoc cref="Add{T}"/>
+        /// </remarks>
+        /// <param name="value"> The value to insert. </param>
+        /// <param name="index"> The one-based index in the sequence. </param>
+        public void Insert<T>(T value, lua_Integer index)
+        {
+            var length = Length;
+            if (index < 1 || index > length + 1)
+            {
+                Throw.ArgumentOutOfRangeException(nameof(index), "The index is outside the bounds of the sequence.");
+            }
+
+            var lua = _table.Lua;
+            var L = lua.State.L;
+
+            lua.Stack.EnsureFreeCapacity(2);
+
+            using (lua.Stack.SnapshotCount())
+            {
+                lua.Stack.Push(_table);
+                var tableIndex = lua.Stack[-1].Index;
+
+                for (var i = length + 1; i > index; i--)
+                {
+                    lua_geti(L, tableIndex, i - 1);
+                    lua_seti(L, tableIndex, i);
+                }
+
+                lua.Stack.Push(value);
+                lua_seti(L, tableIndex, index);
+            }
+        }
+
+        /// <summary>
+        ///     Removes the value at the specified index in the sequence.
+        ///     Shifts other values accordingly.
+        /// </summary>
+        /// <remarks>
+        ///     <inheritdoc cref="Add{T}"/>
+        /// </remarks>
+        /// <param name="index"> The one-based index in the sequence. </param>
+        public void RemoveAt(int index)
+        {
+            var length = Length;
+            if (index < 1 || index > length)
+            {
+                Throw.ArgumentOutOfRangeException(nameof(index), "The index is outside the bounds of the sequence.");
+            }
+
+            var lua = _table.Lua;
+            var L = lua.State.L;
+
+            lua.Stack.EnsureFreeCapacity(2);
+
+            using (lua.Stack.SnapshotCount())
+            {
+                lua.Stack.Push(_table);
+                var tableIndex = lua.Stack[-1].Index;
+
+                for (; index < length; index++)
+                {
+                    lua_geti(L, tableIndex, index + 1);
+                    lua_seti(L, tableIndex, index);
+                }
+
+                lua_pushnil(L);
+                lua_seti(L, tableIndex, index);
+            }
+        }
+
+        /// <summary>
+        ///     Clears the values in the sequence.
+        /// </summary>
+        /// <remarks>
+        ///     <inheritdoc cref="Add{T}"/>
+        /// </remarks>
+        public void Clear()
+        {
+            var length = Length;
+            var lua = _table.Lua;
+            var L = lua.State.L;
+
+            lua.Stack.EnsureFreeCapacity(2);
+
+            using (lua.Stack.SnapshotCount())
+            {
+                lua.Stack.Push(_table);
+
+                for (var i = length; i > 0; i--)
+                {
+                    lua_pushnil(L);
+                    lua_seti(L, -2, i);
+                }
+            }
         }
 
         /// <summary>
