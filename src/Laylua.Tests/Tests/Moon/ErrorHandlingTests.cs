@@ -60,4 +60,29 @@ public class ErrorHandlingTests : LuaTestBase
         // Act & Assert
         Assert.Throws<LuaException>(() => Lua.Execute(@"print(func('print(\'abc\')'))"));
     }
+
+    [Test]
+    public unsafe void LuaArith_ThrowingMetamethod_GetsCaughtWithLuaPanicException()
+    {
+        // Arrange
+        const string ExceptionMessage = "Metamethod error.";
+
+        Action throwingMetamethod = static () => throw new Exception(ExceptionMessage);
+
+        using var metatable = Lua.CreateTable();
+
+        metatable.SetValue(LuaMetatableKeys.__add, throwingMetamethod);
+
+        using var objTable = Lua.CreateTable();
+        objTable.SetMetatable(metatable);
+
+        Lua.Stack.Push(objTable);
+        Lua.Stack.Push(objTable);
+
+        // Act & Assert
+        Assert.That(() => lua_arith(L, LuaOperation.Add), Throws.TypeOf<LuaPanicException>().With.InnerException.TypeOf<Exception>().And.InnerException.Message.EqualTo(ExceptionMessage));
+
+        Lua.Stack.Pop(2);
+        GC.KeepAlive(throwingMetamethod);
+    }
 }

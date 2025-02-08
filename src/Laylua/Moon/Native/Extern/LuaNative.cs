@@ -150,15 +150,15 @@ public static unsafe partial class LuaNative
      *
      */
     [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_arithDelegate(lua_State* L, int idx1, int idx2, LuaOperation op);
+    private delegate void _lua_arithDelegate(lua_State* L, LuaOperation op);
 
     private static _lua_arithDelegate _lua_arith = null!;
 
     [ErrorExport]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_arith(lua_State* L, int idx1, int idx2, LuaOperation op)
+    public static void lua_arith(lua_State* L, LuaOperation op)
     {
-        _lua_arith(L, idx1, idx2, op);
+        _lua_arith(L, op);
     }
 
     [DllImport(DllName, CallingConvention = Cdecl)]
