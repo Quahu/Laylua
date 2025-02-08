@@ -95,7 +95,7 @@ public class LuaTableSequenceTests : LuaTestBase
         var table = Lua.CreateTable();
 
         // Act
-        table.Sequence.Insert(42, 1);
+        table.Sequence.Insert(1, 42);
 
         // Assert
         Assert.That(table.Sequence.ToArray<int>(), Is.EqualTo(new[] { 42 }));
@@ -111,7 +111,7 @@ public class LuaTableSequenceTests : LuaTestBase
         table.SetValue(3, 3);
 
         // Act
-        table.Sequence.Insert(42, 4);
+        table.Sequence.Insert(4, 42);
 
         // Assert
         Assert.That(table.Sequence.ToArray<int>(), Is.EqualTo(new[] { 1, 2, 3, 42 }));
@@ -127,7 +127,7 @@ public class LuaTableSequenceTests : LuaTestBase
         table.SetValue(3, 3);
 
         // Act
-        table.Sequence.Insert(42, 1);
+        table.Sequence.Insert(1, 42);
 
         // Assert
         Assert.That(table.Sequence.ToArray<int>(), Is.EqualTo(new[] { 42, 1, 2, 3 }));
@@ -143,7 +143,7 @@ public class LuaTableSequenceTests : LuaTestBase
         table.SetValue(3, 3);
 
         // Act
-        table.Sequence.Insert(42, 2);
+        table.Sequence.Insert(2, 42);
 
         // Assert
         Assert.That(table.Sequence.ToArray<int>(), Is.EqualTo(new[] { 1, 42, 2, 3 }));

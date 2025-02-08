@@ -57,38 +57,6 @@ public unsafe partial class LuaTable : LuaReference
     }
 
     /// <summary>
-    ///     Gets the length of this table.
-    ///     This returns the same value as the length operator (<c>#table</c>).
-    /// </summary>
-    /// <remarks>
-    ///     <b>If you want to get the amount of key/value pairs in the table,
-    ///     use <see cref="Count"/> instead, as it works for all keys.</b>
-    ///     <para/>
-    ///     If the keys of the table are not consecutive integers
-    ///     or if there are holes in the sequence,
-    ///     this may not return the expected result.
-    ///     <br/>
-    ///     See <a href="https://www.lua.org/manual/5.4/manual.html#3.4.7">Lua manual</a>.
-    /// </remarks>
-    public lua_Integer Length
-    {
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        get
-        {
-            ThrowIfInvalid();
-
-            Lua.Stack.EnsureFreeCapacity(2);
-
-            var L = Lua.State.L;
-            using (Lua.Stack.SnapshotCount())
-            {
-                Lua.Stack.Push(this);
-                return luaL_len(L, -1);
-            }
-        }
-    }
-
-    /// <summary>
     ///     Gets or sets a value with the given key in the table.
     /// </summary>
     /// <param name="key"> The key of the value to get or set. </param>

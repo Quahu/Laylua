@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Laylua.Moon;
 using Qommon;
 
@@ -19,9 +20,34 @@ public unsafe partial class LuaTable
     public readonly struct SequenceCollection
     {
         /// <summary>
-        ///     Gets the length of the sequence part.
+        ///     Gets the length of the sequence.
+        ///     This returns the same value as the length operator (<c>#table</c>).
         /// </summary>
-        public lua_Integer Length => _table.Length;
+        /// <remarks>
+        ///     <b>To get the number of key/value pairs in the table,
+        ///     use <see cref="Count"/> instead, as it works for all keys.</b>
+        ///     <para/>
+        ///     <inheritdoc cref="Add{T}"/>
+        ///     <br/>
+        ///     See <a href="https://www.lua.org/manual/5.4/manual.html#3.4.7">Lua manual</a>.
+        /// </remarks>
+        public lua_Integer Length
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get
+            {
+                var lua = _table.Lua;
+                var L = lua.State.L;
+
+                lua.Stack.EnsureFreeCapacity(1);
+
+                using (lua.Stack.SnapshotCount())
+                {
+                    lua.Stack.Push(_table);
+                    return luaL_len(L, -1);
+                }
+            }
+        }
 
         private readonly LuaTable _table;
 
@@ -34,7 +60,9 @@ public unsafe partial class LuaTable
         ///     Adds the value at the end of the sequence.
         /// </summary>
         /// <remarks>
-        ///     <inheritdoc cref="Add{T}"/>
+        ///     If the table is not a sequence,
+        ///     i.e. if the keys of the table are not consecutive integers,
+        ///     this might not return the expected result.
         /// </remarks>
         /// <param name="value"> The value to add. </param>
         public void Add<T>(T value)
@@ -60,9 +88,9 @@ public unsafe partial class LuaTable
         /// <remarks>
         ///     <inheritdoc cref="Add{T}"/>
         /// </remarks>
-        /// <param name="value"> The value to insert. </param>
         /// <param name="index"> The one-based index in the sequence. </param>
-        public void Insert<T>(T value, lua_Integer index)
+        /// <param name="value"> The value to insert. </param>
+        public void Insert<T>(lua_Integer index, T value)
         {
             var length = Length;
             if (index < 1 || index > length + 1)
@@ -99,7 +127,7 @@ public unsafe partial class LuaTable
         ///     <inheritdoc cref="Add{T}"/>
         /// </remarks>
         /// <param name="index"> The one-based index in the sequence. </param>
-        public void RemoveAt(int index)
+        public void RemoveAt(lua_Integer index)
         {
             var length = Length;
             if (index < 1 || index > length)
