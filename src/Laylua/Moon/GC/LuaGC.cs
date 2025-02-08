@@ -121,15 +121,21 @@ public readonly unsafe struct LuaGC
         return (LuaGCOperation) lua_gc(_state.L, LuaGCOperation.Generational, minorMultiplier, majorMultiplier);
     }
 
+    /// <inheritdoc cref="RegisterCallbackCore"/>
+    public void RegisterCallback(LuaReference reference, Action callback)
+    {
+        reference.ThrowIfInvalid();
+        RegisterCallbackCore(_state.L, reference, callback);
+    }
+
     /// <summary>
-    ///     Registers a callback that will trigger when the given <see cref="LuaReference"/> object is garbage collected by Lua.
+    ///     Registers a callback that will trigger when the object referenced by the given <see cref="LuaReference"/> is garbage collected by Lua.
     ///     The callback is registered and executed from the global state.
     /// </summary>
     /// <param name="reference"> The object to register the GC callback for. </param>
     /// <param name="callback"> The callback to register. </param>
-    public void RegisterCallback(LuaReference reference, Action callback)
+    private static void RegisterCallbackCore(lua_State* L, LuaReference reference, Action callback)
     {
-        var L = _state.L;
         var lua = Lua.FromExtraSpace(L);
         lua.Stack.EnsureFreeCapacity(5);
 
@@ -180,21 +186,40 @@ public readonly unsafe struct LuaGC
 
     private static readonly LuaCFunction _gcCallback = static L =>
     {
-        var tableIndex = lua_upvalueindex(1);
-        lua_pushvalue(L, tableIndex);
+        // TODO: how can I tell a delegate happens to be running inside pcall?
+        // Maybe it's just __gc, so won't affect user code in most cases.
+        // Could check for CIST_FIN in L->ci->callstatus?
 
-        using (var thread = LuaThread.FromExtraSpace(L))
-        using (var table = thread.Stack[-1].GetValue<LuaTable>()!)
+        var laylua = LayluaState.FromExtraSpace(L);
+        using (laylua.TemporarilyPopPanic(onlyIfNotPCall: true))
         {
-            foreach (var value in table.Values)
+            var tableIndex = lua_upvalueindex(1);
+            lua_pushvalue(L, tableIndex);
+
+            using (var thread = LuaThread.FromExtraSpace(L))
+            using (var table = thread.Stack[-1].GetValue<LuaTable>()!)
             {
-                using (var function = value.GetValue<LuaFunction>()!)
+                foreach (var value in table.Values)
                 {
-                    function.Call().Dispose();
+                    using (var function = value.GetValue<LuaFunction>()!)
+                    {
+                        try
+                        {
+                            function.Call().Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            var unwrapped = ex is LuaException luaException
+                                ? luaException.UnwrapException()
+                                : ex;
+
+                            thread.EmitWarning($"An exception occurred while executing a GC callback. {unwrapped.GetType()}: {unwrapped.Message}");
+                        }
+                    }
                 }
             }
-        }
 
-        return 0;
+            return 0;
+        }
     };
 }

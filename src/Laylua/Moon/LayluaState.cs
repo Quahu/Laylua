@@ -72,8 +72,13 @@ internal sealed unsafe class LayluaState : IDisposable
 
     public PanicInfo PushPanic()
     {
+        return PushPanic(_panicInfoPool.Rent());
+    }
+
+    public PanicInfo PushPanic(PanicInfo panicInfo)
+    {
         var previousPanic = Panic;
-        var currentPanic = Panic = _panicInfoPool.Rent();
+        var currentPanic = Panic = panicInfo;
         currentPanic.Parent = previousPanic;
 #if TRACE_PANIC
         Console.WriteLine($"Pushed panic with stack state 0x{(IntPtr) currentPanic.StackStatePtr:X}, parent is {(currentPanic.Parent == null ? "null" : $"0x{(IntPtr) currentPanic.Parent.StackStatePtr:X}")}\n{LayluaNative.Stacktrace()}");
@@ -95,6 +100,8 @@ internal sealed unsafe class LayluaState : IDisposable
         {
 #if TRACE_PANIC
             Console.WriteLine("There was no panic to pop...");
+#else
+            Debug.Fail("No panic to pop.");
 #endif
         }
 
@@ -107,6 +114,35 @@ internal sealed unsafe class LayluaState : IDisposable
 #if TRACE_PANIC
         Console.WriteLine($"Disposed and returned panic with stack state 0x{(IntPtr) panic.StackStatePtr:X}, new panic is {(Panic == null ? "null" : $"0x{(IntPtr) Panic.StackStatePtr:X}")}");
 #endif
+    }
+
+    public TemporaryPanicPopDisposable TemporarilyPopPanic(bool onlyIfNotPCall)
+    {
+        return new(this, onlyIfNotPCall);
+    }
+
+    public readonly ref struct TemporaryPanicPopDisposable
+    {
+        private readonly LayluaState _state;
+        private readonly PanicInfo? _panic;
+
+        public TemporaryPanicPopDisposable(LayluaState state, bool onlyIfNotPCall)
+        {
+            _state = state;
+
+            if (onlyIfNotPCall && !_state.IsPCall)
+            {
+                _panic = state.PopPanic();
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_panic != null)
+            {
+                _state.PushPanic(_panic);
+            }
+        }
     }
 
     public PCallDisposable EnterPCallContext()

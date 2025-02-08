@@ -622,18 +622,16 @@ public static unsafe partial class LuaNative
      * Garbage-collection function and options
      *
      */
-    // lua_gc is overloaded because __arglist sucks.
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGCOperation what);
+    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_gc))]
+    private static extern int _lua_gc(lua_State* L, LuaGCOperation what, int arg1, int arg2, int arg3);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGCOperation what, int arg1);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGCOperation what, int arg1, int arg2);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gc(lua_State* L, LuaGCOperation what, int arg1, int arg2, int arg3);
+    public static int lua_gc(lua_State* L, LuaGCOperation what, int arg1 = 0, int arg2 = 0, int arg3 = 0)
+    {
+        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
+        {
+            return _lua_gc(L, what, arg1, arg2, arg3);
+        }
+    }
 
     /*
      *

@@ -141,4 +141,75 @@ public class LuaReferenceTests : LuaTestBase
         GC.KeepAlive(callback2);
         GC.KeepAlive(callback3);
     }
+
+    [Test]
+    public void GCCallback_Collect_ThrowingDelegate_RaisesError()
+    {
+        const string ExceptionMessage = "Callback error.";
+
+        // Arrange
+        Action callback = () => throw new Exception(ExceptionMessage);
+        var thread = Lua.CreateThread();
+
+        Lua.State.GC.RegisterCallback(thread, callback);
+
+        // Act & Assert
+        thread.Dispose();
+
+        Assert.That(() => Lua.State.GC.Collect(), Throws.Nothing);
+
+        GC.KeepAlive(callback);
+    }
+
+    [Test]
+    public void GCCallback_Allocating_ThrowingDelegate_RaisesError()
+    {
+        const string ExceptionMessage = "Callback error.";
+
+        // Arrange
+        Action callback = static () => throw new Exception(ExceptionMessage);
+        var thread = Lua.CreateThread();
+
+        Lua.State.GC.RegisterCallback(thread, callback);
+
+        // Act & Assert
+        thread.Dispose();
+
+        Assert.That(() =>
+        {
+            var tables = new List<LuaTable>();
+            for (var i = 0; i < 100; i++)
+            {
+                tables.Add(Lua.CreateTable());
+            }
+
+            LuaReference.Dispose(tables);
+        }, Throws.Nothing);
+
+        GC.KeepAlive(callback);
+    }
+
+    [Test]
+    public void GCCallback_Collect_InNestedFunction_ThrowingDelegate_RaisesError()
+    {
+        const string ExceptionMessage = "Callback error.";
+
+        // Arrange
+        Action callback = static () => throw new Exception(ExceptionMessage);
+        var thread = Lua.CreateThread();
+
+        Lua.State.GC.RegisterCallback(thread, callback);
+
+        var nestedDelegate = () => Lua.State.GC.Collect();
+        Lua.SetGlobal(nameof(nestedDelegate), nestedDelegate);
+        using var nestedDelegateFunction = Lua.GetGlobal<LuaFunction>(nameof(nestedDelegate))!;
+
+        // Act & Assert
+        thread.Dispose();
+
+        Assert.That(() => nestedDelegateFunction.Call(), Throws.Nothing);
+
+        GC.KeepAlive(callback);
+        GC.KeepAlive(nestedDelegate);
+    }
 }
