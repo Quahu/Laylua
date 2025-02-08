@@ -38,6 +38,29 @@ public class LuaException : Exception
         : base(message, innerException)
     { }
 
+    /// <summary>
+    ///     Attempts to extract most inner exception that is neither <see cref="LuaException"/> nor <see cref="LuaPanicException"/>.
+    /// </summary>
+    /// <returns>
+    ///     The unwrapped exception or a <see cref="LuaException"/>.
+    /// </returns>
+    public Exception UnwrapException()
+    {
+        Exception exception = this;
+        do
+        {
+            if (exception.InnerException == null)
+            {
+                break;
+            }
+
+            exception = exception.InnerException;
+        }
+        while (exception is LuaException);
+
+        return exception;
+    }
+
     private static string GetMessage(string? message, Exception? innerException)
     {
         return message ?? (innerException != null ? "An exception occurred, but was caught and raised as an error." : UnknownMessage);
