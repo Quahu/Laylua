@@ -6,7 +6,7 @@ namespace Laylua.Moon;
 ///     Represents a Lua continuation function.
 /// </summary>
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-public unsafe delegate void LuaKFunction(lua_State* L, LuaStatus status, void* ctx);
+public unsafe delegate int LuaKFunction(lua_State* L, LuaStatus status, void* ctx);
 
 /// <summary>
 ///     Represents a Lua C function.

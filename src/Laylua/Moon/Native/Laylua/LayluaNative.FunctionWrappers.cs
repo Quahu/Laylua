@@ -20,7 +20,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
                 Console.WriteLine("LuaKFunction: calling delegate...");
 #endif
-                Unsafe.As<LuaKFunction>(function)(L, status, ctx);
+                return Unsafe.As<LuaKFunction>(function)(L, status, ctx);
             }
             catch (Exception ex)
             {
@@ -46,6 +46,7 @@ internal static unsafe partial class LayluaNative
 #if TRACE_PANIC
             Console.WriteLine("LuaKFunction: returning...");
 #endif
+            return default;
         }));
 
         WriteFunctionWrapperPointers(asmSpan,
