@@ -280,6 +280,20 @@ public class LuaTableTests : LuaTestBase
     }
 
     [Test]
+    public void Clear_ClearsTable()
+    {
+        // Arrange
+        using var table = Lua.Evaluate<LuaTable>("return { 1, [true] = true, three = 'three' }")!;
+
+        // Act
+        table.Clear();
+
+        // Assert
+        Assert.That(table.Count(), Is.Zero);
+        Assert.That(table.Sequence.Length, Is.Zero);
+    }
+
+    [Test]
     public void EnumeratePairs_YieldsValidKeyValuePairs()
     {
         // Arrange
