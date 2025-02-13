@@ -14,7 +14,7 @@ internal sealed unsafe class LuaChildThread : LuaThread
     public override LuaStack Stack { get; }
 
     /// <inheritdoc/>
-    public override LuaThread MainThread => Lua.FromExtraSpace(State.L).MainThread;
+    public override LuaThread MainThread => Lua.MainThread;
 
     /// <inheritdoc />
     public override LuaTable Globals => MainThread.Globals;
@@ -25,10 +25,11 @@ internal sealed unsafe class LuaChildThread : LuaThread
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     protected override Lua? LuaCore
     {
-        get => Lua.FromExtraSpace(State.L);
+        get => _lua;
         set => throw new InvalidOperationException();
     }
 
+    private Lua? _lua;
     private readonly LuaChildState _state;
 
     public LuaChildThread()
@@ -37,17 +38,19 @@ internal sealed unsafe class LuaChildThread : LuaThread
         _state = new LuaChildState();
     }
 
-    internal void Initialize(lua_State* L, int reference)
+    internal void Initialize(Lua lua, lua_State* L, int reference)
     {
         Reference = reference;
 
-        _state.Initialize(Lua.FromExtraSpace(L).State, L);
+        _lua = lua;
+        _state.Initialize(lua.State, L);
     }
 
     public override void Dispose()
     {
         base.Dispose();
 
+        _lua = null;
         _state.Close();
     }
 }

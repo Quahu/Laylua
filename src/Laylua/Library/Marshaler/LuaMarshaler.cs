@@ -149,7 +149,8 @@ public abstract partial class LuaMarshaler
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected unsafe bool TryCreateThreadReference(LuaThread thread, int stackIndex, lua_State* L1, [MaybeNullWhen(false)] out LuaThread createdThread)
     {
-        Lua.FromThread(thread).UnrefLeakedReferences();
+        var lua = Lua.FromThread(thread);
+        lua.UnrefLeakedReferences();
 
         if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
         {
@@ -158,7 +159,7 @@ public abstract partial class LuaMarshaler
         }
 
         var childThread = _entityPool?.RentThread() ?? new();
-        childThread.Initialize(L1, reference);
+        childThread.Initialize(lua, L1, reference);
         createdThread = childThread;
         return true;
     }
