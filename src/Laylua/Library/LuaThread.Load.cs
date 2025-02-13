@@ -87,7 +87,7 @@ public unsafe partial class LuaThread
     {
         var top = Stack.Count;
         LoadString(code, chunkName);
-        return LuaFunction.PCall(this, top, 0);
+        return LuaFunction.PCall(this, nargs: 0, top);
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public unsafe partial class LuaThread
     {
         var top = Stack.Count;
         LoadUtf8String(utf8Code, chunkName);
-        return LuaFunction.PCall(this, top, 0);
+        return LuaFunction.PCall(this, nargs: 0, top);
     }
 
     /// <inheritdoc cref="Execute(ReadOnlySpan{char},ReadOnlySpan{char})"/>

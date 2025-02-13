@@ -37,32 +37,57 @@ public sealed unsafe partial class LuaFunction : LuaReference
         return CreateWeakReference<LuaFunction>();
     }
 
-    private static void PrepareFunction(LuaReference reference, out int top, int argumentCount)
+    private static void PrepareForCall(LuaThread caller, LuaReference reference, int nargs)
     {
-        reference.Lua.Stack.EnsureFreeCapacity(argumentCount + 1);
+        caller.Stack.EnsureFreeCapacity(1 + nargs);
 
-        var L = reference.Lua.State.L;
-        top = lua_gettop(L);
-
-        reference.Lua.Stack.Push(reference);
+        caller.Stack.Push(reference);
     }
 
-    internal static LuaFunctionResults PCall(LuaThread thread, int oldTop, int argumentCount)
+    private static void PrepareForCall(LuaThread caller, LuaReference reference, int nargs, out int top)
     {
-        var L = thread.State.L;
-        var status = lua_pcall(L, argumentCount, LUA_MULTRET, 0);
+        PrepareForCall(caller, reference, nargs);
+
+        top = caller.Stack.Count - 1;
+    }
+
+    internal static void PCallCore(LuaThread caller, int nargs, int nresults)
+    {
+        var L = caller.State.L;
+        var status = lua_pcall(L, nargs, nresults, 0);
         if (status.IsError())
         {
-            LuaThread.ThrowLuaException(thread, status);
+            LuaThread.ThrowLuaException(caller, status);
         }
+    }
 
-        var newTop = lua_gettop(L);
-        var range = LuaStackValueRange.FromTop(thread.Stack, oldTop, newTop);
+    internal static LuaFunctionResults PCall(LuaThread caller, int nargs, int oldTop)
+    {
+        PCallCore(caller, nargs, LUA_MULTRET);
+
+        var range = LuaStackValueRange.FromTop(caller.Stack, oldTop, caller.Stack.Count);
         return new LuaFunctionResults(range);
     }
 
     /// <summary>
-    ///     Calls (invokes) this function without any arguments.
+    ///     Calls (invokes) this function from the thread specified by <see cref="LuaFunctionCallParameters.Caller"/>.
+    /// </summary>
+    /// <seealso cref="LuaFunctionCallParameters.ArgumentCount"/>
+    /// <seealso cref="LuaFunctionCallParameters.ResultCount"/>
+    public void Call(in LuaFunctionCallParameters parameters)
+    {
+        ThrowIfInvalid();
+
+        var caller = parameters.Caller ?? Lua;
+        var nargs = parameters.ArgumentCount;
+        var nresults = parameters.ResultCount ?? LUA_MULTRET;
+
+        PrepareForCall(caller, this, nargs);
+        PCallCore(caller, nargs, nresults);
+    }
+
+    /// <summary>
+    ///     Calls (invokes) this function from the main thread without any arguments.
     /// </summary>
     /// <returns>
     ///     The results returned from the function.
@@ -71,13 +96,12 @@ public sealed unsafe partial class LuaFunction : LuaReference
     {
         ThrowIfInvalid();
 
-        PrepareFunction(this, out var top, 0);
-
-        return PCall(Lua, top, 0);
+        PrepareForCall(Lua, this, nargs: 0, out var top);
+        return PCall(Lua, nargs: 0, top);
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified argument.
+    ///     Calls (invokes) this function from the main thread with the specified argument.
     /// </summary>
     /// <typeparam name="T"> The type of the argument. </typeparam>
     /// <param name="argument"> The argument to pass to the function. </param>
@@ -88,13 +112,12 @@ public sealed unsafe partial class LuaFunction : LuaReference
     {
         ThrowIfInvalid();
 
-        PrepareFunction(this, out var top, 1);
-
+        PrepareForCall(Lua, this, nargs: 1, out var top);
         try
         {
             Lua.Stack.Push(argument);
 
-            return PCall(Lua, top, 1);
+            return PCall(Lua, nargs: 1, top);
         }
         catch
         {
@@ -104,7 +127,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <typeparam name="T1"> The type of the first argument. </typeparam>
     /// <typeparam name="T2"> The type of the second argument. </typeparam>
@@ -117,14 +140,13 @@ public sealed unsafe partial class LuaFunction : LuaReference
     {
         ThrowIfInvalid();
 
-        PrepareFunction(this, out var top, 2);
-
+        PrepareForCall(Lua, this, nargs: 2, out var top);
         try
         {
             Lua.Stack.Push(argument1);
             Lua.Stack.Push(argument2);
 
-            return PCall(Lua, top, 2);
+            return PCall(Lua, nargs: 2, top);
         }
         catch
         {
@@ -134,7 +156,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <typeparam name="T1"> The type of the first argument. </typeparam>
     /// <typeparam name="T2"> The type of the second argument. </typeparam>
@@ -149,15 +171,14 @@ public sealed unsafe partial class LuaFunction : LuaReference
     {
         ThrowIfInvalid();
 
-        PrepareFunction(this, out var top, 3);
-
+        PrepareForCall(Lua, this, nargs: 3, out var top);
         try
         {
             Lua.Stack.Push(argument1);
             Lua.Stack.Push(argument2);
             Lua.Stack.Push(argument3);
 
-            return PCall(Lua, top, 3);
+            return PCall(Lua, nargs: 3, top);
         }
         catch
         {
@@ -167,7 +188,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <typeparam name="T1"> The type of the first argument. </typeparam>
     /// <typeparam name="T2"> The type of the second argument. </typeparam>
@@ -184,8 +205,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     {
         ThrowIfInvalid();
 
-        PrepareFunction(this, out var top, 4);
-
+        PrepareForCall(Lua, this, nargs: 4, out var top);
         try
         {
             Lua.Stack.Push(argument1);
@@ -193,7 +213,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
             Lua.Stack.Push(argument3);
             Lua.Stack.Push(argument4);
 
-            return PCall(Lua, top, 4);
+            return PCall(Lua, nargs: 4, top);
         }
         catch
         {
@@ -203,7 +223,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <param name="arguments"> The arguments to pass to the function. </param>
     /// <returns>
@@ -215,7 +235,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <param name="arguments"> The arguments to pass to the function. </param>
     /// <returns>
@@ -226,9 +246,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         ThrowIfInvalid();
 
         var argumentCount = arguments.Length;
-
-        PrepareFunction(this, out var top, argumentCount);
-
+        PrepareForCall(Lua, this, argumentCount, out var top);
         try
         {
             foreach (var argument in arguments)
@@ -236,7 +254,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
                 Lua.Stack.Push(argument);
             }
 
-            return PCall(Lua, top, argumentCount);
+            return PCall(Lua, argumentCount, top);
         }
         catch
         {
@@ -246,7 +264,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <param name="arguments"> The arguments to pass to the function. </param>
     /// <returns>
@@ -258,7 +276,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <param name="arguments"> The arguments to pass to the function. </param>
     /// <returns>
@@ -270,7 +288,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         var argumentCount = arguments.Length;
 
-        PrepareFunction(this, out var top, argumentCount);
+        PrepareForCall(Lua, this, argumentCount, out var top);
 
         try
         {
@@ -279,7 +297,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
                 Lua.Stack.Push(argument);
             }
 
-            return PCall(Lua, top, argumentCount);
+            return PCall(Lua, argumentCount, top);
         }
         catch
         {
@@ -289,7 +307,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
     }
 
     /// <summary>
-    ///     Calls (invokes) this function with the specified arguments.
+    ///     Calls (invokes) this function from the main thread with the specified arguments.
     /// </summary>
     /// <param name="arguments"> The arguments to pass to the function. </param>
     /// <returns>
@@ -301,7 +319,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
 
         var argumentCount = arguments.Count;
 
-        PrepareFunction(this, out var top, argumentCount);
+        PrepareForCall(Lua, this, argumentCount, out var top);
 
         try
         {
@@ -310,7 +328,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
                 Lua.Stack.Push(argument);
             }
 
-            return PCall(Lua, top, argumentCount);
+            return PCall(Lua, argumentCount, top);
         }
         catch
         {

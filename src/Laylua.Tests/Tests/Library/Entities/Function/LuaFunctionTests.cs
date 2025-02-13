@@ -201,4 +201,64 @@ public class LuaFunctionTests : LuaTestBase
             }
         }
     }
+
+    [Test]
+    public void Call_CallParametersWithNullCaller_CallsFunctionOnMainThread()
+    {
+        // Arrange
+        var function = Lua.Load("return 42");
+        var parameters = new LuaFunctionCallParameters();
+
+        // Act
+        function.Call(in parameters);
+
+        // Assert
+        Assert.That(Lua.Stack[-1].GetValue<int>(), Is.EqualTo(42));
+
+        Lua.Stack.Pop();
+    }
+
+    [Test]
+    public void Call_CallParametersWithChildThreadCaller_CallsFunctionOnChildThread()
+    {
+        // Arrange
+        var thread = Lua.CreateThread();
+        var function = Lua.Load("return 42");
+        var parameters = new LuaFunctionCallParameters
+        {
+            Caller = thread
+        };
+
+        // Act
+        function.Call(in parameters);
+
+        // Assert
+        Assert.That(thread.Stack[-1].GetValue<int>(), Is.EqualTo(42));
+
+        thread.Stack.Pop();
+    }
+
+    [Test]
+    public void Call_CallParametersWithLimitedResults_RestrictsFunctionResults([Values(1, 3, 5, 6)] int resultCount)
+    {
+        // Arrange
+        var function = Lua.Load("return 1, 2, 3, 4, 5");
+        var parameters = new LuaFunctionCallParameters
+        {
+            ResultCount = resultCount
+        };
+
+        // Act
+        function.Call(in parameters);
+
+        // Assert
+        Assert.That(Lua.Stack.Count, Is.EqualTo(resultCount));
+
+        for (var i = 1; i <= resultCount && i < 6; i++)
+        {
+            Assert.That(Lua.Stack[i].GetValue<int>(), Is.EqualTo(i));
+        }
+
+        Lua.Stack.Pop(resultCount);
+    }
 }
