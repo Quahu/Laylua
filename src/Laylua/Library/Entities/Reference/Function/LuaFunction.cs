@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
+using Qommon;
 
 namespace Laylua;
 
@@ -77,6 +78,18 @@ public sealed unsafe partial class LuaFunction : LuaReference
     public void Call(in LuaFunctionCallParameters parameters)
     {
         ThrowIfInvalid();
+
+        if (parameters.Caller != null)
+        {
+            ValidateOwnership(parameters.Caller, this);
+        }
+
+        Guard.IsNotNegative(parameters.ArgumentCount);
+
+        if (parameters.ResultCount != null)
+        {
+            Guard.IsNotNegative(parameters.ResultCount.Value);
+        }
 
         var caller = parameters.Caller ?? Lua;
         var nargs = parameters.ArgumentCount;
