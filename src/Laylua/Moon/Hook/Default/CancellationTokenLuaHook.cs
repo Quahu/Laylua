@@ -34,6 +34,7 @@ public sealed class CancellationTokenLuaHook : LuaHook
             return;
         }
 
-        thread.RaiseError(new OperationCanceledException(_cancellationToken));
+        // Throw, not RaiseError - wrapper catches it
+        throw new OperationCanceledException(_cancellationToken);
     }
 }

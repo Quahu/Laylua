@@ -12,6 +12,7 @@ internal static partial class LayluaNative
     [Flags]
     public enum MemoryProtection
     {
+        ReadWrite = 0x04,
         ExecuteReadWrite = 0x40
     }
 

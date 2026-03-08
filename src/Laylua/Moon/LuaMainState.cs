@@ -57,13 +57,12 @@ internal sealed unsafe class LuaMainState : LuaState
 
     private void InitializeLayluaState()
     {
-        if (!LayluaState.TryFromExtraSpace(_L, out var state))
-        {
-            var panicPtr = LayluaNative.InitializePanic();
-            state = LayluaState.Create(panicPtr);
-            *(IntPtr*) lua_getextraspace(_L) = state.GCPtr;
-            lua_atpanic(_L, (delegate* unmanaged[Cdecl]<lua_State*, int>) panicPtr);
-        }
+        var panicPtr = LayluaNative.InitializePanic();
+        var state = LayluaState.Create(panicPtr);
+        var extraSpaceData = LayluaNative.AllocExtraSpaceData(state.GCPtr);
+        state.ExtraSpaceData = extraSpaceData;
+        *(IntPtr*) lua_getextraspace(_L) = (IntPtr) extraSpaceData;
+        lua_atpanic(_L, (delegate* unmanaged[Cdecl]<lua_State*, int>) panicPtr);
 
         _layluaState = state;
     }

@@ -145,16 +145,8 @@ public unsafe partial class DefaultLuaMarshaler
                 {
                     if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
                     {
-                        Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
-                        lock (_userDataHandleCaches)
-                        {
-                            if (!_userDataHandleCaches.TryGetValue((IntPtr) thread.MainThread.State.L, out userDataHandleCache))
-                            {
-                                _userDataHandleCaches[(IntPtr) thread.MainThread.State.L] = userDataHandleCache = new();
-                            }
-                        }
-
-                        if (userDataHandleCache.TryGetValue((obj, descriptor), out var handle))
+                        var cache = GetUserDataCache(Lua.FromThread(thread));
+                        if (cache.TryGetValue((obj, descriptor), out var handle))
                         {
                             handle.Push(thread);
                             return;
@@ -174,7 +166,7 @@ public unsafe partial class DefaultLuaMarshaler
                         }
 
                         handle.Push(thread);
-                        userDataHandleCache[(obj, descriptor)] = handle;
+                        cache[(obj, descriptor)] = handle;
                         return;
                     }
                 }

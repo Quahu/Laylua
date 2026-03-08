@@ -122,9 +122,10 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         finally
         {
             State.Close();
+            GC.SuppressFinalize(this);
         }
 
-        GC.SuppressFinalize(this);
+        Marshaler.OnLuaDisposed(this);
     }
 
     public static Lua FromThread(LuaThread thread)

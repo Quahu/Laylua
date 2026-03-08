@@ -1,13 +1,27 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace Laylua.Moon;
 
+// ManagedPanicAsm wraps every C# delegate callable from Lua
+// Catch blocks here are the last stop - LuaRaisedException preserves the user's
+// error message, everything else gets a generic message. See LayluaNative.Asm.cs
+
 internal static unsafe partial class LayluaNative
 {
     private static readonly ConditionalWeakTable<Delegate, Delegate> FunctionWrappers = new();
+
+    // Pulls the error message + inner exception out of a caught exception
+    // LuaRaisedException gets unwrapped; everything else is treated as unexpected
+    private static (string? Message, Exception? InnerException) ExtractErrorInfo(Exception ex, string genericMessage)
+    {
+        if (ex is LuaRaisedException raised)
+            return (raised.LuaMessage, raised.LuaInnerException);
+
+        return (genericMessage, ex);
+    }
 
     public static IntPtr CreateLuaKFunctionWrapper(LuaKFunction function)
     {
@@ -17,43 +31,26 @@ internal static unsafe partial class LayluaNative
         {
             try
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaKFunction: calling delegate...");
-#endif
                 return Unsafe.As<LuaKFunction>(function)(L, status, ctx);
             }
             catch (Exception ex)
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaKFunction: caught exception...");
-#endif
                 var laylua = LayluaState.FromExtraSpace(L);
                 if (laylua.Panic != null)
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaKFunction: setting panic exception: {ex}");
-#endif
                     laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
                 }
                 else
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaKFunction: panic is null, throwing exception: {ex}");
-#endif
-                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
+                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
+                    LuaException.PrepareErrorInfo(L, msg, inner);
+                    SetPendingError(L);
                 }
             }
-#if TRACE_PANIC
-            Console.WriteLine("LuaKFunction: returning...");
-#endif
             return default;
         }));
 
-        WriteFunctionWrapperPointers(asmSpan,
-#if TRACE_PANIC
-            asmPtr,
-#endif
-            function, functionWrapper);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
 
         return asmPtr;
     }
@@ -66,43 +63,26 @@ internal static unsafe partial class LayluaNative
         {
             try
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaCFunction: calling delegate...");
-#endif
                 return Unsafe.As<LuaCFunction>(function)(L);
             }
             catch (Exception ex)
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaCFunction: caught exception...");
-#endif
                 var laylua = LayluaState.FromExtraSpace(L);
                 if (laylua.Panic != null)
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaCFunction: setting panic exception: {ex}");
-#endif
                     laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
                 }
                 else
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaCFunction: panic is null, throwing exception: {ex}");
-#endif
-                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
+                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
+                    LuaException.PrepareErrorInfo(L, msg, inner);
+                    SetPendingError(L);
                 }
             }
-#if TRACE_PANIC
-            Console.WriteLine("LuaCFunction: returning...");
-#endif
             return default;
         }));
 
-        WriteFunctionWrapperPointers(asmSpan,
-#if TRACE_PANIC
-            asmPtr,
-#endif
-            function, functionWrapper);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
 
         return asmPtr;
     }
@@ -115,44 +95,27 @@ internal static unsafe partial class LayluaNative
         {
             try
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaReaderFunction: calling delegate...");
-#endif
                 return Unsafe.As<LuaReaderFunction>(function)(L, ud, out sz);
             }
             catch (Exception ex)
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaReaderFunction: caught exception...");
-#endif
                 var laylua = LayluaState.FromExtraSpace(L);
                 if (laylua.Panic != null)
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaReaderFunction: setting panic exception: {ex}");
-#endif
                     laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
                 }
                 else
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaReaderFunction: panic is null, throwing exception: {ex}");
-#endif
-                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
+                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
+                    LuaException.PrepareErrorInfo(L, msg, inner);
+                    SetPendingError(L);
                 }
             }
-#if TRACE_PANIC
-            Console.WriteLine("LuaReaderFunction: returning...");
-#endif
             sz = default;
             return default;
         }));
 
-        WriteFunctionWrapperPointers(asmSpan,
-#if TRACE_PANIC
-            asmPtr,
-#endif
-            function, functionWrapper);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
 
         return asmPtr;
     }
@@ -165,43 +128,26 @@ internal static unsafe partial class LayluaNative
         {
             try
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaWriterFunction: calling delegate...");
-#endif
                 return Unsafe.As<LuaWriterFunction>(function)(L, p, sz, ud);
             }
             catch (Exception ex)
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaWriterFunction: caught exception...");
-#endif
                 var laylua = LayluaState.FromExtraSpace(L);
                 if (laylua.Panic != null)
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaWriterFunction: setting panic exception: {ex}");
-#endif
                     laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
                 }
                 else
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaWriterFunction: panic is null, throwing exception: {ex}");
-#endif
-                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
+                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
+                    LuaException.PrepareErrorInfo(L, msg, inner);
+                    SetPendingError(L);
                 }
             }
-#if TRACE_PANIC
-            Console.WriteLine("LuaWriterFunction: returning...");
-#endif
             return default;
         }));
 
-        WriteFunctionWrapperPointers(asmSpan,
-#if TRACE_PANIC
-            asmPtr,
-#endif
-            function, functionWrapper);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
 
         return asmPtr;
     }
@@ -214,43 +160,26 @@ internal static unsafe partial class LayluaNative
         {
             try
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaWarnFunction: calling delegate...");
-#endif
                 Unsafe.As<LuaWarnFunction>(function)(ud, msg, tocont);
             }
             catch (Exception ex)
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaWarnFunction: caught exception...");
-#endif
                 var L = (lua_State*) ud;
                 var laylua = LayluaState.FromExtraSpace(L);
                 if (laylua.Panic != null)
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaWarnFunction: setting panic exception: {ex}");
-#endif
                     laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
                 }
                 else
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaWarnFunction: panic is null, throwing exception: {ex}");
-#endif
-                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
+                    var (errorMessage, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
+                    LuaException.PrepareErrorInfo(L, errorMessage, inner);
+                    SetPendingError(L);
                 }
             }
-#if TRACE_PANIC
-            Console.WriteLine("LuaWarnFunction: returning...");
-#endif
         }));
 
-        WriteFunctionWrapperPointers(asmSpan,
-#if TRACE_PANIC
-            asmPtr,
-#endif
-            function, functionWrapper);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
 
         return asmPtr;
     }
@@ -263,42 +192,25 @@ internal static unsafe partial class LayluaNative
         {
             try
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaHookFunction: calling delegate...");
-#endif
                 Unsafe.As<LuaHookFunction>(function)(L, ar);
             }
             catch (Exception ex)
             {
-#if TRACE_PANIC
-                Console.WriteLine("LuaHookFunction: caught exception...");
-#endif
                 var laylua = LayluaState.FromExtraSpace(L);
                 if (laylua.Panic != null)
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaHookFunction: setting panic exception: {ex}");
-#endif
                     laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
                 }
                 else
                 {
-#if TRACE_PANIC
-                    Console.WriteLine($"LuaHookFunction: panic is null, throwing exception: {ex}");
-#endif
-                    LuaException.RaiseErrorInfo(L, "An exception occurred while executing the delegate.", ex);
+                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the hook.");
+                    LuaException.PrepareErrorInfo(L, msg, inner);
+                    SetPendingError(L);
                 }
             }
-#if TRACE_PANIC
-            Console.WriteLine("LuaHookFunction: returning...");
-#endif
         }));
 
-        WriteFunctionWrapperPointers(asmSpan,
-#if TRACE_PANIC
-            asmPtr,
-#endif
-            function, functionWrapper);
+        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
 
         return asmPtr;
     }
@@ -306,39 +218,21 @@ internal static unsafe partial class LayluaNative
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Span<byte> AllocFunctionWrapperAsm(out IntPtr asmPtr)
     {
-        var asmSpan = Alloc(ManagedPanicAsmBytes, out asmPtr);
+        var bytes = OperatingSystem.IsWindows() ? ManagedPanicAsmBytes_Windows : ManagedPanicAsmBytes_Linux;
+        var asmSpan = Alloc(bytes, out asmPtr);
         return asmSpan;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void WriteFunctionWrapperPointers(Span<byte> asmSpan,
-#if TRACE_PANIC
-        IntPtr asmPtr,
-#endif
-        Delegate function, Delegate functionWrapper
-#if TRACE_PANIC
-        , [CallerMemberName] string? callerName = null
-#endif
-    )
+    // Offsets differ per platform (different asm sizes)
+    private static readonly int _dataSlot1Offset = OperatingSystem.IsWindows() ? 112 : 87;
+    private static readonly int _dataSlot2Offset = OperatingSystem.IsWindows() ? 120 : 95;
+    private static readonly int _dataSlot3Offset = OperatingSystem.IsWindows() ? 128 : 103;
+
+    private static void WriteFunctionWrapperPointers(Span<byte> asmSpan, Delegate functionWrapper)
     {
-#if TRACE_PANIC
-        var functionPtr = Marshal.GetFunctionPointerForDelegate(function);
-#endif
         var functionWrapperPtr = Marshal.GetFunctionPointerForDelegate(functionWrapper);
-
-        // MemoryMarshal.Write(asmSpan.Slice(21), ref functionPtr);
-        WriteFunctionWrapperPointers(asmSpan, functionWrapperPtr);
-
-        // Console.WriteLine("Stack State at 0x{0:X}", (IntPtr) stackState);
-
-#if TRACE_PANIC
-        Console.WriteLine("ManagedPanic for {0} asmPtr: 0x{1:X}\nGetPotentialPanicPtr: 0x{2:X}\nCallLuaCFunction: 0x{3:X} (for 0x{4:X})", callerName, asmPtr, getPotentialPanicPtr, functionWrapperPtr, functionPtr);
-#endif
-    }
-
-    private static void WriteFunctionWrapperPointers(Span<byte> asmSpan, IntPtr functionWrapperPtr)
-    {
-        MemoryMarshal.Write(asmSpan.Slice(40 - 13), in functionWrapperPtr);
-        MemoryMarshal.Write(asmSpan.Slice(71 - 13), in getPotentialPanicPtr);
+        MemoryMarshal.Write(asmSpan.Slice(_dataSlot1Offset), in functionWrapperPtr);
+        MemoryMarshal.Write(asmSpan.Slice(_dataSlot2Offset), in realLuaErrorPtr);
+        MemoryMarshal.Write(asmSpan.Slice(_dataSlot3Offset), in getPotentialPanicPtr);
     }
 }

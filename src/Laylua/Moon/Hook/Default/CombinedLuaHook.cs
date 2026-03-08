@@ -52,14 +52,18 @@ public sealed class CombinedLuaHook : LuaHook
             var hook = _hooks[hookIndex];
             var maskFlag = GetMaskForEvent(@event);
             if (!hook.EventMask.HasFlag(maskFlag))
+            {
                 continue;
+            }
 
             if (maskFlag == LuaEventMask.Count)
             {
                 _instructionCounts[hookIndex] += InstructionCount;
 
                 if (hook.InstructionCount != _instructionCounts[hookIndex])
+                {
                     continue;
+                }
 
                 _instructionCounts[hookIndex] = 0;
             }

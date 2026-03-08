@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -19,23 +20,29 @@ public unsafe class UserDataHandle
     internal const string WeakValueModeMetatableName = "__laylua__internal_weakvaluemode";
     internal const string SharedMetatableName = "__laylua__internal_shared"; // shared metatable for when no descriptor is set
 
-    internal LuaThread MainThread { get; }
+    internal Lua Lua { get; }
 
     internal IntPtr GCPtr => (IntPtr) _gcHandle;
+
+    internal bool IsCollectible { get; set; } = true;
 
     private GCHandle _gcHandle;
 
     internal UserDataHandle(LuaThread thread)
     {
-        MainThread = thread.MainThread;
+        Lua = Lua.FromThread(thread);
         _gcHandle = GCHandle.Alloc(this);
     }
 
     private static readonly LuaCFunction __gc = L =>
     {
         var handle = FromStackIndex(L, 1);
-        handle._gcHandle.Free();
-        handle.MainThread.Marshaler.RemoveUserDataHandle(handle);
+        if (handle.IsCollectible)
+        {
+            handle.Lua.Marshaler.RemoveUserDataHandle(handle);
+            handle._gcHandle.Free();
+        }
+
         return 0;
     };
 
@@ -161,6 +168,12 @@ public unsafe class UserDataHandle
         return null;
     }
 
+    internal void Free()
+    {
+        Debug.Assert(!IsCollectible);
+        _gcHandle.Free();
+    }
+
     internal static UserDataHandle
         FromStackIndex(lua_State* L, int stackIndex)
     {
@@ -186,6 +199,7 @@ public unsafe class UserDataHandle
                 var gcPtr = lua_touserdata(L, -1);
                 var gcHandle = GCHandle.FromIntPtr((IntPtr) gcPtr);
                 handle = Unsafe.As<UserDataHandle>(gcHandle.Target)!;
+                Debug.Assert(handle != null);
                 return true;
             }
         }

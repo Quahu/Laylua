@@ -24,12 +24,15 @@ public class ErrorHandlingTests : LuaTestBase
     {
         // Arrange
         var value = 0;
-        lua_register(L, "error", L =>
+        LuaCFunction function = L =>
         {
             luaL_error(L, "error message");
             value = 1;
             return 0;
-        });
+        };
+
+        lua_register(L, "error", function);
+        GC.KeepAlive(function);
 
         // Act & Assert
         Assert.Multiple(() =>
@@ -84,5 +87,143 @@ public class ErrorHandlingTests : LuaTestBase
 
         Lua.Stack.Pop(2);
         GC.KeepAlive(throwingMetamethod);
+    }
+
+    [Test]
+    public void RaiseError_String_PreservesMessage()
+    {
+        // Arrange
+        const string ErrorMessage = "custom error from callback";
+        Lua.SetGlobal("func", () =>
+        {
+            Lua.RaiseError(ErrorMessage);
+        });
+
+        // Act & Assert
+        var ex = Assert.Throws<LuaException>(() => Lua.Execute("func()"));
+        Assert.That(ex!.Message, Does.Contain(ErrorMessage));
+    }
+
+    [Test]
+    public void RaiseError_Exception_PreservesMessage()
+    {
+        // Arrange
+        const string ErrorMessage = "custom exception message";
+        Lua.SetGlobal("func", () =>
+        {
+            Lua.RaiseError(new InvalidOperationException(ErrorMessage));
+        });
+
+        // Act & Assert
+        var ex = Assert.Throws<LuaException>(() => Lua.Execute("func()"));
+        Assert.That(ex!.InnerException, Is.TypeOf<InvalidOperationException>());
+        Assert.That(ex.InnerException!.Message, Is.EqualTo(ErrorMessage));
+    }
+
+    [Test]
+    public void RaiseError_StringAndException_PreservesMessage()
+    {
+        // Arrange
+        const string ErrorMessage = "lua-visible error";
+        const string InnerMessage = "inner exception detail";
+        Lua.SetGlobal("func", () =>
+        {
+            Lua.RaiseError(ErrorMessage, new InvalidOperationException(InnerMessage));
+        });
+
+        // Act & Assert
+        var ex = Assert.Throws<LuaException>(() => Lua.Execute("func()"));
+        Assert.That(ex!.Message, Does.Contain(ErrorMessage));
+        Assert.That(ex.InnerException, Is.TypeOf<InvalidOperationException>());
+        Assert.That(ex.InnerException!.Message, Is.EqualTo(InnerMessage));
+    }
+
+    [Test]
+    public void RaiseArgumentError_PreservesMessage()
+    {
+        // Arrange
+        const string ErrorMessage = "must be positive";
+        Lua.SetGlobal("func", () =>
+        {
+            Lua.RaiseArgumentError(1, ErrorMessage);
+        });
+
+        // Act & Assert
+        var ex = Assert.Throws<LuaException>(() => Lua.Execute("func(42)"));
+        Assert.That(ex!.Message, Does.Contain(ErrorMessage));
+        Assert.That(ex.Message, Does.Contain("bad argument #1"));
+        Assert.That(ex.Message, Does.Contain("func"));
+    }
+
+    [Test]
+    public void RaiseError_FromHookSubclass_PreservesMessage()
+    {
+        // Arrange
+        const string ErrorMessage = "hook timeout exceeded";
+        Lua.SetGlobal("func", () =>
+        {
+            // This simulates what a user hook would do: throw an exception
+            // that should be visible as the Lua error message
+            throw new InvalidOperationException(ErrorMessage);
+        });
+
+        // Act & Assert
+        var ex = Assert.Throws<LuaException>(() => Lua.Execute("func()"));
+        Assert.That(ex!.InnerException, Is.TypeOf<InvalidOperationException>());
+        Assert.That(ex.InnerException!.Message, Is.EqualTo(ErrorMessage));
+    }
+
+    [Test]
+    public void CustomLongjmp_StressTest_NoLeaksOrCorruption()
+    {
+        // Runs the custom longjmp path thousands of times.
+        // The test base's NativeMemoryLuaAllocator asserts zero bytes at teardown,
+        // so any Lua-side memory leak will fail the test.
+        // Stack is also checked to be empty at teardown.
+        Lua.OpenLibrary(LuaLibraries.Standard.Base);
+
+        // Lua-side error() -> pcall longjmp
+        for (var i = 0; i < 2000; i++)
+        {
+            var ex = Assert.Throws<LuaException>(() => Lua.Execute($"error('iteration {i}')"));
+            Assert.That(ex!.Message, Does.Contain($"iteration {i}"));
+        }
+
+        // C# callback -> RaiseError -> LuaRaisedException -> ManagedPanicAsm -> lua_error -> longjmp
+        Lua.SetGlobal("raiser", (string msg) =>
+        {
+            Lua.RaiseError(msg);
+        });
+
+        for (var i = 0; i < 2000; i++)
+        {
+            var ex = Assert.Throws<LuaException>(() => Lua.Execute($"raiser('callback {i}')"));
+            Assert.That(ex!.Message, Does.Contain($"callback {i}"));
+        }
+
+        // nested pcalls - Lua pcall inside C# callback inside Lua pcall
+        Lua.SetGlobal("nester", () =>
+        {
+            Lua.Execute("error('inner')");
+        });
+
+        for (var i = 0; i < 1000; i++)
+        {
+            var ex = Assert.Throws<LuaException>(() => Lua.Execute("nester()"));
+            // Inner LuaException from Lua.Execute("error('inner')") is wrapped as InnerException
+            Assert.That(ex!.InnerException, Is.TypeOf<LuaException>());
+            Assert.That(ex.InnerException!.Message, Does.Contain("inner"));
+        }
+
+        // exception thrown from C# callback (not RaiseError)
+        Lua.SetGlobal("thrower", new Action(() => throw new InvalidOperationException("boom")));
+
+        for (var i = 0; i < 1000; i++)
+        {
+            var ex = Assert.Throws<LuaException>(() => Lua.Execute("thrower()"));
+            Assert.That(ex!.InnerException, Is.TypeOf<InvalidOperationException>());
+        }
+
+        Assert.That(Lua.Stack.Count, Is.EqualTo(0), "Stack corrupted after stress test");
     }
 }

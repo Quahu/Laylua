@@ -3,18 +3,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <Import Project="../Laylua.targets"/>
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 
         <RootNamespace>Laylua</RootNamespace>
     </PropertyGroup>
-
-    <!--    <PropertyGroup>-->
-    <!--        <DefineConstants>TRACE_PANIC</DefineConstants>-->
-    <!--    </PropertyGroup>-->
 
     <ItemGroup>
         <PackageReference Include="Laylua.Natives" Version="1.0.0" PrivateAssets="analyzers;build" />
         <PackageReference Include="Qommon" Version="4.0.1"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\Laylua.Generators\Laylua.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
 </Project>
+
+

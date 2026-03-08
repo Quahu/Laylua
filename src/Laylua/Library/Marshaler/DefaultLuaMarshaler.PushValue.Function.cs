@@ -30,19 +30,10 @@ public unsafe partial class DefaultLuaMarshaler
     protected virtual void PushDelegate(LuaThread thread, Delegate @delegate)
     {
         var L = thread.State.L;
-        Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
-        lock (_userDataHandleCaches)
+        var cache = GetUserDataCache(Lua.FromThread(thread));
+        if (!cache.TryGetValue((@delegate, null), out var handle))
         {
-            var G = thread.MainThread.State.L;
-            if (!_userDataHandleCaches.TryGetValue((IntPtr) G, out userDataHandleCache))
-            {
-                _userDataHandleCaches[(IntPtr) G] = userDataHandleCache = new();
-            }
-        }
-
-        if (!userDataHandleCache.TryGetValue((@delegate, null), out var handle))
-        {
-            userDataHandleCache[(@delegate, null)] = handle = new UserDataHandle<Delegate>(thread, @delegate);
+            cache[(@delegate, null)] = handle = new UserDataHandle<Delegate>(thread, @delegate);
         }
 
         handle.Push(thread);

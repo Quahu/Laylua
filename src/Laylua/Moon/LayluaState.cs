@@ -56,6 +56,8 @@ internal sealed unsafe class LayluaState : IDisposable
 
     public bool IsPCall;
 
+    internal LayluaNative.ExtraSpaceData* ExtraSpaceData; // freed on Dispose
+
     public IntPtr GCPtr => (IntPtr) _gcHandle;
 
     public object? State;
@@ -80,9 +82,6 @@ internal sealed unsafe class LayluaState : IDisposable
         var previousPanic = Panic;
         var currentPanic = Panic = panicInfo;
         currentPanic.Parent = previousPanic;
-#if TRACE_PANIC
-        Console.WriteLine($"Pushed panic with stack state 0x{(IntPtr) currentPanic.StackStatePtr:X}, parent is {(currentPanic.Parent == null ? "null" : $"0x{(IntPtr) currentPanic.Parent.StackStatePtr:X}")}\n{LayluaNative.Stacktrace()}");
-#endif
         return currentPanic;
     }
 
@@ -92,17 +91,10 @@ internal sealed unsafe class LayluaState : IDisposable
         if (panic != null)
         {
             Panic = panic.Parent;
-#if TRACE_PANIC
-            Console.WriteLine($"Popped panic with stack state 0x{(IntPtr) panic.StackStatePtr:X}, new panic is {(Panic == null ? "null" : $"0x{(IntPtr) Panic.StackStatePtr:X}")}");
-#endif
         }
         else
         {
-#if TRACE_PANIC
-            Console.WriteLine("There was no panic to pop...");
-#else
             Debug.Fail("No panic to pop.");
-#endif
         }
 
         return panic;
@@ -111,9 +103,6 @@ internal sealed unsafe class LayluaState : IDisposable
     public void ResetPanic(PanicInfo panic)
     {
         _panicInfoPool.Return(panic);
-#if TRACE_PANIC
-        Console.WriteLine($"Disposed and returned panic with stack state 0x{(IntPtr) panic.StackStatePtr:X}, new panic is {(Panic == null ? "null" : $"0x{(IntPtr) Panic.StackStatePtr:X}")}");
-#endif
     }
 
     public TemporaryPanicPopDisposable TemporarilyPopPanic(bool onlyIfNotPCall)
@@ -130,7 +119,7 @@ internal sealed unsafe class LayluaState : IDisposable
         {
             _state = state;
 
-            if (onlyIfNotPCall && !_state.IsPCall)
+            if (onlyIfNotPCall && !_state.IsPCall && _state.Panic != null)
             {
                 _panic = state.PopPanic();
             }
@@ -175,6 +164,12 @@ internal sealed unsafe class LayluaState : IDisposable
 
         Debug.Assert(Panic == null);
 
+        if (ExtraSpaceData != null)
+        {
+            NativeMemory.Free(ExtraSpaceData);
+            ExtraSpaceData = null;
+        }
+
         PanicPtr = null;
         IsPCall = false;
         GCHandlePointers.TryRemove(GCPtr, out _);
@@ -194,15 +189,19 @@ internal sealed unsafe class LayluaState : IDisposable
     {
         if (L != null)
         {
-            var gcHandlePtr = *(IntPtr*) lua_getextraspace(L);
-            if (gcHandlePtr != IntPtr.Zero)
+            var extraSpacePtr = *(IntPtr*) lua_getextraspace(L);
+            if (extraSpacePtr != IntPtr.Zero)
             {
-                if (GCHandlePointers.TryGetValue(gcHandlePtr, out var gcHandle))
+                var gcHandlePtr = ((LayluaNative.ExtraSpaceData*) extraSpacePtr)->GCHandlePtr;
+                if (gcHandlePtr != IntPtr.Zero)
                 {
-                    if (gcHandle.IsAllocated)
+                    if (GCHandlePointers.TryGetValue(gcHandlePtr, out var gcHandle))
                     {
-                        state = Unsafe.As<LayluaState>(gcHandle.Target!);
-                        return true;
+                        if (gcHandle.IsAllocated)
+                        {
+                            state = Unsafe.As<LayluaState>(gcHandle.Target!);
+                            return true;
+                        }
                     }
                 }
             }

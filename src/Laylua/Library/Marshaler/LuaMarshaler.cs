@@ -54,6 +54,13 @@ public abstract partial class LuaMarshaler
     { }
 
     /// <summary>
+    ///     Invoked after the specified Lua state was disposed.
+    /// </summary>
+    /// <param name="lua"> The Lua state. </param>
+    protected internal virtual void OnLuaDisposed(Lua lua)
+    { }
+
+    /// <summary>
     ///     Attempts to create a <see cref="LuaTable"/> reference.
     /// </summary>
     /// <param name="thread"> The Lua thread. </param>

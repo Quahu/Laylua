@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -21,36 +22,49 @@ public unsafe partial class DefaultLuaMarshaler : LuaMarshaler
     /// </summary>
     protected UserDataDescriptorProvider UserDataDescriptorProvider { get; }
 
-    private readonly Dictionary<IntPtr, Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>> _userDataHandleCaches;
+    private static readonly ConcurrentDictionary<Lua, Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>> _userDataHandleCaches = [];
 
     public DefaultLuaMarshaler(UserDataDescriptorProvider userDataDescriptorProvider)
     {
         UserDataDescriptorProvider = userDataDescriptorProvider;
-        _userDataHandleCaches = new();
     }
 
+    /// <inheritdoc/>
     protected internal override void OnLuaDisposing(Lua lua)
     {
-        lock (_userDataHandleCaches)
+        foreach (var kvp in GetUserDataCache(lua))
         {
-            _userDataHandleCaches.Remove((IntPtr) lua.MainThread.State.L);
+            kvp.Value.IsCollectible = false;
         }
 
         base.OnLuaDisposing(lua);
     }
 
-    protected internal sealed override void RemoveUserDataHandle(UserDataHandle handle)
+    /// <inheritdoc/>
+    protected internal override void OnLuaDisposed(Lua lua)
     {
-        Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle>? userDataHandleCache;
-        lock (_userDataHandleCaches)
+        if (_userDataHandleCaches.TryRemove(lua, out var cache))
         {
-            if (!_userDataHandleCaches.TryGetValue((IntPtr) handle.MainThread.State.L, out userDataHandleCache))
-                return;
+            foreach (var kvp in cache)
+            {
+                kvp.Value.Free();
+            }
         }
 
+        base.OnLuaDisposed(lua);
+    }
+
+    private static Dictionary<(object Value, UserDataDescriptor? Descriptor), UserDataHandle> GetUserDataCache(Lua lua)
+    {
+        return _userDataHandleCaches.GetOrAdd(lua, static _ => []);
+    }
+
+    protected internal sealed override void RemoveUserDataHandle(UserDataHandle handle)
+    {
+        var cache = GetUserDataCache(handle.Lua);
         if (!handle.TryGetType(out var type) || type.IsValueType || !handle.TryGetValue<object>(out var value))
             return;
 
-        userDataHandleCache.Remove((value, handle.GetDescriptor()));
+        cache.Remove((value, handle.GetDescriptor()));
     }
 }

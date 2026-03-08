@@ -47,268 +47,99 @@ public static unsafe partial class LuaNative
      * Auxiliary
      *
      */
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate bool _luaL_checkversion_Delegate(lua_State* L, lua_Number ver, nuint sz);
-
-    private static _luaL_checkversion_Delegate _luaL_checkversion_ = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_checkversion_(lua_State* L, lua_Number ver, nuint sz)
-    {
-        _luaL_checkversion_(L, ver, sz);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void luaL_checkversion_(lua_State* L, lua_Number ver, nuint sz);
 
     public static void luaL_checkversion(lua_State* L)
     {
-        _luaL_checkversion_(L, LuaVersionNumber, LUAL_NUMSIZES);
+        luaL_checkversion_(L, LuaVersionNumber, LUAL_NUMSIZES);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int luaL_getmetafield(lua_State* L, int obj, [MarshalAs(UnmanagedType.LPStr)] string e);
+    [LuaExport(Throws = true)]
+    public static partial int luaL_getmetafield(lua_State* L, int obj, [MarshalAs(UnmanagedType.LPStr)] string e);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate bool _luaL_callmetaDelegate(lua_State* L, int obj, [MarshalAs(UnmanagedType.LPStr)] string e);
+    [LuaExport(Throws = true)]
+    public static partial bool luaL_callmeta(lua_State* L, int obj, [MarshalAs(UnmanagedType.LPStr)] string e);
 
-    private static _luaL_callmetaDelegate _luaL_callmeta = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool luaL_callmeta(lua_State* L, int obj, string e)
-    {
-        return _luaL_callmeta(L, obj, e);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate byte* _luaL_tolstringDelegate(lua_State* L, int idx, out nuint len);
-
-    private static _luaL_tolstringDelegate _luaL_tolstring = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LuaString luaL_tolstring(lua_State* L, int idx, out nuint len)
-    {
-        var ptr = _luaL_tolstring(L, idx, out len);
-        return new LuaString(ptr, len);
-    }
+    [LuaExport(Throws = true)]
+    public static partial LuaString luaL_tolstring(lua_State* L, int idx, out nuint len);
 
     public static LuaString luaL_tostring(lua_State* L, int idx)
     {
-        var ptr = _luaL_tolstring(L, idx, out var len);
-        return new LuaString(ptr, len);
+        return luaL_tolstring(L, idx, out _);
     }
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate int _luaL_argerrorDelegate(lua_State* L, int arg, byte* extramsg);
-
-    private static _luaL_argerrorDelegate _luaL_argerror = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [LuaExport(Throws = true)]
     [DoesNotReturn]
-#nullable disable
-    public static int luaL_argerror(lua_State* L, int arg, ReadOnlySpan<char> extramsg)
-    {
-        using (var bytes = ToCString(extramsg))
-        {
-            fixed (byte* ptr = bytes)
-            {
-                return _luaL_argerror(L, arg, ptr);
-            }
-        }
-    }
-#nullable enable
+    public static partial int luaL_argerror(lua_State* L, int arg, ReadOnlySpan<char> extramsg);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate int _luaL_typeerrorDelegate(lua_State* L, int arg, byte* tname);
-
-    private static _luaL_typeerrorDelegate _luaL_typeerror = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [LuaExport(Throws = true)]
     [DoesNotReturn]
-#nullable disable
-    public static int luaL_typeerror(lua_State* L, int arg, ReadOnlySpan<char> tname)
-    {
-        using (var bytes = ToCString(tname))
-        {
-            fixed (byte* ptr = bytes)
-            {
-                return _luaL_typeerror(L, arg, ptr);
-            }
-        }
-    }
-#nullable enable
+    public static partial int luaL_typeerror(lua_State* L, int arg, ReadOnlySpan<char> tname);
 
     [UnmanagedFunctionPointer(Cdecl)]
     private delegate byte* _luaL_checklstringDelegate(lua_State* L, int arg, out nuint len);
 
+    [LuaExport(Throws = true)]
     private static _luaL_checklstringDelegate _luaL_checklstring = null!;
 
-    [ErrorExport]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static string? luaL_checklstring(lua_State* L, int arg, out nuint len)
     {
         var ptr = _luaL_checklstring(L, arg, out len);
+        LayluaNative.ThrowIfPendingPanic();
         return FromStringPtr(ptr, len);
     }
 
     [UnmanagedFunctionPointer(Cdecl)]
     private delegate byte* _luaL_optlstringDelegate(lua_State* L, int arg, [MarshalAs(UnmanagedType.LPUTF8Str)] string def, out nuint len);
 
+    [LuaExport(Throws = true)]
     private static _luaL_optlstringDelegate _luaL_optlstring = null!;
 
-    [ErrorExport]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static string? luaL_optlstring(lua_State* L, int arg, string def, out nuint len)
     {
         var ptr = _luaL_optlstring(L, arg, def, out len);
+        LayluaNative.ThrowIfPendingPanic();
         return FromStringPtr(ptr, len);
     }
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate lua_Number _luaL_checknumberDelegate(lua_State* L, int arg);
+    [LuaExport(Throws = true)]
+    public static partial lua_Number luaL_checknumber(lua_State* L, int arg);
 
-    private static _luaL_checknumberDelegate _luaL_checknumber = null!;
+    [LuaExport(Throws = true)]
+    public static partial lua_Number luaL_optnumber(lua_State* L, int arg, lua_Number def);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static lua_Number luaL_checknumber(lua_State* L, int arg)
-    {
-        return _luaL_checknumber(L, arg);
-    }
+    [LuaExport(Throws = true)]
+    public static partial lua_Integer luaL_checkinteger(lua_State* L, int arg);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate lua_Number _luaL_optnumberDelegate(lua_State* L, int arg, lua_Number def);
+    [LuaExport(Throws = true)]
+    public static partial lua_Integer luaL_optinteger(lua_State* L, int arg, lua_Integer def);
 
-    private static _luaL_optnumberDelegate _luaL_optnumber = null!;
+    [LuaExport(Throws = true)]
+    public static partial void luaL_checkstack(lua_State* L, int sz, [MarshalAs(UnmanagedType.LPUTF8Str)] string? msg);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static lua_Number luaL_optnumber(lua_State* L, int arg, lua_Number def)
-    {
-        return _luaL_optnumber(L, arg, def);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void luaL_checktype(lua_State* L, int arg, LuaType type);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate lua_Integer _luaL_checkintegerDelegate(lua_State* L, int arg);
+    [LuaExport(Throws = true)]
+    public static partial void luaL_checkany(lua_State* L, int arg);
 
-    private static _luaL_checkintegerDelegate _luaL_checkinteger = null!;
+    [LuaExport(Throws = true)]
+    public static partial bool luaL_newmetatable(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static lua_Integer luaL_checkinteger(lua_State* L, int arg)
-    {
-        return _luaL_checkinteger(L, arg);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void luaL_setmetatable(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate lua_Integer _luaL_optintegerDelegate(lua_State* L, int arg, lua_Integer def);
+    [LuaExport(Throws = true)]
+    public static partial void* luaL_testudata(lua_State* L, int arg, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
 
-    private static _luaL_optintegerDelegate _luaL_optinteger = null!;
+    [LuaExport(Throws = true)]
+    public static partial void* luaL_checkudata(lua_State* L, int arg, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static lua_Integer luaL_optinteger(lua_State* L, int arg, lua_Integer def)
-    {
-        return _luaL_optinteger(L, arg, def);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _luaL_checkstackDelegate(lua_State* L, int sz, [MarshalAs(UnmanagedType.LPUTF8Str)] string? msg);
-
-    private static _luaL_checkstackDelegate _luaL_checkstack = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_checkstack(lua_State* L, int sz, string? msg)
-    {
-        _luaL_checkstack(L, sz, msg);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _luaL_checktypeDelegate(lua_State* L, int arg, LuaType type);
-
-    private static _luaL_checktypeDelegate _luaL_checktype = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_checktype(lua_State* L, int arg, LuaType type)
-    {
-        _luaL_checktype(L, arg, type);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _luaL_checkanyDelegate(lua_State* L, int arg);
-
-    private static _luaL_checkanyDelegate _luaL_checkany = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_checkany(lua_State* L, int arg)
-    {
-        _luaL_checkany(L, arg);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate bool _luaL_newmetatableDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
-
-    private static _luaL_newmetatableDelegate _luaL_newmetatable = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool luaL_newmetatable(lua_State* L, string tname)
-    {
-        return _luaL_newmetatable(L, tname);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _luaL_setmetatableDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
-
-    private static _luaL_setmetatableDelegate _luaL_setmetatable = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_setmetatable(lua_State* L, string tname)
-    {
-        _luaL_setmetatable(L, tname);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void* _luaL_testudataDelegate(lua_State* L, int arg, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
-
-    private static _luaL_testudataDelegate _luaL_testudata = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void* luaL_testudata(lua_State* L, int arg, string tname)
-    {
-        return _luaL_testudata(L, arg, tname);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void* _luaL_checkudataDelegate(lua_State* L, int arg, [MarshalAs(UnmanagedType.LPUTF8Str)] string tname);
-
-    private static _luaL_checkudataDelegate _luaL_checkudata = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void* luaL_checkudata(lua_State* L, int arg, string tname)
-    {
-        return _luaL_checkudata(L, arg, tname);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _luaL_whereDelegate(lua_State* L, int lvl);
-
-    private static _luaL_whereDelegate _luaL_where = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_where(lua_State* L, int lvl)
-    {
-        _luaL_where(L, lvl);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void luaL_where(lua_State* L, int lvl);
 
     // [DllImport(DllName, CallingConvention = CConv, EntryPoint = "luaL_error")]
     // public static extern int luaL_error(lua_State* L, [MarshalAs(UnmanagedType.LPStr)] string fmt, __arglist);
@@ -327,159 +158,67 @@ public static unsafe partial class LuaNative
     // [DllImport(DllName, CallingConvention = Cdecl)]
     // public static extern int luaL_checkoption(lua_State* L, int arg, [MarshalAs(UnmanagedType.LPUTF8Str)] string def, [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPUTF8Str)] string[] lst);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate int _luaL_fileresultDelegate(lua_State* L, int stat, [MarshalAs(UnmanagedType.LPStr)] string fname);
+    [LuaExport(Throws = true)]
+    public static partial int luaL_fileresult(lua_State* L, int stat, [MarshalAs(UnmanagedType.LPStr)] string fname);
 
-    private static _luaL_fileresultDelegate _luaL_fileresult = null!;
+    [LuaExport(Throws = true)]
+    public static partial int luaL_execresult(lua_State* L, int stat);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static int luaL_fileresult(lua_State* L, int stat, string fname)
-    {
-        return _luaL_fileresult(L, stat, fname);
-    }
+    [LuaExport(Throws = true)]
+    public static partial int luaL_ref(lua_State* L, int t);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate int _luaL_execresultDelegate(lua_State* L, int stat);
+    [LuaExport]
+    public static partial void luaL_unref(lua_State* L, int t, int reference);
 
-    private static _luaL_execresultDelegate _luaL_execresult = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static int luaL_execresult(lua_State* L, int stat)
-    {
-        return _luaL_execresult(L, stat);
-    }
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int _luaL_refDelegate(lua_State* L, int t);
-
-    private static _luaL_refDelegate _luaL_ref = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static int luaL_ref(lua_State* L, int t)
-    {
-        return _luaL_ref(L, t);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_unref(lua_State* L, int t, int @ref);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate LuaStatus _luaL_loadfilexDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string filename, [MarshalAs(UnmanagedType.LPStr)] string? mode);
-
-    private static _luaL_loadfilexDelegate _luaL_loadfilex = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LuaStatus luaL_loadfilex(lua_State* L, string filename, string? mode)
-    {
-        return _luaL_loadfilex(L, filename, mode);
-    }
+    [LuaExport(Throws = true)]
+    public static partial LuaStatus luaL_loadfilex(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string filename, [MarshalAs(UnmanagedType.LPStr)] string? mode);
 
     public static LuaStatus luaL_loadfile(lua_State* L, string filename)
     {
-        return _luaL_loadfilex(L, filename, null);
+        return luaL_loadfilex(L, filename, null);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(luaL_loadbufferx))]
-    private static extern LuaStatus _luaL_loadbufferx(lua_State* L, byte* buff, nuint sz, byte* name, byte* mode);
+    [LuaExport]
+    public static partial LuaStatus luaL_loadbufferx(lua_State* L, byte* buff, nuint sz, ReadOnlySpan<char> name, ReadOnlySpan<char> mode);
 
-    public static LuaStatus luaL_loadbufferx(lua_State* L, byte* buff, nuint sz, ReadOnlySpan<char> name, ReadOnlySpan<char> mode)
-    {
-        using (var nameBytes = ToCString(name))
-        using (var modeBytes = ToCString(mode))
-        {
-            fixed (byte* namePtr = nameBytes)
-            fixed (byte* modePtr = modeBytes)
-            {
-                return _luaL_loadbufferx(L, buff, sz, namePtr, modePtr);
-            }
-        }
-    }
+    [LuaExport]
+    public static partial LuaStatus luaL_loadstring(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string s);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaStatus luaL_loadstring(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string s);
+    [LuaExport]
+    public static partial lua_State* luaL_newstate();
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_State* luaL_newstate();
+    [LuaExport(Throws = true)]
+    public static partial lua_Integer luaL_len(lua_State* L, int idx);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate lua_Integer _luaL_lenDelegate(lua_State* L, int idx);
-
-    private static _luaL_lenDelegate _luaL_len = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static lua_Integer luaL_len(lua_State* L, int idx)
-    {
-        return _luaL_len(L, idx);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_addgsub(luaL_Buffer* B, [MarshalAs(UnmanagedType.LPUTF8Str)] string s, [MarshalAs(UnmanagedType.LPUTF8Str)] string p, [MarshalAs(UnmanagedType.LPUTF8Str)] string r);
+    [LuaExport]
+    public static partial void luaL_addgsub(luaL_Buffer* B, [MarshalAs(UnmanagedType.LPUTF8Str)] string s, [MarshalAs(UnmanagedType.LPUTF8Str)] string p, [MarshalAs(UnmanagedType.LPUTF8Str)] string r);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(Utf8StringMarshaler))]
     private delegate string _luaL_gsubDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string s, [MarshalAs(UnmanagedType.LPUTF8Str)] string p, [MarshalAs(UnmanagedType.LPUTF8Str)] string r);
 
+    [LuaExport(Throws = true)]
     private static _luaL_gsubDelegate _luaL_gsub = null!;
 
-    [ErrorExport]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static string luaL_gsub(lua_State* L, string s, string p, string r)
     {
-        return _luaL_gsub(L, s, p, r);
+        var result = _luaL_gsub(L, s, p, r);
+        LayluaNative.ThrowIfPendingPanic();
+        return result;
     }
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void _luaL_setfuncsDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPArray)] luaL_Reg[] l, int nup);
+    [LuaExport(Throws = true)]
+    public static partial void luaL_setfuncs(lua_State* L, [MarshalAs(UnmanagedType.LPArray)] luaL_Reg[] l, int nup);
 
-    private static _luaL_setfuncsDelegate _luaL_setfuncs = null!;
+    [LuaExport(Throws = true)]
+    public static partial bool luaL_getsubtable(lua_State* L, int idx, [MarshalAs(UnmanagedType.LPUTF8Str)] string fname);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_setfuncs(lua_State* L, luaL_Reg[] l, int nup)
-    {
-        _luaL_setfuncs(L, l, nup);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void luaL_traceback(lua_State* L, lua_State* L1, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg, int level);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate bool _luaL_getsubtableDelegate(lua_State* L, int idx, [MarshalAs(UnmanagedType.LPUTF8Str)] string fname);
-
-    private static _luaL_getsubtableDelegate _luaL_getsubtable = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool luaL_getsubtable(lua_State* L, int idx, string fname)
-    {
-        return _luaL_getsubtable(L, idx, fname);
-    }
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void _luaL_tracebackDelegate(lua_State* L, lua_State* L1, [MarshalAs(UnmanagedType.LPUTF8Str)] string msg, int level);
-
-    private static _luaL_tracebackDelegate _luaL_traceback = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_traceback(lua_State* L, lua_State* L1, string msg, int level)
-    {
-        _luaL_traceback(L, L1, msg, level);
-    }
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void _luaL_requirefDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPStr)] string modname, LuaCFunction openf, bool glb);
-
-    private static _luaL_requirefDelegate _luaL_requiref = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void luaL_requiref(lua_State* L, string modname, LuaCFunction openf, bool glb)
-    {
-        _luaL_requiref(L, modname, openf, glb);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void luaL_requiref(lua_State* L, [MarshalAs(UnmanagedType.LPStr)] string modname, LuaCFunction openf, bool glb);
 
     /*
      *
@@ -507,7 +246,7 @@ public static unsafe partial class LuaNative
         return luaL_optlstring(L, arg, def, out _);
     }
 
-    public static string luaL_typename(lua_State* L, int idx)
+    public static LuaString luaL_typename(lua_State* L, int idx)
     {
         return lua_typename(L, lua_type(L, idx));
     }
@@ -584,29 +323,29 @@ public static unsafe partial class LuaNative
         return B->n -= sz;
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_buffinit(lua_State* L, out luaL_Buffer B);
+    [LuaExport]
+    public static partial void luaL_buffinit(lua_State* L, out luaL_Buffer B);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern byte* luaL_prepbuffsize(luaL_Buffer* B, nuint sz);
+    [LuaExport]
+    public static partial byte* luaL_prepbuffsize(luaL_Buffer* B, nuint sz);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_addlstring(luaL_Buffer* B, [MarshalAs(UnmanagedType.LPUTF8Str)] string s, nuint l);
+    [LuaExport]
+    public static partial void luaL_addlstring(luaL_Buffer* B, [MarshalAs(UnmanagedType.LPUTF8Str)] string s, nuint l);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_addstring(luaL_Buffer* B, [MarshalAs(UnmanagedType.LPUTF8Str)] string s);
+    [LuaExport]
+    public static partial void luaL_addstring(luaL_Buffer* B, [MarshalAs(UnmanagedType.LPUTF8Str)] string s);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_addvalue(luaL_Buffer* B);
+    [LuaExport]
+    public static partial void luaL_addvalue(luaL_Buffer* B);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_pushresult(luaL_Buffer* B);
+    [LuaExport]
+    public static partial void luaL_pushresult(luaL_Buffer* B);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void luaL_pushresultsize(luaL_Buffer* B, nuint sz);
+    [LuaExport]
+    public static partial void luaL_pushresultsize(luaL_Buffer* B, nuint sz);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern byte* luaL_buffinitsize(lua_State* L, out luaL_Buffer B, nuint sz);
+    [LuaExport]
+    public static partial byte* luaL_buffinitsize(lua_State* L, out luaL_Buffer B, nuint sz);
 
     public static void luaL_prepbuffer(luaL_Buffer* B)
     {

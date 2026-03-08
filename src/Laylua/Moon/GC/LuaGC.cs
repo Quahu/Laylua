@@ -153,7 +153,7 @@ public readonly unsafe struct LuaGC
             }
 
             lua.Stack.Push(reference);
-            if (lua_rawget(L, -1).IsNoneOrNil())
+            if (lua_rawget(L, -2).IsNoneOrNil())
             {
                 lua_pop(L);
 
@@ -218,8 +218,8 @@ public readonly unsafe struct LuaGC
                     }
                 }
             }
-
-            return 0;
         }
+
+        return 0;
     };
 }

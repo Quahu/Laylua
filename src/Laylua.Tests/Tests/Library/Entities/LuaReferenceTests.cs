@@ -145,6 +145,8 @@ public class LuaReferenceTests : LuaTestBase
     [Test]
     public void GCCallback_Collect_ThrowingDelegate_RaisesError()
     {
+        DisableWarningTracking();
+
         const string ExceptionMessage = "Callback error.";
 
         // Arrange
@@ -164,6 +166,8 @@ public class LuaReferenceTests : LuaTestBase
     [Test]
     public void GCCallback_Allocating_ThrowingDelegate_RaisesError()
     {
+        DisableWarningTracking();
+
         const string ExceptionMessage = "Callback error.";
 
         // Arrange
@@ -192,6 +196,8 @@ public class LuaReferenceTests : LuaTestBase
     [Test]
     public void GCCallback_Collect_InNestedFunction_ThrowingDelegate_RaisesError()
     {
+        DisableWarningTracking();
+
         const string ExceptionMessage = "Callback error.";
 
         // Arrange

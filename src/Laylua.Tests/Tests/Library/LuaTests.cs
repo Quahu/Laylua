@@ -1,6 +1,3 @@
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-
 namespace Laylua.Tests;
 
 public class LuaTests : LuaTestBase
@@ -329,6 +326,8 @@ public class LuaTests : LuaTestBase
     public void Warn_OnePieceMessage_TriggersWarningEvent()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string Message = "This is a warning message.";
         var expectedWarnings = new[]
         {
@@ -354,6 +353,8 @@ public class LuaTests : LuaTestBase
     public void EmitWarning_OnePieceMessage_TriggersWarningEvent()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string Message = "This is a warning message.";
         var expectedWarnings = new[]
         {
@@ -378,6 +379,8 @@ public class LuaTests : LuaTestBase
     public void Warn_MultiPieceMessage_TriggersSingleWarningEvent()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string Message = "Youshallnotpass.";
         const string SplitMessage = "'You', 'shall', 'not', 'pass.'";
         var expectedWarnings = new[]
@@ -404,6 +407,8 @@ public class LuaTests : LuaTestBase
     public void Warn_OffOnControlMessages_TogglesEmitsWarningsAccordingly()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string Message = "This is a warning message.";
         var expectedWarnings = new[]
         {
@@ -440,6 +445,8 @@ public class LuaTests : LuaTestBase
     public void Warn_CustomControlMessage_TriggersWarningEventWithIsControlTrue()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string Message = "@custom-control-message";
         var expectedWarnings = new[]
         {
@@ -465,6 +472,8 @@ public class LuaTests : LuaTestBase
     public void Warn_ThrowingExceptionEventHandler_Errors()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string ExceptionMessage = "Warning event handler exception.";
 
         Lua.OpenLibrary(LuaLibraries.Standard.Base);
@@ -478,6 +487,8 @@ public class LuaTests : LuaTestBase
     public void EmitWarning_ThrowingExceptionEventHandler_Throws()
     {
         // Arrange
+        DisableWarningTracking();
+
         const string ExceptionMessage = "Warning event handler exception.";
 
         Lua.WarningEmitted += static (_, _) => throw new Exception(ExceptionMessage);

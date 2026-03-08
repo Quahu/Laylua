@@ -114,12 +114,10 @@ public abstract unsafe partial class LuaThread : LuaReference
     ///     Raises a Lua error.
     /// </summary>
     /// <remarks>
-    ///     This should be used to propagate errors
-    ///     from .NET to Lua.
+    ///     This should be used to propagate errors from .NET to Lua.
     ///     <para/>
-    ///     For example, if Lua calls a .NET method
-    ///     with unexpected arguments, this method can be used
-    ///     to indicate the method was called incorrectly.
+    ///     For example, if Lua calls a .NET method with unexpected arguments,
+    ///     this method can be used to indicate the method was called incorrectly.
     /// </remarks>
     /// <param name="message"> The error message. </param>
     /// <returns>
@@ -135,6 +133,11 @@ public abstract unsafe partial class LuaThread : LuaReference
     {
         ThrowIfInvalid();
 
+        // Pcall: throw sentinel -> wrapper catches -> PrepareErrorInfo -> lua_error from asm
+        // Non-pcall: luaL_error -> HookAsm panic path -> LuaPanicException
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(message.ToString(), null);
+
         return luaL_error(State.L, message);
     }
 
@@ -144,6 +147,9 @@ public abstract unsafe partial class LuaThread : LuaReference
     public int RaiseError(string message)
     {
         ThrowIfInvalid();
+
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(message, null);
 
         return luaL_error(State.L, message);
     }
@@ -166,7 +172,10 @@ public abstract unsafe partial class LuaThread : LuaReference
     [DoesNotReturn]
     public int RaiseError(Exception exception)
     {
-        return RaiseError(null, exception);
+        ThrowIfInvalid();
+
+        // Always LuaRaisedException so the wrapper can preserve the message either way
+        throw new LuaRaisedException(exception.Message, exception);
     }
 
     /// <summary>
@@ -190,6 +199,9 @@ public abstract unsafe partial class LuaThread : LuaReference
     {
         ThrowIfInvalid();
 
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(message ?? exception.Message, exception);
+
         return LuaException.RaiseErrorInfo(State.L, message, exception);
     }
 
@@ -199,6 +211,9 @@ public abstract unsafe partial class LuaThread : LuaReference
     public int RaiseArgumentError(int argumentIndex, ReadOnlySpan<char> extraMessage = default)
     {
         ThrowIfInvalid();
+
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(FormatArgError(State.L, argumentIndex, extraMessage.Length > 0 ? extraMessage.ToString() : null), null);
 
         return luaL_argerror(State.L, argumentIndex, extraMessage);
     }
@@ -210,6 +225,9 @@ public abstract unsafe partial class LuaThread : LuaReference
     {
         ThrowIfInvalid();
 
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(FormatArgError(State.L, argumentIndex, extraMessage), null);
+
         return luaL_argerror(State.L, argumentIndex, extraMessage);
     }
 
@@ -219,6 +237,9 @@ public abstract unsafe partial class LuaThread : LuaReference
     public int RaiseArgumentTypeError(int argumentIndex, ReadOnlySpan<char> typeName)
     {
         ThrowIfInvalid();
+
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(FormatTypeError(State.L, argumentIndex, typeName.ToString()), null);
 
         return luaL_typeerror(State.L, argumentIndex, typeName);
     }
@@ -230,7 +251,61 @@ public abstract unsafe partial class LuaThread : LuaReference
     {
         ThrowIfInvalid();
 
+        if (LayluaState.FromExtraSpace(State.L).IsPCall)
+            throw new LuaRaisedException(FormatTypeError(State.L, argumentIndex, typeName), null);
+
         return luaL_typeerror(State.L, argumentIndex, typeName);
+    }
+
+    // Formats the same string luaL_argerror would, but without calling lua_error
+    // Uses lua_getstack + lua_getinfo which are safe (no longjmp)
+    private static unsafe string FormatArgError(lua_State* L, int argumentIndex, string? extraMessage)
+    {
+        luaL_where(L, 1);
+        var where = lua_tostring(L, -1).ToString() ?? "";
+        lua_pop(L, 1);
+
+        lua_Debug ar;
+        if (lua_getstack(L, 0, &ar))
+        {
+            lua_getinfo(L, "n"u8, &ar);
+            var namewhat = ar.GetNameWhat();
+            if (namewhat == "method")
+            {
+                argumentIndex--;
+                if (argumentIndex == 0)
+                {
+                    var name = ar.GetName() ?? "?";
+                    return $"{where}calling '{name}' on bad self ({extraMessage})";
+                }
+            }
+
+            var funcName = ar.GetName() ?? "?";
+            return $"{where}bad argument #{argumentIndex} to '{funcName}' ({extraMessage})";
+        }
+
+        return $"{where}bad argument #{argumentIndex} ({extraMessage})";
+    }
+
+    // Same deal as FormatArgError but for luaL_typeerror - checks __name metafield, etc.
+    private static unsafe string FormatTypeError(lua_State* L, int argumentIndex, string typeName)
+    {
+        string typearg;
+        if (luaL_getmetafield(L, argumentIndex, "__name") == (int)LuaType.String)
+        {
+            typearg = lua_tostring(L, -1).ToString() ?? "?";
+            lua_pop(L, 1);
+        }
+        else if (lua_type(L, argumentIndex) == LuaType.LightUserData)
+        {
+            typearg = "light userdata";
+        }
+        else
+        {
+            typearg = luaL_typename(L, argumentIndex).ToString() ?? "?";
+        }
+
+        return FormatArgError(L, argumentIndex, $"{typeName} expected, got {typearg}");
     }
 
     /// <inheritdoc cref="EmitWarning(ReadOnlySpan{char})"/>

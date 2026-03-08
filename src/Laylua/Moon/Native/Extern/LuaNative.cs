@@ -16,179 +16,147 @@ public static unsafe partial class LuaNative
      *  State manipulation
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_State* lua_newstate(LuaAllocFunction f, void* ud);
+    [LuaExport]
+    public static partial lua_State* lua_newstate(LuaAllocFunction f, void* ud);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_close(lua_State* L);
+    [LuaExport]
+    public static partial void lua_close(lua_State* L);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate lua_State* _lua_newthreadDelegate(lua_State* L);
+    [LuaExport(Throws = true)]
+    public static partial lua_State* lua_newthread(lua_State* L);
 
-    private static _lua_newthreadDelegate _lua_newthread = null!;
+    [LuaExport]
+    public static partial LuaStatus lua_resetthread(lua_State* L);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static lua_State* lua_newthread(lua_State* L)
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate IntPtr _lua_atpanicDelegate(lua_State* L, IntPtr panicf);
+
+    [LuaExport]
+    private static _lua_atpanicDelegate _lua_atpanic = null!;
+
+    public static LuaCFunction lua_atpanic(lua_State* L, LuaCFunction panicf)
     {
-        return _lua_newthread(L);
+        var resultPtr = _lua_atpanic(L, Marshal.GetFunctionPointerForDelegate(panicf));
+        return Marshal.GetDelegateForFunctionPointer<LuaCFunction>(resultPtr);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaStatus lua_resetthread(lua_State* L);
+    public static delegate* unmanaged[Cdecl]<lua_State*, int> lua_atpanic(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, int> panicf)
+    {
+        return (delegate* unmanaged[Cdecl]<lua_State*, int>)(void*)_lua_atpanic(L, (IntPtr)panicf);
+    }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaCFunction lua_atpanic(lua_State* L, LuaCFunction panicf);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern delegate* unmanaged[Cdecl]<lua_State*, int> lua_atpanic(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, int> panicf);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_Number lua_version(lua_State* L);
+    [LuaExport]
+    public static partial lua_Number lua_version(lua_State* L);
 
     /*
      *
      *  Basic stack manipulation
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_absindex(lua_State* L, int idx);
+    [LuaExport]
+    public static partial int lua_absindex(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gettop(lua_State* L);
+    [LuaExport]
+    public static partial int lua_gettop(lua_State* L);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_settopDelegate(lua_State* L, int idx);
+    [LuaExport(Throws = true)]
+    public static partial void lua_settop(lua_State* L, int idx);
 
-    private static _lua_settopDelegate _lua_settop = null!;
+    [LuaExport]
+    public static partial void lua_pushvalue(lua_State* L, int idx);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_settop(lua_State* L, int idx)
-    {
-        _lua_settop(L, idx);
-    }
+    [LuaExport]
+    public static partial void lua_rotate(lua_State* L, int idx, int n);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_pushvalue(lua_State* L, int idx);
+    [LuaExport]
+    public static partial void lua_copy(lua_State* L, int fromidx, int toidx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_rotate(lua_State* L, int idx, int n);
+    [LuaExport]
+    public static partial bool lua_checkstack(lua_State* L, int n);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_copy(lua_State* L, int fromidx, int toidx);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_checkstack(lua_State* L, int n);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_xmove(lua_State* from, lua_State* to, int n);
+    [LuaExport]
+    public static partial void lua_xmove(lua_State* from, lua_State* to, int n);
 
     /*
      *
      *  Access functions (stack -> C)
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_isnumber(lua_State* L, int idx);
+    [LuaExport]
+    public static partial bool lua_isnumber(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_isstring(lua_State* L, int idx);
+    [LuaExport]
+    public static partial bool lua_isstring(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_iscfunction(lua_State* L, int idx);
+    [LuaExport]
+    public static partial bool lua_iscfunction(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_isinteger(lua_State* L, int idx);
+    [LuaExport]
+    public static partial bool lua_isinteger(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_isuserdata(lua_State* L, int idx);
+    [LuaExport]
+    public static partial bool lua_isuserdata(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaType lua_type(lua_State* L, int idx);
+    [LuaExport]
+    public static partial LuaType lua_type(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    [return: MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(AnsiStringMarshaler))]
-    public static extern string lua_typename(lua_State* L, LuaType tp);
+    [LuaExport]
+    public static partial LuaString lua_typename(lua_State* L, LuaType tp);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_Number lua_tonumberx(lua_State* L, int idx, out bool isnum);
+    [LuaExport]
+    public static partial lua_Number lua_tonumberx(lua_State* L, int idx, out bool isnum);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_Integer lua_tointegerx(lua_State* L, int idx, out bool isnum);
+    [LuaExport]
+    public static partial lua_Integer lua_tointegerx(lua_State* L, int idx, out bool isnum);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_toboolean(lua_State* L, int idx);
+    [LuaExport]
+    public static partial bool lua_toboolean(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_tolstring))]
-    private static extern byte* _lua_tolstring(lua_State* L, int idx, out nuint len);
+    [LuaExport]
+    public static partial LuaString lua_tolstring(lua_State* L, int idx, out nuint len);
 
-    public static LuaString lua_tolstring(lua_State* L, int idx, out nuint len)
-    {
-        var ptr = _lua_tolstring(L, idx, out len);
-        return new LuaString(ptr, len);
-    }
+    [LuaExport]
+    public static partial lua_Unsigned lua_rawlen(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_Unsigned lua_rawlen(lua_State* L, int idx);
+    [LuaExport]
+    public static partial LuaCFunction? lua_tocfunction(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaCFunction? lua_tocfunction(lua_State* L, int idx);
+    [LuaExport]
+    public static partial void* lua_touserdata(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void* lua_touserdata(lua_State* L, int idx);
+    [LuaExport]
+    public static partial lua_State* lua_tothread(lua_State* L, int idx);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern lua_State* lua_tothread(lua_State* L, int idx);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void* lua_topointer(lua_State* L, int idx);
+    [LuaExport]
+    public static partial void* lua_topointer(lua_State* L, int idx);
 
     /*
      *
      *  Comparison and arithmetic functions
      *
      */
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_arithDelegate(lua_State* L, LuaOperation op);
+    [LuaExport(Throws = true)]
+    public static partial void lua_arith(lua_State* L, LuaOperation op);
 
-    private static _lua_arithDelegate _lua_arith = null!;
+    [LuaExport]
+    public static partial bool lua_rawequal(lua_State* L, int idx1, int idx2);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_arith(lua_State* L, LuaOperation op)
-    {
-        _lua_arith(L, op);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_rawequal(lua_State* L, int idx1, int idx2);
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate bool _lua_compareDelegate(lua_State* L, int idx1, int idx2, LuaComparison op);
-
-    private static _lua_compareDelegate _lua_compare = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool lua_compare(lua_State* L, int idx1, int idx2, LuaComparison op)
-    {
-        return _lua_compare(L, idx1, idx2, op);
-    }
+    [LuaExport(Throws = true)]
+    public static partial bool lua_compare(lua_State* L, int idx1, int idx2, LuaComparison op);
 
     /*
      *
      *  Push functions (C -> stack)
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_pushnil(lua_State* L);
+    [LuaExport]
+    public static partial void lua_pushnil(lua_State* L);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_pushnumber(lua_State* L, lua_Number n);
+    [LuaExport]
+    public static partial void lua_pushnumber(lua_State* L, lua_Number n);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_pushinteger(lua_State* L, lua_Integer n);
+    [LuaExport]
+    public static partial void lua_pushinteger(lua_State* L, lua_Integer n);
 
     //[DllImport(DllName, CallingConvention = Cdecl, EntryPoint = "lua_pushlstring")]
     //private static extern byte* _lua_pushlstring(lua_State* L, byte* s, nuint len);
@@ -199,9 +167,9 @@ public static unsafe partial class LuaNative
     [UnmanagedFunctionPointer(Cdecl)]
     private delegate byte* _lua_pushlstringDelegate(lua_State* L, byte* s, nuint len);
 
+    [LuaExport("lua_pushlstring", Throws = true)]
     private static _lua_pushlstringDelegate _lua_pushlstring = null!;
 
-    [ErrorExport("lua_pushlstring")]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static byte* lua_pushstring(lua_State* L, ReadOnlySpan<char> s)
     {
@@ -209,7 +177,9 @@ public static unsafe partial class LuaNative
         {
             fixed (byte* ptr = bytes)
             {
-                return _lua_pushlstring(L, ptr, len);
+                var result = _lua_pushlstring(L, ptr, len);
+                LayluaNative.ThrowIfPendingPanic();
+                return result;
             }
         }
     }
@@ -243,268 +213,119 @@ public static unsafe partial class LuaNative
     [UnmanagedFunctionPointer(Cdecl)]
     private delegate void _lua_pushcclosureDelegate(lua_State* L, IntPtr fn, int n);
 
+    [LuaExport(Throws = true)]
     private static _lua_pushcclosureDelegate _lua_pushcclosure = null!;
 
-    [ErrorExport]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static void lua_pushcclosure(lua_State* L, LuaCFunction fn, int n)
     {
         var wrapperPtr = LayluaNative.CreateLuaCFunctionWrapper(fn);
-#if TRACE_PANIC
-        Console.WriteLine("wrapperPtr: 0x{0:X}", wrapperPtr);
-#endif
         _lua_pushcclosure(L, wrapperPtr, n);
+        LayluaNative.ThrowIfPendingPanic();
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_pushboolean(lua_State* L, bool b);
+    [LuaExport]
+    public static partial void lua_pushboolean(lua_State* L, bool b);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_pushlightuserdata(lua_State* L, void* p);
+    [LuaExport]
+    public static partial void lua_pushlightuserdata(lua_State* L, void* p);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_pushthread(lua_State* L);
+    [LuaExport]
+    public static partial bool lua_pushthread(lua_State* L);
 
     /*
      *
      *  Get functions (Lua -> stack)
      *
      */
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate LuaType _lua_getglobalDelegate(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+    [LuaExport(Throws = true)]
+    public static partial LuaType lua_getglobal(lua_State* L, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
 
-    private static _lua_getglobalDelegate _lua_getglobal = null!;
+    [LuaExport(Throws = true)]
+    public static partial LuaType lua_gettable(lua_State* L, int idx);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LuaType lua_getglobal(lua_State* L, string name)
-    {
-        return _lua_getglobal(L, name);
-    }
+    [LuaExport(Throws = true)]
+    public static partial LuaType lua_getfield(lua_State* L, int idx, ReadOnlySpan<char> k);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate LuaType _lua_gettableDelegate(lua_State* L, int idx);
+    [LuaExport(Throws = true)]
+    public static partial LuaType lua_geti(lua_State* L, int idx, lua_Integer n);
 
-    private static _lua_gettableDelegate _lua_gettable = null!;
+    [LuaExport]
+    public static partial LuaType lua_rawget(lua_State* L, int idx);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LuaType lua_gettable(lua_State* L, int idx)
-    {
-        return _lua_gettable(L, idx);
-    }
+    [LuaExport]
+    public static partial LuaType lua_rawgeti(lua_State* L, int idx, lua_Integer n);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate LuaType _lua_getfieldDelegate(lua_State* L, int idx, byte* k);
+    [LuaExport]
+    public static partial LuaType lua_rawgetp(lua_State* L, int idx, void* p);
 
-    private static _lua_getfieldDelegate _lua_getfield = null!;
+    [LuaExport(Throws = true)]
+    public static partial void lua_createtable(lua_State* L, int narr, int nrec);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LuaType lua_getfield(lua_State* L, int idx, ReadOnlySpan<char> k)
-    {
-        using (var bytes = ToCString(k))
-        {
-            fixed (byte* ptr = bytes)
-            {
-                return _lua_getfield(L, idx, ptr);
-            }
-        }
-    }
+    [LuaExport(Throws = true)]
+    public static partial void* lua_newuserdatauv(lua_State* L, nuint size, int nuvalue);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate LuaType _lua_getiDelegate(lua_State* L, int idx, lua_Integer n);
+    [LuaExport]
+    public static partial bool lua_getmetatable(lua_State* L, int objindex);
 
-    private static _lua_getiDelegate _lua_geti = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LuaType lua_geti(lua_State* L, int idx, lua_Integer n)
-    {
-        return _lua_geti(L, idx, n);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaType lua_rawget(lua_State* L, int idx);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaType lua_rawgeti(lua_State* L, int idx, lua_Integer n);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaType lua_rawgetp(lua_State* L, int idx, void* p);
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_createtableDelegate(lua_State* L, int narr, int nrec);
-
-    private static _lua_createtableDelegate _lua_createtable = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_createtable(lua_State* L, int narr, int nrec)
-    {
-        _lua_createtable(L, narr, nrec);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void* _lua_newuserdatauvDelegate(lua_State* L, nuint size, int nuvalue);
-
-    private static _lua_newuserdatauvDelegate _lua_newuserdatauv = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void* lua_newuserdatauv(lua_State* L, nuint size, int nuvalue)
-    {
-        return _lua_newuserdatauv(L, size, nuvalue);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_getmetatable(lua_State* L, int objindex);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaType lua_getiuservalue(lua_State* L, int idx, int n);
+    [LuaExport]
+    public static partial LuaType lua_getiuservalue(lua_State* L, int idx, int n);
 
     /*
      *
      *  Set functions (stack -> Lua)
      *
      */
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_setglobalDelegate(lua_State* L, byte* name);
+    [LuaExport(Throws = true)]
+    public static partial void lua_setglobal(lua_State* L, ReadOnlySpan<char> name);
 
-    private static _lua_setglobalDelegate _lua_setglobal = null!;
+    [LuaExport(Throws = true)]
+    public static partial void lua_settable(lua_State* L, int idx);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_setglobal(lua_State* L, ReadOnlySpan<char> name)
-    {
-        using (var bytes = ToCString(name))
-        {
-            fixed (byte* ptr = bytes)
-            {
-                _lua_setglobal(L, ptr);
-            }
-        }
-    }
+    [LuaExport(Throws = true)]
+    public static partial void lua_setfield(lua_State* L, int idx, ReadOnlySpan<char> k);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_settableDelegate(lua_State* L, int idx);
+    [LuaExport(Throws = true)]
+    public static partial void lua_seti(lua_State* L, int idx, lua_Integer n);
 
-    private static _lua_settableDelegate _lua_settable = null!;
+    [LuaExport(Throws = true)]
+    public static partial void lua_rawset(lua_State* L, int idx);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_settable(lua_State* L, int idx)
-    {
-        _lua_settable(L, idx);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void lua_rawseti(lua_State* L, int idx, lua_Integer n);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_setfieldDelegate(lua_State* L, int idx, byte* k);
+    [LuaExport(Throws = true)]
+    public static partial void lua_rawsetp(lua_State* L, int idx, void* p);
 
-    private static _lua_setfieldDelegate _lua_setfield = null!;
+    [LuaExport]
+    public static partial void lua_setmetatable(lua_State* L, int objindex);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_setfield(lua_State* L, int idx, ReadOnlySpan<char> k)
-    {
-        using (var bytes = ToCString(k))
-        {
-            fixed (byte* ptr = bytes)
-            {
-                _lua_setfield(L, idx, ptr);
-            }
-        }
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_setiDelegate(lua_State* L, int idx, lua_Integer n);
-
-    private static _lua_setiDelegate _lua_seti = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_seti(lua_State* L, int idx, lua_Integer n)
-    {
-        _lua_seti(L, idx, n);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_rawsetDelegate(lua_State* L, int idx);
-
-    private static _lua_rawsetDelegate _lua_rawset = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_rawset(lua_State* L, int idx)
-    {
-        _lua_rawset(L, idx);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_rawsetiDelegate(lua_State* L, int idx, lua_Integer n);
-
-    private static _lua_rawsetiDelegate _lua_rawseti = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_rawseti(lua_State* L, int idx, lua_Integer n)
-    {
-        _lua_rawseti(L, idx, n);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_rawsetpDelegate(lua_State* L, int idx, void* p);
-
-    private static _lua_rawsetpDelegate _lua_rawsetp = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_rawsetp(lua_State* L, int idx, void* p)
-    {
-        _lua_rawsetp(L, idx, p);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_setmetatable(lua_State* L, int objindex);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_setiuservalue(lua_State* L, int idx, int n);
+    [LuaExport]
+    public static partial bool lua_setiuservalue(lua_State* L, int idx, int n);
 
     /*
      *
      *  'load' and 'call' functions (load and run Lua code)
      *
      */
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_callkDelegate(lua_State* L, int nargs, int nresults, void* ctx, LuaKFunction? k);
-
-    private static _lua_callkDelegate _lua_callk = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_callk(lua_State* L, int nargs, int nresults, void* ctx, LuaKFunction? k)
-    {
-        _lua_callk(L, nargs, nresults, ctx, k);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void lua_callk(lua_State* L, int nargs, int nresults, void* ctx, LuaKFunction? k);
 
     public static void lua_call(lua_State* L, int nargs, int nresults)
     {
         lua_callk(L, nargs, nresults, null, null);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_pcallk))]
-    private static extern LuaStatus _lua_pcallk(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, IntPtr k);
+    [LuaExport("lua_pcallk", PCall = true)]
+    private static partial LuaStatus lua_pcallk_raw(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, IntPtr k);
 
     public static LuaStatus lua_pcallk(lua_State* L, int nargs, int nresults, int errfunc, void* ctx, LuaKFunction? k)
     {
-        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
-        {
-            var wrapperPtr = k != null
-                ? LayluaNative.CreateLuaKFunctionWrapper(k)
-                : IntPtr.Zero;
+        var wrapperPtr = k != null
+            ? LayluaNative.CreateLuaKFunctionWrapper(k)
+            : IntPtr.Zero;
 
-            return _lua_pcallk(L, nargs, nresults, errfunc, ctx, wrapperPtr);
-        }
+        return lua_pcallk_raw(L, nargs, nresults, errfunc, ctx, wrapperPtr);
     }
 
     public static LuaStatus lua_pcall(lua_State* L, int nargs, int nresults, int errfunc)
@@ -512,68 +333,51 @@ public static unsafe partial class LuaNative
         return lua_pcallk(L, nargs, nresults, errfunc, null, null);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_load))]
-    private static extern LuaStatus _lua_load(lua_State* L, void* reader, void* data, byte* chunkname, byte* mode);
+    [LuaExport("lua_load", PCall = true)]
+    private static partial LuaStatus lua_load_raw(lua_State* L, void* reader, void* data, ReadOnlySpan<char> chunkname, ReadOnlySpan<char> mode);
 
     public static LuaStatus lua_load(lua_State* L, LuaReaderFunction reader, void* data, ReadOnlySpan<char> chunkname, ReadOnlySpan<char> mode)
     {
-        using (var chunkNameBytes = ToCString(chunkname))
-        using (var modeBytes = ToCString(mode))
-        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
-        {
-            fixed (byte* chunkNamePtr = chunkNameBytes)
-            fixed (byte* modePtr = modeBytes)
-            {
-                return _lua_load(L, (void*) Marshal.GetFunctionPointerForDelegate(reader), data, chunkNamePtr, modePtr);
-            }
-        }
+        return lua_load_raw(L, (void*) Marshal.GetFunctionPointerForDelegate(reader), data, chunkname, mode);
     }
 
     public static LuaStatus lua_load(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, void*, nuint*, byte*> reader, void* data, ReadOnlySpan<char> chunkname, ReadOnlySpan<char> mode)
     {
-        using (var chunkNameBytes = ToCString(chunkname))
-        using (var modeBytes = ToCString(mode))
-        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
-        {
-            fixed (byte* chunkNamePtr = chunkNameBytes)
-            fixed (byte* modePtr = modeBytes)
-            {
-                return _lua_load(L, reader, data, chunkNamePtr, modePtr);
-            }
-        }
+        return lua_load_raw(L, reader, data, chunkname, mode);
     }
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_dump(lua_State* L, LuaWriterFunction writer, void* data, bool strip);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int _lua_dumpDelegate(lua_State* L, IntPtr writer, void* data, bool strip);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_dump(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writer, void* data, bool strip);
+    [LuaExport]
+    private static _lua_dumpDelegate _lua_dump = null!;
+
+    public static int lua_dump(lua_State* L, LuaWriterFunction writer, void* data, bool strip)
+    {
+        return _lua_dump(L, Marshal.GetFunctionPointerForDelegate(writer), data, strip);
+    }
+
+    public static int lua_dump(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writer, void* data, bool strip)
+    {
+        return _lua_dump(L, (IntPtr)writer, data, strip);
+    }
 
     /*
      *
      *  Coroutine functions
      *
      */
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate int _lua_yieldkDelegate(lua_State* L, int nresults, void* ctx, LuaKFunction? k);
+    [LuaExport(Throws = true)]
+    public static partial int lua_yieldk(lua_State* L, int nresults, void* ctx, LuaKFunction? k);
 
-    private static _lua_yieldkDelegate _lua_yieldk = null!;
+    [LuaExport]
+    public static partial LuaStatus lua_resume(lua_State* L, lua_State* from, int narg, out int nres);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static int lua_yieldk(lua_State* L, int nresults, void* ctx, LuaKFunction? k)
-    {
-        return _lua_yieldk(L, nresults, ctx, k);
-    }
+    [LuaExport]
+    public static partial LuaStatus lua_status(lua_State* L);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaStatus lua_resume(lua_State* L, lua_State* from, int narg, out int nres);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaStatus lua_status(lua_State* L);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_isyieldable(lua_State* L);
+    [LuaExport]
+    public static partial bool lua_isyieldable(lua_State* L);
 
     public static int lua_yield(lua_State* L, int nresults)
     {
@@ -585,53 +389,37 @@ public static unsafe partial class LuaNative
      *  Warning-related functions
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_setwarnf(lua_State* L, LuaWarnFunction f, void* ud);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void _lua_setwarnfDelegate(lua_State* L, IntPtr f, void* ud);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_setwarnf(lua_State* L, IntPtr f, void* ud);
+    [LuaExport]
+    private static _lua_setwarnfDelegate _lua_setwarnf = null!;
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_setwarnf(lua_State* L, delegate* unmanaged[Cdecl]<void*, byte*, int, void> f, void* ud);
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_warningDelegate(lua_State* L, byte* msg, bool tocont);
-
-    private static _lua_warningDelegate _lua_warning = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void lua_warning(lua_State* L, byte* msg, bool tocont)
+    public static void lua_setwarnf(lua_State* L, LuaWarnFunction f, void* ud)
     {
-        _lua_warning(L, msg, tocont);
+        _lua_setwarnf(L, Marshal.GetFunctionPointerForDelegate(f), ud);
     }
 
-    public static void lua_warning(lua_State* L, ReadOnlySpan<char> msg, bool tocont)
+    public static void lua_setwarnf(lua_State* L, IntPtr f, void* ud)
     {
-        using (var bytes = ToCString(msg))
-        {
-            fixed (byte* ptr = bytes)
-            {
-                lua_warning(L, ptr, tocont);
-            }
-        }
+        _lua_setwarnf(L, f, ud);
     }
+
+    public static void lua_setwarnf(lua_State* L, delegate* unmanaged[Cdecl]<void*, byte*, int, void> f, void* ud)
+    {
+        _lua_setwarnf(L, (IntPtr)f, ud);
+    }
+
+    [LuaExport(Throws = true)]
+    public static partial void lua_warning(lua_State* L, ReadOnlySpan<char> msg, bool tocont);
 
     /*
      *
      * Garbage-collection function and options
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl, EntryPoint = nameof(lua_gc))]
-    private static extern int _lua_gc(lua_State* L, LuaGCOperation what, int arg1, int arg2, int arg3);
-
-    public static int lua_gc(lua_State* L, LuaGCOperation what, int arg1 = 0, int arg2 = 0, int arg3 = 0)
-    {
-        using (LayluaState.FromExtraSpace(L).EnterPCallContext())
-        {
-            return _lua_gc(L, what, arg1, arg2, arg3);
-        }
-    }
+    [LuaExport("lua_gc", PCall = true)]
+    public static partial int lua_gc(lua_State* L, LuaGCOperation what, int arg1 = 0, int arg2 = 0, int arg3 = 0);
 
     /*
      *
@@ -643,155 +431,75 @@ public static unsafe partial class LuaNative
 
     // public static delegate* unmanaged[Cdecl]<lua_State*, int> lua_error;
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate int _lua_errorDelegate(lua_State* L);
-
-    private static _lua_errorDelegate _lua_error = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [LuaExport(Throws = true)]
     [DoesNotReturn]
-#nullable disable
-    public static int lua_error(lua_State* L)
-    {
-        return _lua_error(L);
-    }
-#nullable enable
+    public static partial int lua_error(lua_State* L);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate bool _lua_nextDelegate(lua_State* L, int idx);
+    [LuaExport(Throws = true)]
+    public static partial bool lua_next(lua_State* L, int idx);
 
-    private static _lua_nextDelegate _lua_next = null!;
+    [LuaExport(Throws = true)]
+    public static partial void lua_concat(lua_State* L, int n);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool lua_next(lua_State* L, int idx)
-    {
-        return _lua_next(L, idx);
-    }
+    [LuaExport(Throws = true)]
+    public static partial void lua_len(lua_State* L, int idx);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_concatDelegate(lua_State* L, int n);
+    [LuaExport]
+    public static partial nuint lua_stringtonumber(lua_State* L, [MarshalAs(UnmanagedType.LPStr)] string s);
 
-    private static _lua_concatDelegate _lua_concat = null!;
+    [LuaExport]
+    public static partial LuaAllocFunction lua_getallocf(lua_State* L, out void* ud);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_concat(lua_State* L, int n)
-    {
-        _lua_concat(L, n);
-    }
+    [LuaExport]
+    public static partial void lua_setallocf(lua_State* L, LuaAllocFunction f, void* ud);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_lenDelegate(lua_State* L, int idx);
+    [LuaExport(Throws = true)]
+    public static partial void lua_toclose(lua_State* L, int idx);
 
-    private static _lua_lenDelegate _lua_len = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_len(lua_State* L, int idx)
-    {
-        _lua_len(L, idx);
-    }
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern nuint lua_stringtonumber(lua_State* L, [MarshalAs(UnmanagedType.LPStr)] string s);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaAllocFunction lua_getallocf(lua_State* L, out void* ud);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_setallocf(lua_State* L, LuaAllocFunction f, void* ud);
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_tocloseDelegate(lua_State* L, int idx);
-
-    private static _lua_tocloseDelegate _lua_toclose = null!;
-
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_toclose(lua_State* L, int idx)
-    {
-        _lua_toclose(L, idx);
-    }
-
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate void _lua_closeslotDelegate(lua_State* L, int idx);
-
-    private static _lua_closeslotDelegate? _lua_closeslot = null;
-
-    [ErrorExport, OptionalExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void lua_closeslot(lua_State* L, int idx)
-    {
-        if (_lua_closeslot == null)
-            throw new InvalidOperationException($"{nameof(lua_closeslot)} is not available on this Lua version.");
-
-        _lua_closeslot(L, idx);
-    }
+    [LuaExport(Throws = true), LuaOptional]
+    public static partial void lua_closeslot(lua_State* L, int idx);
 
     /*
      *
      * Debug functions
      *
      */
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern bool lua_getstack(lua_State* L, int level, lua_Debug* ar);
+    [LuaExport]
+    public static partial bool lua_getstack(lua_State* L, int level, lua_Debug* ar);
 
-    [UnmanagedFunctionPointer(Cdecl)]
-    private delegate bool _lua_getinfoDelegate(lua_State* L, byte* what, lua_Debug* ar);
+    [LuaExport(Throws = true)]
+    public static partial bool lua_getinfo(lua_State* L, ReadOnlySpan<byte> what, lua_Debug* ar);
 
-    private static _lua_getinfoDelegate _lua_getinfo = null!;
+    [LuaExport]
+    public static partial LuaString lua_getlocal(lua_State* L, lua_Debug* ar, int n);
 
-    [ErrorExport]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static bool lua_getinfo(lua_State* L, ReadOnlySpan<byte> what, lua_Debug* ar)
-    {
-        fixed (byte* whatPtr = what)
-        {
-            return _lua_getinfo(L, whatPtr, ar);
-        }
-    }
+    [LuaExport]
+    public static partial LuaString lua_setlocal(lua_State* L, lua_Debug* ar, int n);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    [return: MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(AnsiStringMarshaler))]
-    public static extern string lua_getlocal(lua_State* L, lua_Debug* ar, int n);
+    [LuaExport]
+    public static partial LuaString lua_getupvalue(lua_State* L, int funcindex, int n);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    [return: MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(AnsiStringMarshaler))]
-    public static extern string lua_setlocal(lua_State* L, lua_Debug* ar, int n);
+    [LuaExport]
+    public static partial LuaString lua_setupvalue(lua_State* L, int funcindex, int n);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    private static extern byte* _lua_getupvalue(lua_State* L, int funcindex, int n);
+    [LuaExport]
+    public static partial void* lua_upvalueid(lua_State* L, int fidx1, int n);
 
-    public static LuaString lua_getupvalue(lua_State* L, int funcindex, int n)
-    {
-        var ptr = _lua_getupvalue(L, funcindex, n);
-        return new LuaString(ptr);
-    }
+    [LuaExport]
+    public static partial void lua_upvaluejoin(lua_State* L, int fidx1, int n1, int fidx2, int n2);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    [return: MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(AnsiStringMarshaler))]
-    public static extern string lua_setupvalue(lua_State* L, int funcindex, int n);
+    [LuaExport]
+    public static partial void lua_sethook(lua_State* L, LuaHookFunction? func, LuaEventMask mask, int count);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void* lua_upvalueid(lua_State* L, int fidx1, int n);
+    [LuaExport]
+    public static partial LuaHookFunction? lua_gethook(lua_State* L);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_upvaluejoin(lua_State* L, int fidx1, int n1, int fidx2, int n2);
+    [LuaExport]
+    public static partial LuaEventMask lua_gethookmask(lua_State* L);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern void lua_sethook(lua_State* L, LuaHookFunction? func, LuaEventMask mask, int count);
+    [LuaExport]
+    public static partial int lua_gethookcount(lua_State* L);
 
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaHookFunction? lua_gethook(lua_State* L);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern LuaEventMask lua_gethookmask(lua_State* L);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_gethookcount(lua_State* L);
-
-    [DllImport(DllName, CallingConvention = Cdecl)]
-    public static extern int lua_setcstacklimit(lua_State* L, uint limit);
+    [LuaExport]
+    public static partial int lua_setcstacklimit(lua_State* L, uint limit);
 }

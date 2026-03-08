@@ -124,4 +124,18 @@ public class LuaException : Exception
         lua_pushlightuserdata(L, ptr.ToPointer());
         return lua_error(L);
     }
+
+    /// <summary>
+    /// Pushes error info onto the Lua stack without calling lua_error.
+    /// Used by the IsPCall path so that ManagedPanicAsm can call lua_error
+    /// from assembly (avoiding managed frames between lua_error and pcall's setjmp).
+    /// </summary>
+    internal static unsafe void PrepareErrorInfo(lua_State* L, string? message, Exception? exception)
+    {
+        var handle = GCHandle.Alloc(new ErrorInfo(message, exception));
+        var ptr = (IntPtr) handle;
+        ErrorInfoHandles[ptr] = handle;
+
+        lua_pushlightuserdata(L, ptr.ToPointer());
+    }
 }

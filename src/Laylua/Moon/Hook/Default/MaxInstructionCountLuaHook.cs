@@ -59,6 +59,7 @@ public sealed unsafe class MaxInstructionCountLuaHook : LuaHook
             }
         }
 
-        thread.RaiseError(exception);
+        // Throw, not RaiseError - wrapper catches it
+        throw exception;
     }
 }

@@ -285,6 +285,7 @@ public class LuaMarshalerTests : LuaTestBase
     public unsafe void LeakedReference_Finalized_IsTrackedAndUnreferenced()
     {
         // Arrange
+        Lua = CreateLua(marshaler: LuaMarshaler.Default);
         Lua.Stack.PushNewTable();
         var leakedReferences = GetLeakedReferences();
 
@@ -295,14 +296,21 @@ public class LuaMarshalerTests : LuaTestBase
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        Assert.That(leakedReferences, Does.Contain(reference));
-        Assert.That(lua_rawgeti(L, LuaRegistry.Index, reference), Is.EqualTo(LuaType.Table));
+        Assert.Multiple(() =>
+        {
+            Assert.That(leakedReferences, Does.Contain(reference));
+            Assert.That(lua_rawgeti(L, LuaRegistry.Index, reference), Is.EqualTo(LuaType.Table));
+        });
 
         // Get another reference for the leak cleanup to trigger
         Lua.Stack[-1].GetValue<LuaTable>()!.Dispose();
 
-        Assert.That(leakedReferences, Is.Empty);
-        Assert.That(lua_rawgeti(L, LuaRegistry.Index, reference), Is.Not.EqualTo(LuaType.Table));
+        Assert.Multiple(() =>
+        {
+            Assert.That(leakedReferences, Is.Empty);
+            Assert.That(lua_rawgeti(L, LuaRegistry.Index, reference), Is.Not.EqualTo(LuaType.Table));
+        });
+
         Lua.Stack.Pop(3);
 
         int GetLeakedReference()

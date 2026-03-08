@@ -92,17 +92,10 @@ public abstract unsafe class LuaState : ISpanFormattable
 
         _innerHookFunction = (state, ar) =>
         {
-            try
+            using (var thread = LuaThread.FromExtraSpace(state))
             {
-                using (var thread = LuaThread.FromExtraSpace(state))
-                {
-                    var debug = new LuaDebug(thread.State.L, ar);
-                    hook.Execute(thread, ar->@event, ref debug);
-                }
-            }
-            catch (Exception ex)
-            {
-                LuaException.RaiseErrorInfo(state, "An exception occurred while executing the hook.", ex);
+                var debug = new LuaDebug(thread.State.L, ar);
+                hook.Execute(thread, ar->@event, ref debug);
             }
         };
 
