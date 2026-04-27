@@ -45,6 +45,17 @@ public sealed unsafe partial class LuaFunction : LuaReference
         caller.Stack.Push(reference);
     }
 
+    private static void PrepareForCallWithStackArguments(LuaThread caller, LuaReference reference, int nargs)
+    {
+        caller.Stack.EnsureFreeCapacity(1);
+
+        caller.Stack.Push(reference);
+        if (nargs > 0)
+        {
+            lua_rotate(caller.State.L, -(nargs + 1), 1);
+        }
+    }
+
     internal static void PrepareForCall(LuaThread caller, LuaReference reference, int nargs, out int top)
     {
         PrepareForCall(caller, reference, nargs);
@@ -95,7 +106,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         var nargs = parameters.ArgumentCount;
         var nresults = parameters.ResultCount ?? LUA_MULTRET;
 
-        PrepareForCall(caller, this, nargs);
+        PrepareForCallWithStackArguments(caller, this, nargs);
         PCallCore(caller, nargs, nresults);
     }
 

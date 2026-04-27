@@ -287,4 +287,79 @@ public class LuaFunctionTests : LuaTestBase
 
         Lua.Stack.Pop(resultCount);
     }
+
+    [Test]
+    public void Call_CallParametersWithStackArgument_ReturnsExpectedResult()
+    {
+        // Arrange
+        using var function = Lua.Load("local x = ... return x + 1");
+        Lua.Stack.EnsureFreeCapacity(1);
+        Lua.Stack.Push(41);
+
+        var parameters = new LuaFunctionCallParameters
+        {
+            ArgumentCount = 1,
+            ResultCount = 1
+        };
+
+        // Act
+        function.Call(in parameters);
+
+        // Assert
+        Assert.That(Lua.Stack.Count, Is.EqualTo(1));
+        Assert.That(Lua.Stack[-1].GetValue<int>(), Is.EqualTo(42));
+
+        Lua.Stack.Pop();
+    }
+
+    [Test]
+    public void Call_CallParametersWithChildThreadStackArgument_ReturnsExpectedResult()
+    {
+        // Arrange
+        using var thread = Lua.CreateThread();
+        using var function = Lua.Load("local x = ... return x + 1");
+        thread.Stack.EnsureFreeCapacity(1);
+        thread.Stack.Push(41);
+
+        var parameters = new LuaFunctionCallParameters
+        {
+            Caller = thread,
+            ArgumentCount = 1,
+            ResultCount = 1
+        };
+
+        // Act
+        function.Call(in parameters);
+
+        // Assert
+        Assert.That(thread.Stack.Count, Is.EqualTo(1));
+        Assert.That(thread.Stack[-1].GetValue<int>(), Is.EqualTo(42));
+
+        thread.Stack.Pop();
+    }
+
+    [Test]
+    public void Call_CallParametersWithCallableArgument_CallsTargetFunction()
+    {
+        // Arrange
+        using var callableArgument = Lua.Load("return 'argument'");
+        using var function = Lua.Load("return 'target'");
+        Lua.Stack.EnsureFreeCapacity(1);
+        Lua.Stack.Push(callableArgument);
+
+        var parameters = new LuaFunctionCallParameters
+        {
+            ArgumentCount = 1,
+            ResultCount = 1
+        };
+
+        // Act
+        function.Call(in parameters);
+
+        // Assert
+        Assert.That(Lua.Stack.Count, Is.EqualTo(1));
+        Assert.That(Lua.Stack[-1].GetValue<string>(), Is.EqualTo("target"));
+
+        Lua.Stack.Pop();
+    }
 }
