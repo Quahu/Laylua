@@ -42,4 +42,25 @@ public class LuaWeakReferenceTests : LuaTestBase
         // Assert
         Assert.That(function, Is.Null);
     }
+
+    [Test]
+    public void WeakLuaReference_UsesIndependentKeyAndDoesNotResolveCollectedTargetToAnotherObject()
+    {
+        // Arrange
+        var staleWeakReference = Lua.Evaluate<LuaWeakReference<LuaTable>>("return {}");
+        Lua.State.GC.Collect();
+
+        using var liveReference = Lua.Evaluate<LuaTable>("return {}")!;
+        var liveWeakReference = liveReference.CreateWeakReference();
+
+        // Act
+        Lua.State.GC.Collect();
+
+        using var staleValue = staleWeakReference.GetValue();
+        using var liveValue = liveWeakReference.GetValue();
+
+        // Assert
+        Assert.That(staleValue, Is.Null);
+        Assert.That(liveValue, Is.Not.Null);
+    }
 }

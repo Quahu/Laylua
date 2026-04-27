@@ -24,12 +24,12 @@ public readonly unsafe struct LuaWeakReference<TReference>
     }
 
     private readonly LuaThread _thread;
-    private readonly void* _pointer;
+    private readonly LuaTable? _key;
 
-    internal LuaWeakReference(LuaThread thread, void* pointer)
+    internal LuaWeakReference(LuaThread thread, LuaTable key)
     {
         _thread = thread;
-        _pointer = pointer;
+        _key = key;
     }
 
     /// <summary>
@@ -40,7 +40,7 @@ public readonly unsafe struct LuaWeakReference<TReference>
     /// </returns>
     public TReference? GetValue()
     {
-        if (_thread == null || !_thread.Stack.TryEnsureFreeCapacity(2))
+        if (_thread == null || _key == null || !_thread.Stack.TryEnsureFreeCapacity(2))
         {
             return default;
         }
@@ -54,7 +54,8 @@ public readonly unsafe struct LuaWeakReference<TReference>
                 return default;
             }
 
-            var type = lua_rawgetp(L, -1, _pointer);
+            _thread.Stack.Push(_key);
+            var type = lua_rawget(L, -2);
             if (type.IsNoneOrNil())
             {
                 return default;
@@ -72,10 +73,10 @@ public readonly unsafe struct LuaWeakReference<TReference>
         }
     }
 
-    [MemberNotNull(nameof(_thread))]
+    [MemberNotNull(nameof(_thread), nameof(_key))]
     private void ThrowIfInvalid()
     {
-        if (_thread == null)
+        if (_thread == null || _key == null)
         {
             throw new InvalidOperationException($"This '{GetType().ToTypeString()}' has not been initialized.");
         }
@@ -89,22 +90,22 @@ internal static class LuaWeakReference
     public static unsafe bool TryCreate<TReference>(LuaThread thread, int stackIndex, out LuaWeakReference<TReference> weakReference)
         where TReference : LuaReference
     {
-        if (!TryCreate(thread, stackIndex, out var targetPointer))
+        if (!TryCreate(thread, stackIndex, out var key))
         {
             weakReference = default;
             return false;
         }
 
-        weakReference = new LuaWeakReference<TReference>(thread, targetPointer);
+        weakReference = new LuaWeakReference<TReference>(thread, key);
         return true;
     }
 
-    private static unsafe bool TryCreate(LuaThread thread, int stackIndex, out void* targetPointer)
+    private static unsafe bool TryCreate(LuaThread thread, int stackIndex, [MaybeNullWhen(false)] out LuaTable key)
     {
         var L = thread.State.L;
-        if (!lua_checkstack(L, 4))
+        if (!lua_checkstack(L, 5))
         {
-            targetPointer = null;
+            key = null;
             return false;
         }
 
@@ -117,15 +118,24 @@ internal static class LuaWeakReference
                 lua_createtable(L, 0, 1);
 
                 lua_pushstring(L, LuaMetatableKeysUtf8.__mode);
-                lua_pushstring(L, "v"u8);
+                lua_pushstring(L, "kv"u8);
                 lua_rawset(L, -3);
 
                 lua_setmetatable(L, -2);
             }
 
+            lua_createtable(L, 0, 0);
+            var keyIndex = lua_gettop(L);
+            if (!thread.Stack[keyIndex].TryGetValue(out LuaTable? createdKey) || createdKey == null)
+            {
+                key = null;
+                return false;
+            }
+
+            key = createdKey;
+            lua_pushvalue(L, keyIndex);
             lua_pushvalue(L, stackIndex);
-            targetPointer = lua_topointer(L, -1);
-            lua_rawsetp(L, -2, targetPointer);
+            lua_rawset(L, -4);
             return true;
         }
         finally
