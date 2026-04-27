@@ -55,6 +55,7 @@ public abstract unsafe class LuaState : ISpanFormattable
             {
                 _innerHookFunction = null;
                 _safeHookFunction = null;
+                _hook = null;
                 lua_sethook(L, null, 0, 0);
                 return;
             }

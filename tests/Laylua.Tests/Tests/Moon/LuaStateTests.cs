@@ -79,6 +79,25 @@ public class LuaStateTests : LuaTestBase
         Assert.That(fiveInstructionsHook.TimesCalled, Is.EqualTo(2));
     }
 
+    [Test]
+    public void Hook_ClearThenReassignSameHook_ClearsPropertyAndCallsHook()
+    {
+        // Arrange
+        var hook = new InstructionCountLuaHook(1);
+        Lua.State.Hook = hook;
+
+        // Act
+        Lua.State.Hook = null;
+        var clearedHook = Lua.State.Hook;
+
+        Lua.State.Hook = hook;
+        Lua.Execute("");
+
+        // Assert
+        Assert.That(clearedHook, Is.Null);
+        Assert.That(hook.TimesCalled, Is.GreaterThan(0));
+    }
+
     private sealed class FunctionNameGrabberLuaHook : LuaHook
     {
         protected override LuaEventMask EventMask => LuaEventMask.Call;
