@@ -472,7 +472,7 @@ public unsafe partial class DefaultLuaMarshaler
 
         if (clrType == typeof(decimal))
         {
-            if (value is >= (double) decimal.MinValue and <= (double) decimal.MaxValue)
+            if (LuaTypeServices.IsDecimalValueInRange(value))
             {
                 result = (decimal) value;
                 return true;

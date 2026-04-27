@@ -361,7 +361,8 @@ public static unsafe class LuaTypeServices
     internal static bool IsDecimalValueInRange(lua_Number value)
     {
         return !double.IsNaN(value) && !double.IsInfinity(value)
-            && value is >= (double) decimal.MinValue and <= (double) decimal.MaxValue;
+            && value > (double) decimal.MinValue
+            && value < (double) decimal.MaxValue;
     }
 
     internal static Type NormalizeBoundaryType(Type type)

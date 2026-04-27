@@ -555,6 +555,20 @@ public unsafe class LuaTypeServicesTests : LuaTestBase
     }
 
     [Test]
+    public void GetImplicitCompatibilityCost_DecimalBoundaryDouble_WithRangeValidation_ReturnsIncompatible()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_pushnumber(L, (double) decimal.MaxValue);
+
+        // Act
+        var cost = GetCompatibilityCost(Lua, typeof(decimal), LuaAllowedValueConversions.None, validateNumericRange: true);
+
+        // Assert
+        Assert.That(cost, Is.EqualTo(-1));
+    }
+
+    [Test]
     public void GetImplicitCompatibilityCost_FloatToDouble_ReturnsExactPrimitiveCost()
     {
         // Arrange

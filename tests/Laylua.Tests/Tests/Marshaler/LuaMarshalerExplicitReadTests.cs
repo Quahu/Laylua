@@ -109,6 +109,20 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
     }
 
     [Test]
+    public void TryGetValue_DecimalBoundaryDouble_ReturnsFalseWithoutThrowing()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_pushnumber(L, (double) decimal.MaxValue);
+
+        var result = false;
+
+        // Act & Assert
+        Assert.That(() => result = Lua.Stack[1].TryGetValue(LuaAllowedValueConversions.None, out decimal _), Throws.Nothing);
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
     public void TryGetValue_SingleCharString_WithStringToChar_Succeeds()
     {
         // Arrange
