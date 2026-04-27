@@ -1,218 +1,290 @@
 using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace Laylua.Moon;
 
-// ManagedPanicAsm wraps every C# delegate callable from Lua
-// Catch blocks here are the last stop - LuaRaisedException preserves the user's
-// error message, everything else gets a generic message. See LayluaNative.Asm.cs
-
 internal static unsafe partial class LayluaNative
 {
-    private static readonly ConditionalWeakTable<Delegate, Delegate> FunctionWrappers = new();
+    private sealed class FunctionWrapperEntry
+    {
+        public Delegate Wrapper = null!;
+        public IntPtr AsmPtr;
 
-    // Pulls the error message + inner exception out of a caught exception
-    // LuaRaisedException gets unwrapped; everything else is treated as unexpected
+        ~FunctionWrapperEntry()
+        {
+            if (AsmPtr != IntPtr.Zero)
+            {
+                NativeMemory.AlignedFree((void*) AsmPtr);
+                AsmPtr = IntPtr.Zero;
+            }
+        }
+    }
+
+    private static readonly ConditionalWeakTable<Delegate, FunctionWrapperEntry> FunctionWrappers = new();
+    private const string ManagedCodeExecutionErrorMessage = "An exception occurred while executing managed code.";
+
     private static (string? Message, Exception? InnerException) ExtractErrorInfo(Exception ex, string genericMessage)
     {
+        if (ex is TargetInvocationException targetInvocationException && targetInvocationException.InnerException != null)
+        {
+            ex = targetInvocationException.InnerException;
+        }
+
         if (ex is LuaRaisedException raised)
+        {
             return (raised.LuaMessage, raised.LuaInnerException);
+        }
 
         return (genericMessage, ex);
     }
 
     public static IntPtr CreateLuaKFunctionWrapper(LuaKFunction function)
     {
-        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
-
-        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaKFunction) ((L, status, ctx) =>
+        var entry = FunctionWrappers.GetValue(function, static function =>
         {
-            try
-            {
-                return Unsafe.As<LuaKFunction>(function)(L, status, ctx);
-            }
-            catch (Exception ex)
-            {
-                var laylua = LayluaState.FromExtraSpace(L);
-                if (laylua.Panic != null)
-                {
-                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                }
-                else
-                {
-                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
-                    LuaException.PrepareErrorInfo(L, msg, inner);
-                    SetPendingError(L);
-                }
-            }
-            return default;
-        }));
+            var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
 
-        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
+            var wrapper = (LuaKFunction) ((L, status, ctx) =>
+            {
+                try
+                {
+                    return Unsafe.As<LuaKFunction>(function)(L, status, ctx);
+                }
+                catch (Exception ex)
+                {
+                    var laylua = LayluaState.FromExtraSpace(L);
+                    if (laylua.Panic != null)
+                    {
+                        laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                    }
+                    else
+                    {
+                        var (msg, inner) = ExtractErrorInfo(ex, ManagedCodeExecutionErrorMessage);
+                        LuaException.PrepareErrorInfo(L, msg, inner);
+                        SetPendingError(L);
+                    }
+                }
+                return default;
+            });
 
-        return asmPtr;
+            WriteFunctionWrapperPointers(asmSpan, wrapper);
+
+            return new FunctionWrapperEntry
+            {
+                Wrapper = wrapper,
+                AsmPtr = asmPtr
+            };
+        });
+
+        return entry.AsmPtr;
     }
 
     public static IntPtr CreateLuaCFunctionWrapper(LuaCFunction function)
     {
-        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
-
-        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaCFunction) (L =>
+        var entry = FunctionWrappers.GetValue(function, static function =>
         {
-            try
-            {
-                return Unsafe.As<LuaCFunction>(function)(L);
-            }
-            catch (Exception ex)
-            {
-                var laylua = LayluaState.FromExtraSpace(L);
-                if (laylua.Panic != null)
-                {
-                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                }
-                else
-                {
-                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
-                    LuaException.PrepareErrorInfo(L, msg, inner);
-                    SetPendingError(L);
-                }
-            }
-            return default;
-        }));
+            var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
 
-        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
+            var wrapper = (LuaCFunction) (L =>
+            {
+                try
+                {
+                    return Unsafe.As<LuaCFunction>(function)(L);
+                }
+                catch (Exception ex)
+                {
+                    var laylua = LayluaState.FromExtraSpace(L);
+                    if (laylua.Panic != null)
+                    {
+                        laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                    }
+                    else
+                    {
+                        var (msg, inner) = ExtractErrorInfo(ex, ManagedCodeExecutionErrorMessage);
+                        LuaException.PrepareErrorInfo(L, msg, inner);
+                        SetPendingError(L);
+                    }
+                }
+                return default;
+            });
 
-        return asmPtr;
+            WriteFunctionWrapperPointers(asmSpan, wrapper);
+
+            return new FunctionWrapperEntry
+            {
+                Wrapper = wrapper,
+                AsmPtr = asmPtr
+            };
+        });
+
+        return entry.AsmPtr;
     }
 
     public static IntPtr CreateLuaReaderFunctionWrapper(LuaReaderFunction function)
     {
-        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
-
-        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaReaderFunction) ((lua_State* L, void* ud, out nuint sz) =>
+        var entry = FunctionWrappers.GetValue(function, static function =>
         {
-            try
-            {
-                return Unsafe.As<LuaReaderFunction>(function)(L, ud, out sz);
-            }
-            catch (Exception ex)
-            {
-                var laylua = LayluaState.FromExtraSpace(L);
-                if (laylua.Panic != null)
-                {
-                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                }
-                else
-                {
-                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
-                    LuaException.PrepareErrorInfo(L, msg, inner);
-                    SetPendingError(L);
-                }
-            }
-            sz = default;
-            return default;
-        }));
+            var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
 
-        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
+            var wrapper = (LuaReaderFunction) ((L, ud, out sz) =>
+            {
+                try
+                {
+                    return Unsafe.As<LuaReaderFunction>(function)(L, ud, out sz);
+                }
+                catch (Exception ex)
+                {
+                    var laylua = LayluaState.FromExtraSpace(L);
+                    if (laylua.Panic != null)
+                    {
+                        laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                    }
+                    else
+                    {
+                        var (msg, inner) = ExtractErrorInfo(ex, ManagedCodeExecutionErrorMessage);
+                        LuaException.PrepareErrorInfo(L, msg, inner);
+                        SetPendingError(L);
+                    }
+                }
+                sz = default;
+                return default;
+            });
 
-        return asmPtr;
+            WriteFunctionWrapperPointers(asmSpan, wrapper);
+
+            return new FunctionWrapperEntry
+            {
+                Wrapper = wrapper,
+                AsmPtr = asmPtr
+            };
+        });
+
+        return entry.AsmPtr;
     }
 
     public static IntPtr CreateLuaWriterFunctionWrapper(LuaWriterFunction function)
     {
-        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
-
-        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaWriterFunction) ((L, p, sz, ud) =>
+        var entry = FunctionWrappers.GetValue(function, static function =>
         {
-            try
-            {
-                return Unsafe.As<LuaWriterFunction>(function)(L, p, sz, ud);
-            }
-            catch (Exception ex)
-            {
-                var laylua = LayluaState.FromExtraSpace(L);
-                if (laylua.Panic != null)
-                {
-                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                }
-                else
-                {
-                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
-                    LuaException.PrepareErrorInfo(L, msg, inner);
-                    SetPendingError(L);
-                }
-            }
-            return default;
-        }));
+            var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
 
-        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
+            var wrapper = (LuaWriterFunction) ((L, p, sz, ud) =>
+            {
+                try
+                {
+                    return Unsafe.As<LuaWriterFunction>(function)(L, p, sz, ud);
+                }
+                catch (Exception ex)
+                {
+                    var laylua = LayluaState.FromExtraSpace(L);
+                    if (laylua.Panic != null)
+                    {
+                        laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                    }
+                    else
+                    {
+                        var (msg, inner) = ExtractErrorInfo(ex, ManagedCodeExecutionErrorMessage);
+                        LuaException.PrepareErrorInfo(L, msg, inner);
+                        SetPendingError(L);
+                    }
+                }
+                return default;
+            });
 
-        return asmPtr;
+            WriteFunctionWrapperPointers(asmSpan, wrapper);
+
+            return new FunctionWrapperEntry
+            {
+                Wrapper = wrapper,
+                AsmPtr = asmPtr
+            };
+        });
+
+        return entry.AsmPtr;
     }
 
     public static IntPtr CreateLuaWarnFunctionWrapper(LuaWarnFunction function)
     {
-        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
-
-        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaWarnFunction) ((ud, msg, tocont) =>
+        var entry = FunctionWrappers.GetValue(function, static function =>
         {
-            try
-            {
-                Unsafe.As<LuaWarnFunction>(function)(ud, msg, tocont);
-            }
-            catch (Exception ex)
-            {
-                var L = (lua_State*) ud;
-                var laylua = LayluaState.FromExtraSpace(L);
-                if (laylua.Panic != null)
-                {
-                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                }
-                else
-                {
-                    var (errorMessage, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the delegate.");
-                    LuaException.PrepareErrorInfo(L, errorMessage, inner);
-                    SetPendingError(L);
-                }
-            }
-        }));
+            var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
 
-        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
+            var wrapper = (LuaWarnFunction) ((ud, msg, tocont) =>
+            {
+                try
+                {
+                    Unsafe.As<LuaWarnFunction>(function)(ud, msg, tocont);
+                }
+                catch (Exception ex)
+                {
+                    var L = (lua_State*) ud;
+                    var laylua = LayluaState.FromExtraSpace(L);
+                    if (laylua.Panic != null)
+                    {
+                        laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                    }
+                    else
+                    {
+                        var (errorMessage, inner) = ExtractErrorInfo(ex, ManagedCodeExecutionErrorMessage);
+                        LuaException.PrepareErrorInfo(L, errorMessage, inner);
+                        SetPendingError(L);
+                    }
+                }
+            });
 
-        return asmPtr;
+            WriteFunctionWrapperPointers(asmSpan, wrapper);
+
+            return new FunctionWrapperEntry
+            {
+                Wrapper = wrapper,
+                AsmPtr = asmPtr
+            };
+        });
+
+        return entry.AsmPtr;
     }
 
     public static IntPtr CreateLuaHookFunctionWrapper(LuaHookFunction function)
     {
-        var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
-
-        var functionWrapper = FunctionWrappers.GetValue(function, static function => (LuaHookFunction) ((L, ar) =>
+        var entry = FunctionWrappers.GetValue(function, static function =>
         {
-            try
-            {
-                Unsafe.As<LuaHookFunction>(function)(L, ar);
-            }
-            catch (Exception ex)
-            {
-                var laylua = LayluaState.FromExtraSpace(L);
-                if (laylua.Panic != null)
-                {
-                    laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
-                }
-                else
-                {
-                    var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the hook.");
-                    LuaException.PrepareErrorInfo(L, msg, inner);
-                    SetPendingError(L);
-                }
-            }
-        }));
+            var asmSpan = AllocFunctionWrapperAsm(out var asmPtr);
 
-        WriteFunctionWrapperPointers(asmSpan, functionWrapper);
+            var wrapper = (LuaHookFunction) ((L, ar) =>
+            {
+                try
+                {
+                    Unsafe.As<LuaHookFunction>(function)(L, ar);
+                }
+                catch (Exception ex)
+                {
+                    var laylua = LayluaState.FromExtraSpace(L);
+                    if (laylua.Panic != null)
+                    {
+                        laylua.Panic.Exception = ExceptionDispatchInfo.Capture(ex);
+                    }
+                    else
+                    {
+                        var (msg, inner) = ExtractErrorInfo(ex, "An exception occurred while executing the hook.");
+                        LuaException.PrepareErrorInfo(L, msg, inner);
+                        SetPendingError(L);
+                    }
+                }
+            });
 
-        return asmPtr;
+            WriteFunctionWrapperPointers(asmSpan, wrapper);
+
+            return new FunctionWrapperEntry
+            {
+                Wrapper = wrapper,
+                AsmPtr = asmPtr
+            };
+        });
+
+        return entry.AsmPtr;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -223,7 +295,6 @@ internal static unsafe partial class LayluaNative
         return asmSpan;
     }
 
-    // Offsets differ per platform (different asm sizes)
     private static readonly int _dataSlot1Offset = OperatingSystem.IsWindows() ? 112 : 87;
     private static readonly int _dataSlot2Offset = OperatingSystem.IsWindows() ? 120 : 95;
     private static readonly int _dataSlot3Offset = OperatingSystem.IsWindows() ? 128 : 103;

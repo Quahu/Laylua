@@ -108,11 +108,27 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     }
 
     /// <summary>
+    ///     Gets the .NET value of this stack value, applying the specified conversion rules.
+    /// </summary>
+    /// <typeparam name="T"> The expected type of the value. </typeparam>
+    /// <param name="allowedConversions"> The conversion rules to apply. </param>
+    /// <returns>
+    ///     The .NET value.
+    /// </returns>
+    public T? GetValue<T>(LuaAllowedValueConversions allowedConversions)
+    {
+        ThrowIfInvalid();
+
+        return _thread.Marshaler.GetValue<T>(_thread, Index, allowedConversions);
+    }
+
+    /// <summary>
     ///     Attempts to get the .NET value of this stack value.
     /// </summary>
     /// <typeparam name="T"> The expected type of the value. </typeparam>
+    /// <param name="value"> The output value. </param>
     /// <returns>
-    ///     The .NET value.
+    ///     <see langword="true"/> if successful.
     /// </returns>
     public bool TryGetValue<T>(out T? value)
     {
@@ -123,6 +139,26 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
         }
 
         return _thread.Marshaler.TryGetValue(_thread, Index, out value);
+    }
+
+    /// <summary>
+    ///     Attempts to get the .NET value of this stack value, applying the specified conversion rules.
+    /// </summary>
+    /// <typeparam name="T"> The expected type of the value. </typeparam>
+    /// <param name="allowedConversions"> The conversion rules to apply. </param>
+    /// <param name="value"> The output value. </param>
+    /// <returns>
+    ///     <see langword="true"/> if successful.
+    /// </returns>
+    public bool TryGetValue<T>(LuaAllowedValueConversions allowedConversions, out T? value)
+    {
+        if (Type == LuaType.None)
+        {
+            value = default;
+            return false;
+        }
+
+        return _thread.Marshaler.TryGetValue(_thread, Index, allowedConversions, out value);
     }
 
     /// <summary>

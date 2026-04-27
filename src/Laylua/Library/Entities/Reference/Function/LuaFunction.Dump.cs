@@ -80,7 +80,7 @@ public unsafe partial class LuaFunction
         }
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static int WriteToStream(lua_State* L, void* p, nuint sz, void* ud)
     {
         var state = Unsafe.As<WriteState>(GCHandle.FromIntPtr((IntPtr) ud).Target!);
@@ -97,7 +97,7 @@ public unsafe partial class LuaFunction
         }
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static int WriteToCustomWriter(lua_State* L, void* p, nuint sz, void* ud)
     {
         var state = Unsafe.As<WriteState>(GCHandle.FromIntPtr((IntPtr) ud).Target!);

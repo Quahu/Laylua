@@ -7,12 +7,15 @@ runs:
   using: "composite"
   steps:
     - name: Set SOLUTION_PATH
-      run: echo "SOLUTION_PATH=./src/${{ github.event.repository.name }}.sln" >> $Env:GITHUB_ENV
+      run: echo "SOLUTION_PATH=./${{ github.event.repository.name }}.slnx" >> $Env:GITHUB_ENV
       shell: pwsh
     - name: Set up .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: |
+          8.0.x
+          9.0.200
+          10.0.x
     - name: Restore
       run: dotnet restore $Env:SOLUTION_PATH
       shell: pwsh
@@ -20,11 +23,27 @@ runs:
       run: dotnet build $Env:SOLUTION_PATH -c Release --no-restore -p:NoWarn=1591
       shell: pwsh
     - name: Test
-      run: dotnet test $Env:SOLUTION_PATH --no-restore --verbosity minimal --blame-crash
+      run: dotnet test $Env:SOLUTION_PATH -c Release --no-restore --no-build --verbosity minimal --blame-crash
       shell: pwsh
     - name: Pack
-      run: | 
-        Invoke-Expression "dotnet pack $Env:SOLUTION_PATH -c Release -o ./artifacts --no-restore --no-build $($Env:VERSION_SUFFIX ? "--version-suffix=$Env:VERSION_SUFFIX" : $null)"
+      run: |
+        $packArgs = @(
+          'pack'
+          $Env:SOLUTION_PATH
+          '-c'
+          'Release'
+          '-o'
+          './artifacts'
+          '--no-restore'
+          '--no-build'
+        )
+
+        if ($Env:VERSION_SUFFIX)
+        {
+          $packArgs += "--version-suffix=$Env:VERSION_SUFFIX"
+        }
+
+        dotnet @packArgs
         if ($LastExitCode -ne 0) { $Host.SetShouldExit($LastExitCode) }
       shell: pwsh
     - name: Upload Artifacts

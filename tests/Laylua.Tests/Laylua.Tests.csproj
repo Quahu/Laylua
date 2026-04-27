@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\src\Laylua.targets"/>
+    <PropertyGroup>
+        <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+        <RollForward>LatestPatch</RollForward>
+
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <IsPackable>false</IsPackable>
+        <ImplicitUsings>true</ImplicitUsings>
+        <NoWarn>CS0067,CA1816</NoWarn>
+
+        <!--        <DefineConstants>TRACE_ALLOCS</DefineConstants>-->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Laylua.Natives" Version="1.0.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0"/>
+        <PackageReference Include="NUnit" Version="4.2.2"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="4.6.0"/>
+        <PackageReference Include="coverlet.collector" Version="6.0.2">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+
+        <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Laylua\Laylua.csproj"/>
+        <ProjectReference Include="..\..\tools\Laylua.Generators\Laylua.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+    </ItemGroup>
+
+</Project>

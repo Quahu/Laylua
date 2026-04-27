@@ -3,20 +3,39 @@ Laylua allows you to easily embed [Lua 5.4](https://www.lua.org/manual/5.4/manua
 
 Highlights:
 - plug and play
+- Roslyn source generators and analyzers
+- automatic type marshaling
 - proper handling of exceptions and Lua errors
-- built-in memory allocation and instruction count limiting
-- control over what gets exposed to Lua code
-- optimized, zero-alloc, poolable Lua entities, no value type boxing
+- built with sandboxing in mind; limit memory, instructions, and what scripts can access
+- optimized and type-safe, with no value type boxing
 
-## Examples
+## Example
 ```cs
-using (var lua = new Lua())
+using Laylua;
+using Laylua.Marshaling;
+
+using var lua = new Lua();
+
+lua.OpenLibrary(LuaLibraries.Standard.Base);
+
+lua["player"] = new Player("Steve");
+
+lua.Execute("""
+    player:TakeDamage(25)
+    print(player.Name, player.Health)
+    """);
+
+[LuaType]
+public partial class Player(string name)
 {
-    lua.SetGlobal("text", "Hello, World!");
+    public string Name { get; } = name;
 
-    lua.OpenLibrary(LuaLibraries.Standard.Base);
+    public int Health { get; private set; } = 100;
 
-    lua.Execute("print(text)");
+    public void TakeDamage(int amount)
+    {
+        Health -= amount;
+    }
 }
 ```
 

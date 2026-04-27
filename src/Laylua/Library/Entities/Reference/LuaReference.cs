@@ -56,7 +56,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     ~LuaReference()
     {
         if (!IsAlive(this, out var lua))
+        {
             return;
+        }
 
         if (!LuaRegistry.IsPersistentReference(_reference))
         {
@@ -85,7 +87,19 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
         if (IsDisposed)
         {
-            throw new ObjectDisposedException(GetType().FullName, $"This {GetType().Name.SingleQuoted()} has been disposed.");
+            var typeName = GetType().Name;
+            var lua = LuaCore;
+            string message;
+            if (_reference is LUA_NOREF || lua == null || !lua.IsDisposed)
+            {
+                message = $"This {typeName.SingleQuoted()} has been disposed.";
+            }
+            else
+            {
+                message = $"This {typeName.SingleQuoted()} cannot be used because the owning Lua state has been disposed.";
+            }
+
+            throw new ObjectDisposedException(GetType().FullName, message);
         }
     }
 

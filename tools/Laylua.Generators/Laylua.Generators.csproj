@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <VersionPrefix>2.0.0</VersionPrefix>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(TargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+    </ItemGroup>
+
+</Project>

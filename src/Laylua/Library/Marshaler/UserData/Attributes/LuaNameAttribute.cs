@@ -2,13 +2,17 @@
 
 namespace Laylua.Marshaling;
 
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Method)]
-public class LuaNameAttribute : Attribute
+/// <summary>
+///     Overrides the Lua-visible name for a member.
+/// </summary>
+/// <remarks>
+///     When present, this takes precedence over naming policy transformations.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Method | AttributeTargets.Event)]
+public class LuaNameAttribute(string name) : Attribute
 {
-    public string Name { get; }
-
-    public LuaNameAttribute(string name)
-    {
-        Name = name;
-    }
+    /// <summary>
+    ///     Gets the explicit Lua-visible name.
+    /// </summary>
+    public string Name { get; } = name;
 }

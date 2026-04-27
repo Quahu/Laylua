@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
 
 namespace Laylua;
@@ -12,7 +14,7 @@ public partial class LuaReference
     /// <param name="possibleReference"> The possible reference. </param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Dispose<T>(T possibleReference)
-        where T : class
+        where T : class?
     {
         if (possibleReference is LuaReference reference)
         {
@@ -27,17 +29,32 @@ public partial class LuaReference
     /// <param name="possibleReferences"> The possible references. </param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Dispose<T>(T[]? possibleReferences)
-        where T : class
+        where T : class?
     {
         if (possibleReferences == null)
+        {
             return;
+        }
 
+        Exception? disposeException = null;
         foreach (var possibleReference in possibleReferences)
         {
             if (possibleReference is LuaReference reference)
             {
-                reference.Dispose();
+                try
+                {
+                    reference.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
+        }
+
+        if (disposeException != null)
+        {
+            ExceptionDispatchInfo.Capture(disposeException).Throw();
         }
     }
 
@@ -48,19 +65,34 @@ public partial class LuaReference
     /// <param name="possibleReferences"> The possible references. </param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Dispose<T>(List<T>? possibleReferences)
-        where T : class
+        where T : class?
     {
         if (possibleReferences == null)
+        {
             return;
+        }
 
+        Exception? disposeException = null;
         var possibleReferenceCount = possibleReferences.Count;
         for (var i = 0; i < possibleReferenceCount; i++)
         {
             var possibleReference = possibleReferences[i];
             if (possibleReference is LuaReference reference)
             {
-                reference.Dispose();
+                try
+                {
+                    reference.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
+        }
+
+        if (disposeException != null)
+        {
+            ExceptionDispatchInfo.Capture(disposeException).Throw();
         }
     }
 
@@ -71,17 +103,32 @@ public partial class LuaReference
     /// <param name="possibleReferences"> The possible references. </param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Dispose<T>(IEnumerable<T>? possibleReferences)
-        where T : class
+        where T : class?
     {
         if (possibleReferences == null)
+        {
             return;
+        }
 
+        Exception? disposeException = null;
         foreach (var possibleReference in possibleReferences)
         {
             if (possibleReference is LuaReference reference)
             {
-                reference.Dispose();
+                try
+                {
+                    reference.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
+        }
+
+        if (disposeException != null)
+        {
+            ExceptionDispatchInfo.Capture(disposeException).Throw();
         }
     }
 
@@ -95,19 +142,41 @@ public partial class LuaReference
         where TKey : notnull
     {
         if (possibleReferences == null)
+        {
             return;
+        }
 
+        Exception? disposeException = null;
         foreach (var (possibleReferenceKey, possibleReferenceValue) in possibleReferences)
         {
             if (possibleReferenceKey is LuaReference referenceKey)
             {
-                referenceKey.Dispose();
+                try
+                {
+                    referenceKey.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
 
             if (possibleReferenceValue is LuaReference referenceValue)
             {
-                referenceValue.Dispose();
+                try
+                {
+                    referenceValue.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
+        }
+
+        if (disposeException != null)
+        {
+            ExceptionDispatchInfo.Capture(disposeException).Throw();
         }
     }
 
@@ -120,19 +189,41 @@ public partial class LuaReference
     public static void Dispose<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>>? possibleReferences)
     {
         if (possibleReferences == null)
+        {
             return;
+        }
 
+        Exception? disposeException = null;
         foreach (var (possibleReferenceKey, possibleReferenceValue) in possibleReferences)
         {
             if (possibleReferenceKey is LuaReference referenceKey)
             {
-                referenceKey.Dispose();
+                try
+                {
+                    referenceKey.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
 
             if (possibleReferenceValue is LuaReference referenceValue)
             {
-                referenceValue.Dispose();
+                try
+                {
+                    referenceValue.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException ??= ex;
+                }
             }
+        }
+
+        if (disposeException != null)
+        {
+            ExceptionDispatchInfo.Capture(disposeException).Throw();
         }
     }
 }

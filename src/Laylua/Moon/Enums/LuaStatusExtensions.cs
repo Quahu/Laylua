@@ -1,12 +1,10 @@
-﻿using System.ComponentModel;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace Laylua.Moon;
 
 /// <summary>
 ///     Represents extension methods for <see cref="LuaStatus"/>.
 /// </summary>
-[EditorBrowsable(EditorBrowsableState.Never)]
 public static class LuaStatusExtensions
 {
     /// <summary>

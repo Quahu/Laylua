@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -60,10 +61,10 @@ internal sealed unsafe class LayluaState : IDisposable
 
     public IntPtr GCPtr => (IntPtr) _gcHandle;
 
-    public object? State;
-
     private GCHandle _gcHandle;
     private readonly ObjectPool<PanicInfo> _panicInfoPool;
+    private readonly HashSet<object> _liveReferences = new(ReferenceEqualityComparer.Instance);
+    private WeakReference<Lua>? _lua;
 
     private LayluaState(void* panicPtr)
     {
@@ -103,6 +104,41 @@ internal sealed unsafe class LayluaState : IDisposable
     public void ResetPanic(PanicInfo panic)
     {
         _panicInfoPool.Return(panic);
+    }
+
+    public void SetLua(Lua lua)
+    {
+        _lua = new WeakReference<Lua>(lua);
+    }
+
+    /// <summary>
+    ///     Anchors a managed object so it cannot be garbage collected for the lifetime of this Lua state.
+    ///     Used by handlers (such as <see cref="Laylua.DynamicUserDataHandler"/>) to keep their
+    ///     <see cref="Laylua.Moon.LuaCFunction"/> delegates alive while their native trampolines remain
+    ///     reachable through this state's metatables.
+    /// </summary>
+    public void KeepAlive(object reference)
+    {
+        if (reference == null)
+        {
+            return;
+        }
+
+        lock (_liveReferences)
+        {
+            _liveReferences.Add(reference);
+        }
+    }
+
+    public bool TryGetLua([MaybeNullWhen(false)] out Lua lua)
+    {
+        if (_lua != null && _lua.TryGetTarget(out lua))
+        {
+            return true;
+        }
+
+        lua = null;
+        return false;
     }
 
     public TemporaryPanicPopDisposable TemporarilyPopPanic(bool onlyIfNotPCall)
@@ -160,7 +196,9 @@ internal sealed unsafe class LayluaState : IDisposable
     public void Dispose()
     {
         if (!_gcHandle.IsAllocated)
+        {
             return;
+        }
 
         Debug.Assert(Panic == null);
 
@@ -172,6 +210,13 @@ internal sealed unsafe class LayluaState : IDisposable
 
         PanicPtr = null;
         IsPCall = false;
+        _lua = null;
+
+        lock (_liveReferences)
+        {
+            _liveReferences.Clear();
+        }
+
         GCHandlePointers.TryRemove(GCPtr, out _);
         _gcHandle.Free();
         RuntimeDisposal.Dispose(_panicInfoPool);

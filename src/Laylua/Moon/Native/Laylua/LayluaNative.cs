@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
@@ -53,14 +52,14 @@ internal static unsafe partial class LayluaNative
 
     // Called by PanicAsm on lua_error with no pcall to catch it
     // Wraps the error in LuaPanicException and stashes it in the HookAsm panic frame
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void* Panic(lua_State* L)
     {
         var laylua = LayluaState.FromExtraSpace(L);
         var panic = laylua.Panic;
         if (LuaException.TryGetError(L, out var error))
         {
-            // On Lua compiled with GCC there's some issue here with the error message
+            // On Lua compiled with GCC, there's some issue here with the error message
             // appearing twice on the stack, so this code checks for it.
             var hasDupedStackMessage = lua_gettop(L) > 1 && lua_rawequal(L, -1, -2);
             lua_pop(L, hasDupedStackMessage ? 2 : 1);
@@ -113,15 +112,13 @@ internal static unsafe partial class LayluaNative
     {
         if (_panicPtr == null)
         {
-            var panicMethodHandle = typeof(LayluaNative).GetMethod(nameof(Panic), BindingFlags.Static | BindingFlags.NonPublic)!.MethodHandle;
+            var panicFnPtr = (IntPtr) (delegate* unmanaged[Cdecl]<lua_State*, void*>) &Panic;
             var asmSpan = Alloc(PanicAsmBytes, out var asmPtr);
 
             var returnAddr = asmPtr + 0x1A;
             MemoryMarshal.Write(asmSpan[3..], in returnAddr);
 
-            RuntimeHelpers.PrepareMethod(panicMethodHandle);
-            var panicPtr = panicMethodHandle.GetFunctionPointer();
-            MemoryMarshal.Write(asmSpan[18..], in panicPtr);
+            MemoryMarshal.Write(asmSpan[18..], in panicFnPtr);
 
             _panicPtr = (void*) asmPtr;
         }
@@ -129,7 +126,7 @@ internal static unsafe partial class LayluaNative
         return _panicPtr;
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static IntPtr GetPotentialPanicPtr(lua_State* L)
     {
         var state = LayluaState.FromExtraSpace(L);
@@ -140,7 +137,7 @@ internal static unsafe partial class LayluaNative
         return result;
     }
 
-    internal static IntPtr getPotentialPanicPtr = typeof(LayluaNative).GetMethod(nameof(GetPotentialPanicPtr), BindingFlags.NonPublic | BindingFlags.Static)!.MethodHandle.GetFunctionPointer();
+    internal static IntPtr getPotentialPanicPtr = (IntPtr) (delegate* unmanaged[Cdecl]<lua_State*, IntPtr>) &GetPotentialPanicPtr;
     internal static IntPtr realLuaErrorPtr;
 
     // Per-state native struct, pointer lives in Lua's extra space
@@ -173,12 +170,14 @@ internal static unsafe partial class LayluaNative
         GetExtraSpaceData(L)->PendingErrorFlag = 1;
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void* SetPanicJump(lua_State* L, void* retAddress)
     {
         var state = LayluaState.FromExtraSpace(L);
         if (state.IsPCall)
+        {
             return null;
+        }
 
         var panic = state.PushPanic();
         var stackState = panic.StackStatePtr;
@@ -188,7 +187,7 @@ internal static unsafe partial class LayluaNative
         return stackState;
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     internal static void PopPanic(lua_State* L)
     {
         var state = LayluaState.FromExtraSpace(L);
@@ -199,11 +198,10 @@ internal static unsafe partial class LayluaNative
         }
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void ThrowPanicException(lua_State* L)
     {
-        // Can't throw here - called from HookAsm (native context)
         // .NET 8 crashes if exceptions escape [UnmanagedCallersOnly]
         // Stash it and let the ErrorExport wrapper throw from managed code
         var state = LayluaState.FromExtraSpace(L);
@@ -218,7 +216,6 @@ internal static unsafe partial class LayluaNative
     [ThreadStatic]
     private static ExceptionDispatchInfo? _pendingPanicException;
 
-    // Called after every ErrorExport delegate returns - rethrows if the panic path stashed something
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void ThrowIfPendingPanic()
     {
@@ -245,8 +242,8 @@ internal static unsafe partial class LayluaNative
             HookLuaLongjmp(libraryHandle);
         }
 
-        var throwPanicExceptionPtr = typeof(LayluaNative).GetMethod(nameof(ThrowPanicException), BindingFlags.Static | BindingFlags.NonPublic)!.MethodHandle.GetFunctionPointer();
-        LuaNative.InitializeExports(libraryHandle, throwPanicExceptionPtr);
+        var throwPanicExceptionPtr = (IntPtr) (delegate* unmanaged[Cdecl]<lua_State*, void>) &ThrowPanicException;
+        InitializeExports(libraryHandle, throwPanicExceptionPtr);
     }
 
     // Wraps a native export in HookAsm that handles panic flag + longjmp coordination
@@ -281,15 +278,18 @@ internal static unsafe partial class LayluaNative
         // Parse PE headers
         var e_lfanew = *(int*) (baseAddr + 0x3C);
         var optHeader = baseAddr + e_lfanew + 4 + 20;
-
         var magic = *(ushort*) optHeader;
         if (magic != 0x20B) // PE32+
+        {
             return;
+        }
 
         // Import dir RVA (data directory index 1, offset 120 in PE32+ opt header)
         var importDirRva = *(uint*) (optHeader + 120);
         if (importDirRva == 0)
+        {
             return;
+        }
 
         // Allocate custom longjmp
         Alloc(CustomLongjmpAsmBytes, out var customLongjmpPtr);
@@ -298,12 +298,14 @@ internal static unsafe partial class LayluaNative
         var importDesc = baseAddr + importDirRva;
         while (true)
         {
-            var iltRva = *(uint*) importDesc;           // OriginalFirstThunk
-            var nameRva = *(uint*) (importDesc + 12);   // Name
-            var iatRva = *(uint*) (importDesc + 16);    // FirstThunk
+            var iltRva = *(uint*) importDesc;         // OriginalFirstThunk
+            var nameRva = *(uint*) (importDesc + 12); // Name
+            var iatRva = *(uint*) (importDesc + 16);  // FirstThunk
 
             if (iltRva == 0 && nameRva == 0)
+            {
                 break;
+            }
 
             var dllName = Marshal.PtrToStringAnsi((IntPtr) (baseAddr + nameRva));
             if (string.Equals(dllName, "VCRUNTIME140.dll", StringComparison.OrdinalIgnoreCase)
@@ -313,27 +315,32 @@ internal static unsafe partial class LayluaNative
                 var ilt = baseAddr + iltRva;
                 var iat = baseAddr + iatRva;
 
-                for (int i = 0; ; i++)
+                for (var i = 0;; i++)
                 {
                     var entry = *(ulong*) (ilt + i * 8);
                     if (entry == 0)
+                    {
                         break;
+                    }
 
                     // Ordinal import, skip
                     if ((entry & (1UL << 63)) != 0)
+                    {
                         continue;
+                    }
 
                     // IMAGE_IMPORT_BY_NAME: hint(2) + name
                     var hintNameRva = (uint) (entry & 0x7FFFFFFF);
                     var funcName = Marshal.PtrToStringAnsi((IntPtr) (baseAddr + hintNameRva + 2));
-
                     if (funcName == "longjmp")
                     {
                         var iatEntryPtr = (IntPtr*) (iat + i * 8);
 
                         // Patch IAT entry
                         if (!VirtualProtect((IntPtr) iatEntryPtr, (nuint) sizeof(IntPtr), MemoryProtection.ReadWrite, out var oldProtect))
+                        {
                             throw new InvalidOperationException($"VirtualProtect failed for IAT entry (error {Marshal.GetLastPInvokeError()}).");
+                        }
 
                         *iatEntryPtr = customLongjmpPtr;
 
@@ -345,6 +352,5 @@ internal static unsafe partial class LayluaNative
 
             importDesc += 20;
         }
-
     }
 }

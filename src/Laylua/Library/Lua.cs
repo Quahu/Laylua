@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using Laylua.Marshaling;
 using Laylua.Moon;
 
@@ -28,9 +30,12 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
 
     internal override LuaMarshaler Marshaler { get; }
 
+    internal bool IsDisposing => State.IsDisposing;
+
     internal override bool IsDisposed => State.IsDisposed;
 
     private readonly ConcurrentStack<int> _leakedReferences = new();
+    private int _disposed;
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     protected override Lua? LuaCore
@@ -56,7 +61,7 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         Stack = new LuaStack(this);
         State = new LuaMainState(allocator)
         {
-            State = this
+            Lua = this
         };
 
         Reference = LuaRegistry.Indices.MainThread;
@@ -68,14 +73,14 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
         lua_setwarnf(State.L, _warningHandlerWrapperPtr, State.L);
     }
 
-    ~Lua()
-    {
-        Dispose();
-    }
-
     static Lua()
     {
         _warningHandlerWrapperPtr = LayluaNative.CreateLuaWarnFunctionWrapper(_warningHandler);
+    }
+
+    ~Lua()
+    {
+        Dispose(disposing: false);
     }
 
     internal void PushLeakedReference(int reference)
@@ -109,23 +114,8 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
 
     public override void Dispose()
     {
-        if (IsDisposed)
-            return;
-
-        _leakedReferences.Clear();
-        _openLibraries.Clear();
-
-        try
-        {
-            Marshaler.OnLuaDisposing(this);
-        }
-        finally
-        {
-            State.Close();
-            GC.SuppressFinalize(this);
-        }
-
-        Marshaler.OnLuaDisposed(this);
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 
     public static Lua FromThread(LuaThread thread)
@@ -140,12 +130,68 @@ public sealed unsafe partial class Lua : LuaThread, ISpanFormattable
 
     public new static Lua FromExtraSpace(lua_State* L)
     {
-        var lua = LayluaState.FromExtraSpace(L).State as Lua;
-        if (lua == null)
+        if (!LayluaState.FromExtraSpace(L).TryGetLua(out var lua))
         {
             luaL_error(L, "Laylua is not attached to this Lua state.");
         }
 
         return lua;
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
+        {
+            return;
+        }
+
+        State.IsDisposing = true;
+
+        _openLibraries.Clear();
+
+        UnrefLeakedReferences();
+
+        if (disposing)
+        {
+            DisposeCore();
+        }
+        else
+        {
+            _ = ThreadPool.QueueUserWorkItem(static state =>
+            {
+                try
+                {
+                    Unsafe.As<Lua>(state!).DisposeCore();
+                }
+                catch (Exception ex)
+                {
+                    Debug.Fail(ex.ToString());
+                }
+            }, this);
+        }
+    }
+
+    private void DisposeCore()
+    {
+        var errorInfoOwnerKey = State.L != null
+            ? LayluaState.FromExtraSpace(State.L).GCPtr
+            : IntPtr.Zero;
+
+        try
+        {
+            Marshaler.OnLuaDisposing(this);
+        }
+        finally
+        {
+            try
+            {
+                State.Close();
+            }
+            finally
+            {
+                LuaException.FreeOrphanedErrorInfoHandles(errorInfoOwnerKey);
+                Marshaler.OnLuaDisposed(this);
+            }
+        }
     }
 }

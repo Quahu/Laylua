@@ -1,4 +1,6 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Qommon;
 
 namespace Laylua.Moon;
@@ -9,6 +11,13 @@ namespace Laylua.Moon;
 /// </summary>
 public readonly unsafe struct LuaGC
 {
+    private const string GCCallbackStateMetatableName = $"__Laylua:{nameof(GcCallbackState)}";
+
+    private sealed class GcCallbackState
+    {
+        public readonly List<Action> Callbacks = [];
+    }
+
     /// <summary>
     ///     Gets whether the garbage collector is running.
     /// </summary>
@@ -132,53 +141,34 @@ public readonly unsafe struct LuaGC
     ///     Registers a callback that will trigger when the object referenced by the given <see cref="LuaReference"/> is garbage collected by Lua.
     ///     The callback is registered and executed from the global state.
     /// </summary>
+    /// <param name="L"> The Lua state. </param>
     /// <param name="reference"> The object to register the GC callback for. </param>
     /// <param name="callback"> The callback to register. </param>
     private static void RegisterCallbackCore(lua_State* L, LuaReference reference, Action callback)
     {
         var lua = Lua.FromExtraSpace(L);
-        lua.Stack.EnsureFreeCapacity(5);
+        lua.Stack.EnsureFreeCapacity(4);
 
         using (lua.Stack.SnapshotCount())
         {
-            if (!luaL_getsubtable(L, LuaRegistry.Index, GCCallbacksTableName))
-            {
-                lua_createtable(L, 0, 1);
-
-                lua_pushstring(L, LuaMetatableKeysUtf8.__mode);
-                lua_pushstring(L, "k"u8);
-                lua_rawset(L, -3);
-
-                lua_setmetatable(L, -2);
-            }
-
+            EnsureCallbacksTable(L);
             lua.Stack.Push(reference);
             if (lua_rawget(L, -2).IsNoneOrNil())
             {
                 lua_pop(L);
 
-                lua_createtable(L, 1, 0);
-
-                lua_createtable(L, 0, 1);
-
-                lua_pushstring(L, LuaMetatableKeysUtf8.__gc);
-                lua_pushvalue(L, -3);
-                lua_pushcclosure(L, _gcCallback, 1);
-
-                lua_rawset(L, -3);
-
-                lua_setmetatable(L, -2);
+                var callbackState = PushCallbackState(L);
 
                 lua.Stack.Push(reference);
                 lua_pushvalue(L, -2);
                 lua_rawset(L, -4);
+
+                callbackState.Callbacks.Add(callback);
+                return;
             }
 
-            var index = luaL_len(L, -1) + 1;
-            lua_pushinteger(L, index);
-            lua.Stack.Push(callback);
-
-            lua_rawset(L, -3);
+            var existingCallbackState = GetCallbackState(L, -1);
+            existingCallbackState.Callbacks.Add(callback);
         }
     }
 
@@ -186,40 +176,138 @@ public readonly unsafe struct LuaGC
 
     private static readonly LuaCFunction _gcCallback = static L =>
     {
-        // TODO: how can I tell a delegate happens to be running inside pcall?
-        // Maybe it's just __gc, so won't affect user code in most cases.
-        // Could check for CIST_FIN in L->ci->callstatus?
-
-        var laylua = LayluaState.FromExtraSpace(L);
-        using (laylua.TemporarilyPopPanic(onlyIfNotPCall: true))
+        var statePointer = (nint*) lua_touserdata(L, 1);
+        if (statePointer == null)
         {
-            var tableIndex = lua_upvalueindex(1);
-            lua_pushvalue(L, tableIndex);
+            return 0;
+        }
 
-            using (var thread = LuaThread.FromExtraSpace(L))
-            using (var table = thread.Stack[-1].GetValue<LuaTable>()!)
+        var handlePointer = *statePointer;
+        if (handlePointer == 0)
+        {
+            return 0;
+        }
+
+        *statePointer = 0;
+
+        var handle = GCHandle.FromIntPtr(handlePointer);
+        try
+        {
+            if (handle.Target is not GcCallbackState callbackState)
             {
-                foreach (var value in table.Values)
-                {
-                    using (var function = value.GetValue<LuaFunction>()!)
-                    {
-                        try
-                        {
-                            function.Call().Dispose();
-                        }
-                        catch (Exception ex)
-                        {
-                            var unwrapped = ex is LuaException luaException
-                                ? luaException.UnwrapException()
-                                : ex;
+                return 0;
+            }
 
-                            thread.EmitWarning($"An exception occurred while executing a GC callback. {unwrapped.GetType()}: {unwrapped.Message}");
-                        }
+            var laylua = LayluaState.FromExtraSpace(L);
+            using (laylua.TemporarilyPopPanic(onlyIfNotPCall: true))
+            using (var thread = LuaThread.FromExtraSpace(L))
+            {
+                foreach (var callback in callbackState.Callbacks)
+                {
+                    try
+                    {
+                        callback();
+                    }
+                    catch (Exception ex)
+                    {
+                        var unwrapped = ex is LuaException luaException
+                            ? luaException.UnwrapException()
+                            : ex;
+
+                        thread.EmitWarning($"An exception occurred while executing a GC callback. {unwrapped.GetType()}: {unwrapped.Message}");
                     }
                 }
+            }
+        }
+        finally
+        {
+            if (handle.IsAllocated)
+            {
+                handle.Free();
             }
         }
 
         return 0;
     };
+
+    private static void EnsureCallbacksTable(lua_State* L)
+    {
+        if (!luaL_getsubtable(L, LuaRegistry.Index, GCCallbacksTableName))
+        {
+            lua_createtable(L, 0, 1);
+
+            lua_pushstring(L, LuaMetatableKeysUtf8.__mode);
+            lua_pushstring(L, "k"u8);
+            lua_rawset(L, -3);
+
+            lua_setmetatable(L, -2);
+        }
+    }
+
+    private static GcCallbackState PushCallbackState(lua_State* L)
+    {
+        var statePointer = (nint*) lua_newuserdatauv(L, (nuint) sizeof(nint), 0);
+        *statePointer = 0;
+
+        GCHandle handle = default;
+        var hasMetatableOnStack = false;
+        try
+        {
+            var callbackState = new GcCallbackState();
+            handle = GCHandle.Alloc(callbackState);
+            *statePointer = GCHandle.ToIntPtr(handle);
+
+            var createdMetatable = luaL_newmetatable(L, GCCallbackStateMetatableName);
+            hasMetatableOnStack = true;
+            if (createdMetatable)
+            {
+                try
+                {
+                    lua_pushcfunction(L, _gcCallback);
+                    lua_setfield(L, -2, "__gc");
+
+                    lua_pushboolean(L, false);
+                    lua_setfield(L, -2, "__metatable");
+                }
+                catch
+                {
+                    lua_pushnil(L);
+                    lua_setfield(L, LuaRegistry.Index, GCCallbackStateMetatableName);
+                    throw;
+                }
+            }
+
+            lua_setmetatable(L, -2);
+            hasMetatableOnStack = false;
+            return callbackState;
+        }
+        catch
+        {
+            if (handle.IsAllocated)
+            {
+                handle.Free();
+            }
+
+            *statePointer = 0;
+            lua_pop(L, hasMetatableOnStack ? 2 : 1);
+            throw;
+        }
+    }
+
+    private static GcCallbackState GetCallbackState(lua_State* L, int stackIndex)
+    {
+        var statePointer = (nint*) lua_touserdata(L, stackIndex);
+        if (statePointer == null || *statePointer == 0)
+        {
+            throw new InvalidOperationException("Invalid GC callback state.");
+        }
+
+        var handle = GCHandle.FromIntPtr(*statePointer);
+        if (!handle.IsAllocated || handle.Target is not GcCallbackState callbackState)
+        {
+            throw new InvalidOperationException("Failed to retrieve the GC callback state.");
+        }
+
+        return callbackState;
+    }
 }

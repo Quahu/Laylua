@@ -3,19 +3,14 @@ using System;
 namespace Laylua;
 
 /// <summary>
-///     Internal sentinel for RaiseError inside pcall.
+///     Internal sentinel for Lua errors inside pcall.
 ///     Preserves the caller's error message through the catch -> lua_error path.
 /// </summary>
 /// <seealso cref="LuaThread.RaiseError(string)"/>
-internal sealed class LuaRaisedException : Exception
+internal sealed class LuaRaisedException(string? luaMessage, Exception? luaInnerException)
+    : Exception(luaMessage, luaInnerException)
 {
-    public string? LuaMessage { get; }
-    public Exception? LuaInnerException { get; }
+    public string? LuaMessage { get; } = luaMessage;
 
-    public LuaRaisedException(string? luaMessage, Exception? luaInnerException)
-        : base(luaMessage, luaInnerException)
-    {
-        LuaMessage = luaMessage;
-        LuaInnerException = luaInnerException;
-    }
+    public Exception? LuaInnerException { get; } = luaInnerException;
 }

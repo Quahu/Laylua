@@ -39,7 +39,6 @@ public unsafe class UserDataHandle
         var handle = FromStackIndex(L, 1);
         if (handle.IsCollectible)
         {
-            handle.Lua.Marshaler.RemoveUserDataHandle(handle);
             handle._gcHandle.Free();
         }
 

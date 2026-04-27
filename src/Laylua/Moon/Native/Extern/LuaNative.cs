@@ -42,7 +42,7 @@ public static unsafe partial class LuaNative
 
     public static delegate* unmanaged[Cdecl]<lua_State*, int> lua_atpanic(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, int> panicf)
     {
-        return (delegate* unmanaged[Cdecl]<lua_State*, int>)(void*)_lua_atpanic(L, (IntPtr)panicf);
+        return (delegate* unmanaged[Cdecl]<lua_State*, int>) (void*) _lua_atpanic(L, (IntPtr) panicf);
     }
 
     [LuaExport]
@@ -171,8 +171,28 @@ public static unsafe partial class LuaNative
     private static _lua_pushlstringDelegate _lua_pushlstring = null!;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    public static byte* lua_pushstring(lua_State* L, string? s)
+    {
+        if (s == null)
+        {
+            lua_pushnil(L);
+            return null;
+        }
+
+        return lua_pushstring(L, s.AsSpan());
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static byte* lua_pushstring(lua_State* L, ReadOnlySpan<char> s)
     {
+        if (s.Length == 0)
+        {
+            byte empty = 0;
+            var emptyResult = _lua_pushlstring(L, &empty, 0);
+            LayluaNative.ThrowIfPendingPanic();
+            return emptyResult;
+        }
+
         using (var bytes = ToLString(s, out var len))
         {
             fixed (byte* ptr = bytes)
@@ -191,6 +211,12 @@ public static unsafe partial class LuaNative
 
     public static byte* lua_pushstring(lua_State* L, ReadOnlySpan<byte> s)
     {
+        if (s.Length == 0)
+        {
+            byte empty = 0;
+            return _lua_pushlstring(L, &empty, 0);
+        }
+
         fixed (byte* ptr = s)
         {
             return _lua_pushlstring(L, ptr, (nuint) s.Length);
@@ -359,7 +385,7 @@ public static unsafe partial class LuaNative
 
     public static int lua_dump(lua_State* L, delegate* unmanaged[Cdecl]<lua_State*, void*, nuint, void*, int> writer, void* data, bool strip)
     {
-        return _lua_dump(L, (IntPtr)writer, data, strip);
+        return _lua_dump(L, (IntPtr) writer, data, strip);
     }
 
     /*
@@ -407,7 +433,7 @@ public static unsafe partial class LuaNative
 
     public static void lua_setwarnf(lua_State* L, delegate* unmanaged[Cdecl]<void*, byte*, int, void> f, void* ud)
     {
-        _lua_setwarnf(L, (IntPtr)f, ud);
+        _lua_setwarnf(L, (IntPtr) f, ud);
     }
 
     [LuaExport(Throws = true)]

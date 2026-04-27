@@ -257,7 +257,9 @@ public unsafe partial class LuaThread
         static void SkipPreamble(Stream stream)
         {
             if (stream.Length < Utf8Preamble.Length)
+            {
                 return;
+            }
 
             var preambleBuffer = (stackalloc byte[4])[..Utf8Preamble.Length];
             var bytesRead = stream.Read(preambleBuffer);
@@ -297,61 +299,66 @@ public unsafe partial class LuaThread
 
         var L = State.L;
         LuaStatus status;
-        var readerHandle = GCHandle.Alloc(reader);
-        var buffer = stackalloc byte[ReaderState.BufferSize];
-        var state = new ReaderState(readerHandle, buffer);
+        var buffer = stackalloc byte[ChunkReaderState.BufferSize];
+        var state = new ChunkReaderState(reader, buffer);
+        Exception? readerException = null;
         try
         {
             status = lua_load(L, &ReadWithCustomReader, &state, chunkName, null);
+
+            if (state.ExceptionHandle.IsAllocated)
+            {
+                readerException = (Exception) state.ExceptionHandle.Target!;
+            }
         }
         finally
         {
-            readerHandle.Free();
+            state.Dispose();
         }
 
-        if (state.ExceptionHandle.IsAllocated)
-        {
-            var ex = (Exception) state.ExceptionHandle.Target!;
-            state.ExceptionHandle.Free();
-            if (status.IsError())
-            {
-                lua_pop(L);
-            }
-
-            throw new LuaException("An exception occurred while reading from the chunk reader.", ex);
-        }
+        ThrowLoadException(L, status, readerException, "An exception occurred while reading from the chunk reader.");
 
         if (status.IsError())
         {
             ThrowLuaException(this, status);
         }
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
         static byte* ReadWithCustomReader(lua_State* L, void* ud, nuint* sz)
         {
-            var state = (ReaderState*) ud;
-            var reader = Unsafe.As<LuaChunkReader>(state->ReaderHandle.Target!);
+            ref var state = ref Unsafe.AsRef<ChunkReaderState>(ud);
+            var reader = Unsafe.As<LuaChunkReader>(state.ReaderHandle.Target!);
             try
             {
-                *sz = (nuint) reader.Read(new Span<byte>(state->BufferPtr, ReaderState.BufferSize));
-                return state->BufferPtr;
+                *sz = (nuint) reader.Read(new Span<byte>(state.BufferPtr, ChunkReaderState.BufferSize));
+                return state.BufferPtr;
             }
             catch (Exception ex)
             {
-                state->ExceptionHandle = GCHandle.Alloc(ex);
+                state.ExceptionHandle = GCHandle.Alloc(ex);
                 *sz = 0;
                 return null;
             }
         }
     }
 
-    private struct ReaderState(GCHandle readerHandle, byte* bufferPtr)
+    private struct ChunkReaderState(LuaChunkReader reader, byte* bufferPtr) : IDisposable
     {
         public const int BufferSize = 256;
 
-        public GCHandle ReaderHandle = readerHandle;
-        public byte* BufferPtr = bufferPtr;
+        public GCHandle ReaderHandle = GCHandle.Alloc(reader);
+        public readonly byte* BufferPtr = bufferPtr;
         public GCHandle ExceptionHandle;
+
+        public void Dispose()
+        {
+            if (ExceptionHandle.IsAllocated)
+            {
+                ExceptionHandle.Free();
+            }
+
+            ReaderHandle.Free();
+        }
     }
 
     /// <summary>
@@ -391,22 +398,23 @@ public unsafe partial class LuaThread
         }
         else
         {
-            using (var state = new LuaStreamReader.State(code))
+            var state = new StreamReaderState(code);
+            Exception? streamReadException = null;
+            try
             {
-                status = lua_load(L, &LuaStreamReader.Read, &state, chunkName, null);
+                status = lua_load(L, &StreamReaderCallback, &state, chunkName, null);
 
                 if (state.ExceptionHandle.IsAllocated)
                 {
-                    var ex = (Exception) state.ExceptionHandle.Target!;
-                    state.ExceptionHandle.Free();
-                    if (status.IsError())
-                    {
-                        lua_pop(L);
-                    }
-
-                    throw new LuaException("An exception occurred while reading from the stream.", ex);
+                    streamReadException = (Exception) state.ExceptionHandle.Target!;
                 }
             }
+            finally
+            {
+                state.Dispose();
+            }
+
+            ThrowLoadException(L, status, streamReadException, "An exception occurred while reading from the stream.");
         }
 
         if (status.IsError())
@@ -415,44 +423,60 @@ public unsafe partial class LuaThread
         }
     }
 
-    private static class LuaStreamReader
+    private static void ThrowLoadException(lua_State* L, LuaStatus status, Exception? exception, string message)
     {
-        private const int BufferSize = 4096;
-
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-        public static byte* Read(lua_State* L, void* ud, nuint* sz)
+        if (exception == null)
         {
-            ref var state = ref Unsafe.AsRef<State>(ud);
-            var stream = Unsafe.As<Stream>(state.StreamHandle.Target!);
-            var bufferSpan = new Span<byte>(state.Buffer, BufferSize);
-            try
-            {
-                *sz = (nuint) stream.Read(bufferSpan);
-            }
-            catch (Exception ex)
-            {
-                state.ExceptionHandle = GCHandle.Alloc(ex);
-                *sz = 0;
-                return null;
-            }
-
-            return state.Buffer;
+            return;
         }
 
-        public struct State(Stream stream) : IDisposable
+        if (status.IsError())
         {
-            public GCHandle StreamHandle = GCHandle.Alloc(stream);
+            lua_pop(L);
+        }
 
-            public byte* Buffer = (byte*) NativeMemory.Alloc(BufferSize);
+        throw new LuaException(message, exception);
+    }
 
-            public GCHandle ExceptionHandle;
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static byte* StreamReaderCallback(lua_State* L, void* ud, nuint* sz)
+    {
+        ref var state = ref Unsafe.AsRef<StreamReaderState>(ud);
+        var stream = Unsafe.As<Stream>(state.StreamHandle.Target!);
+        var bufferSpan = new Span<byte>(state.Buffer, StreamReaderState.BufferSize);
+        try
+        {
+            *sz = (nuint) stream.Read(bufferSpan);
+        }
+        catch (Exception ex)
+        {
+            state.ExceptionHandle = GCHandle.Alloc(ex);
+            *sz = 0;
+            return null;
+        }
 
-            public void Dispose()
+        return state.Buffer;
+    }
+
+    private struct StreamReaderState(Stream stream) : IDisposable
+    {
+        public const int BufferSize = 4096;
+
+        public GCHandle StreamHandle = GCHandle.Alloc(stream);
+        public byte* Buffer = (byte*) NativeMemory.Alloc(BufferSize);
+        public GCHandle ExceptionHandle;
+
+        public void Dispose()
+        {
+            if (ExceptionHandle.IsAllocated)
             {
-                StreamHandle.Free();
-                NativeMemory.Free(Buffer);
-                Buffer = null;
+                ExceptionHandle.Free();
             }
+
+            StreamHandle.Free();
+
+            NativeMemory.Free(Buffer);
+            Buffer = null;
         }
     }
 }

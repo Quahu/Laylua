@@ -72,6 +72,8 @@ public abstract unsafe class LuaState : ISpanFormattable
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     protected abstract lua_State* LCore { get; }
 
+    internal bool IsDisposing { get; set; }
+
     internal bool IsDisposed => LCore == null;
 
     private LuaHook? _hook;

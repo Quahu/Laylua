@@ -1,11 +1,8 @@
-﻿using System.ComponentModel;
-
-namespace Laylua.Moon;
+﻿namespace Laylua.Moon;
 
 /// <summary>
 ///     Represents extension methods for <see cref="LuaType"/>.
 /// </summary>
-[EditorBrowsable(EditorBrowsableState.Never)]
 internal static class LuaTypeExtensions
 {
     /// <summary>

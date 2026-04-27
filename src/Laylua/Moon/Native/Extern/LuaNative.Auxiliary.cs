@@ -241,6 +241,12 @@ public static unsafe partial class LuaNative
         return luaL_checklstring(L, arg, out _);
     }
 
+    public static LuaString luaL_checkluastring(lua_State* L, int arg)
+    {
+        luaL_checktype(L, arg, LuaType.String);
+        return lua_tostring(L, arg);
+    }
+
     public static string? luaL_optstring(lua_State* L, int arg, string def)
     {
         return luaL_optlstring(L, arg, def, out _);

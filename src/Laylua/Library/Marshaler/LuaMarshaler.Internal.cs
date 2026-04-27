@@ -2,8 +2,6 @@
 
 public abstract partial class LuaMarshaler
 {
-    protected internal abstract void RemoveUserDataHandle(UserDataHandle handle);
-
     /// <summary>
     ///     Returns a <see cref="LuaReference"/> to the entity pool of this marshaler.
     /// </summary>

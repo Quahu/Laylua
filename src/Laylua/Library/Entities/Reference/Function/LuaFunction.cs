@@ -45,7 +45,7 @@ public sealed unsafe partial class LuaFunction : LuaReference
         caller.Stack.Push(reference);
     }
 
-    private static void PrepareForCall(LuaThread caller, LuaReference reference, int nargs, out int top)
+    internal static void PrepareForCall(LuaThread caller, LuaReference reference, int nargs, out int top)
     {
         PrepareForCall(caller, reference, nargs);
 

@@ -1,0 +1,17 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Tests/">
+    <Project Path="tests/Laylua.Playground/Laylua.Playground.csproj" />
+    <Project Path="tests/Laylua.Tests/Laylua.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Tools/">
+    <Project Path="tools/Laylua.Analyzers/Laylua.Analyzers.csproj" />
+    <Project Path="tools/Laylua.Generators/Laylua.Generators.csproj" />
+    <Project Path="tools/Laylua.InternalGenerators/Laylua.InternalGenerators.csproj" />
+  </Folder>
+  <Project Path="src/Laylua/Laylua.csproj" />
+</Solution>

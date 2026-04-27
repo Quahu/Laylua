@@ -17,7 +17,7 @@ namespace Laylua;
 /// <seealso cref="LuaPanicException"/>
 public class LuaException : Exception
 {
-    internal static readonly ConcurrentDictionary<IntPtr, GCHandle> ErrorInfoHandles = new();
+    private static readonly ConcurrentDictionary<IntPtr, ErrorInfoHandle> ErrorInfoHandles = new();
 
     private class ErrorInfo(string? message, Exception? exception)
     {
@@ -26,7 +26,12 @@ public class LuaException : Exception
         public Exception? Exception { get; } = exception;
     }
 
-    private const string UnknownMessage = "An unknown error occurred.";
+    private readonly struct ErrorInfoHandle(GCHandle handle, IntPtr ownerKey)
+    {
+        public GCHandle Handle { get; } = handle;
+
+        public IntPtr OwnerKey { get; } = ownerKey;
+    }
 
     /// <summary>
     ///     Gets the status associated with this exception.
@@ -61,11 +66,6 @@ public class LuaException : Exception
         return exception;
     }
 
-    private static string GetMessage(string? message, Exception? innerException)
-    {
-        return message ?? (innerException != null ? "An exception occurred, but was caught and raised as an error." : UnknownMessage);
-    }
-
     internal LuaException WithStatus(LuaStatus status)
     {
         Status = status;
@@ -81,7 +81,9 @@ public class LuaException : Exception
             return new LuaException(error.Message, error.Exception);
         }
 
-        return new LuaException("Error object is neither a string nor an exception.");
+        var errorType = lua_type(L, -1);
+        lua_pop(L);
+        return new LuaException($"Error object is a non-string, non-exception value (Lua type: {errorType}).");
     }
 
     internal static unsafe bool TryGetError(lua_State* L, out (string? Message, Exception? Exception) error)
@@ -106,9 +108,9 @@ public class LuaException : Exception
             return false;
         }
 
-        var errorInfo = Unsafe.As<ErrorInfo>(handle.Target)!;
+        var errorInfo = Unsafe.As<ErrorInfo>(handle.Handle.Target)!;
         error = (errorInfo.Message, errorInfo.Exception);
-        handle.Free();
+        handle.Handle.Free();
         return true;
     }
 
@@ -119,23 +121,49 @@ public class LuaException : Exception
 
         var handle = GCHandle.Alloc(new ErrorInfo(message, exception));
         var ptr = (IntPtr) handle;
-        ErrorInfoHandles[ptr] = handle;
+        var ownerKey = LayluaState.FromExtraSpace(L).GCPtr;
+        ErrorInfoHandles[ptr] = new ErrorInfoHandle(handle, ownerKey);
 
         lua_pushlightuserdata(L, ptr.ToPointer());
         return lua_error(L);
     }
 
     /// <summary>
-    /// Pushes error info onto the Lua stack without calling lua_error.
-    /// Used by the IsPCall path so that ManagedPanicAsm can call lua_error
-    /// from assembly (avoiding managed frames between lua_error and pcall's setjmp).
+    ///     Pushes error info onto the Lua stack without calling lua_error.
+    ///     Used by the IsPCall path so that ManagedPanicAsm can call lua_error
+    ///     from assembly (avoiding managed frames between lua_error and pcall's setjmp).
     /// </summary>
     internal static unsafe void PrepareErrorInfo(lua_State* L, string? message, Exception? exception)
     {
         var handle = GCHandle.Alloc(new ErrorInfo(message, exception));
         var ptr = (IntPtr) handle;
-        ErrorInfoHandles[ptr] = handle;
+        var ownerKey = LayluaState.FromExtraSpace(L).GCPtr;
+        ErrorInfoHandles[ptr] = new ErrorInfoHandle(handle, ownerKey);
 
         lua_pushlightuserdata(L, ptr.ToPointer());
+    }
+
+    /// <summary>
+    ///     Frees orphaned error info handles for a specific Lua state that were never retrieved by <see cref="TryGetError"/>.
+    /// </summary>
+    internal static void FreeOrphanedErrorInfoHandles(IntPtr ownerKey)
+    {
+        if (ownerKey == IntPtr.Zero)
+        {
+            return;
+        }
+
+        foreach (var kvp in ErrorInfoHandles)
+        {
+            if (kvp.Value.OwnerKey != ownerKey)
+            {
+                continue;
+            }
+
+            if (ErrorInfoHandles.TryRemove(kvp.Key, out var handle))
+            {
+                handle.Handle.Free();
+            }
+        }
     }
 }

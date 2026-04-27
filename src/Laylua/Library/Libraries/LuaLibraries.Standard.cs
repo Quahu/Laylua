@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Laylua.Moon;
 
@@ -15,7 +15,7 @@ public unsafe partial class LuaLibraries
     ///     However, a significant portion of the feature set is unsafe for use
     ///     with external code that you cannot verify the safety of.
     ///     <para/>
-    ///     Load all libraries freely (using <see cref="EnumerateAll"/> or <see cref="LuaExtensions.OpenStandardLibraries"/>)
+    ///     Load all libraries freely (using <see cref="EnumerateAll"/> or <see cref="Lua.OpenStandardLibraries"/>)
     ///     if the Lua code being executed is solely your own and known to be safe.
     ///     Otherwise, exercise caution by ensuring the standard libraries being loaded are safe.
     ///     <para/>
@@ -131,19 +131,12 @@ public unsafe partial class LuaLibraries
             yield return Package;
         }
 
-        private class BaseLibrary : LuaLibrary
+        private class BaseLibrary(string name, params string[] globals)
+            : LuaLibrary
         {
-            public override string Name { get; }
+            public override string Name { get; } = name;
 
-            public override IReadOnlyList<string> Globals => _globals;
-
-            private readonly string[] _globals;
-
-            public BaseLibrary(string name, params string[] globals)
-            {
-                Name = name;
-                _globals = globals;
-            }
+            public override IReadOnlyList<string> Globals => globals;
 
             protected internal override void Open(Lua lua, bool leaveOnStack)
             {
@@ -153,7 +146,9 @@ public unsafe partial class LuaLibraries
                 luaopen_base(L);
 
                 if (!leaveOnStack)
+                {
                     lua_pop(L);
+                }
             }
 
             protected internal override void Close(Lua lua)
@@ -164,7 +159,7 @@ public unsafe partial class LuaLibraries
                 using (lua.Stack.SnapshotCount())
                 {
                     lua_pushglobaltable(L);
-                    foreach (var global in _globals)
+                    foreach (var global in globals)
                     {
                         lua_pushnil(L);
                         lua_setfield(L, -2, global);
@@ -178,27 +173,22 @@ public unsafe partial class LuaLibraries
             }
         }
 
-        private sealed class RequireLibrary : BaseLibrary
+        private sealed class RequireLibrary(string global, LuaCFunction openFunction, params string[] extraGlobals)
+            : BaseLibrary(global, extraGlobals.Append(global).ToArray())
         {
-            private readonly string _global;
-            private readonly LuaCFunction _openFunction;
-
-            public RequireLibrary(string global, LuaCFunction openFunction, params string[] extraGlobals)
-                : base(global, extraGlobals.Append(global).ToArray())
-            {
-                _global = global;
-                _openFunction = openFunction;
-            }
+            private readonly string _global = global;
 
             protected internal override void Open(Lua lua, bool leaveOnStack)
             {
                 lua.Stack.EnsureFreeCapacity(1);
 
                 var L = lua.State.L;
-                luaL_requiref(L, _global, _openFunction, true);
+                luaL_requiref(L, _global, openFunction, true);
 
                 if (!leaveOnStack)
+                {
                     lua_pop(L);
+                }
             }
 
             protected internal override void Close(Lua lua)

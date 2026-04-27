@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-
-namespace Laylua.Moon;
+﻿namespace Laylua.Moon;
 
 public static unsafe partial class LuaNative
 {

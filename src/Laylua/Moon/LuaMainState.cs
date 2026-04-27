@@ -12,10 +12,20 @@ internal sealed unsafe class LuaMainState : LuaState
 
     protected override lua_State* LCore => _L;
 
-    internal object? State
+    internal Lua? Lua
     {
-        get => _layluaState.State;
-        set => _layluaState.State = value;
+        get
+        {
+            _layluaState.TryGetLua(out var lua);
+            return lua;
+        }
+        set
+        {
+            if (value != null)
+            {
+                _layluaState.SetLua(value);
+            }
+        }
     }
 
     private LuaAllocFunction? _safeAllocFunction;
@@ -82,7 +92,9 @@ internal sealed unsafe class LuaMainState : LuaState
     internal override void Close()
     {
         if (_L == null)
+        {
             return;
+        }
 
         lua_close(_L);
         _layluaState.Dispose();

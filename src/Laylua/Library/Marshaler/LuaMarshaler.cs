@@ -7,10 +7,12 @@ namespace Laylua.Marshaling;
 
 public abstract partial class LuaMarshaler
 {
+    private volatile LuaReferencePool? _entityPool;
+
     /// <summary>
     ///     Gets the default shared instance of <see cref="DefaultLuaMarshaler"/>.
     /// </summary>
-    public static DefaultLuaMarshaler Default { get; } = new(UserDataDescriptorProvider.Default);
+    public static DefaultLuaMarshaler Default { get; } = new();
 
     /// <summary>
     ///     Sets the entity pool configuration determining how many <see cref="LuaReference"/> instances can be pooled.
@@ -37,8 +39,6 @@ public abstract partial class LuaMarshaler
             ? new LuaReferencePool(value)
             : null;
     }
-
-    private volatile LuaReferencePool? _entityPool;
 
     /// <summary>
     ///     Instantiates a new marshaler with the specified Lua instance.
@@ -74,17 +74,26 @@ public abstract partial class LuaMarshaler
     {
         var lua = Lua.FromThread(thread);
         lua.UnrefLeakedReferences();
+        var L = thread.State.L;
 
-        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(L, stackIndex, out var reference))
         {
             table = default;
             return false;
         }
 
-        table = _entityPool?.RentTable() ?? new();
-        table.Lua = lua;
-        table.Reference = reference;
-        return true;
+        try
+        {
+            table = _entityPool?.RentTable() ?? new();
+            table.Lua = lua;
+            table.Reference = reference;
+            return true;
+        }
+        catch
+        {
+            luaL_unref(L, LuaRegistry.Index, reference);
+            throw;
+        }
     }
 
     /// <summary>
@@ -101,17 +110,26 @@ public abstract partial class LuaMarshaler
     {
         var lua = Lua.FromThread(thread);
         lua.UnrefLeakedReferences();
+        var L = thread.State.L;
 
-        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(L, stackIndex, out var reference))
         {
             function = default;
             return false;
         }
 
-        function = _entityPool?.RentFunction() ?? new();
-        function.Lua = lua;
-        function.Reference = reference;
-        return true;
+        try
+        {
+            function = _entityPool?.RentFunction() ?? new();
+            function.Lua = lua;
+            function.Reference = reference;
+            return true;
+        }
+        catch
+        {
+            luaL_unref(L, LuaRegistry.Index, reference);
+            throw;
+        }
     }
 
     /// <summary>
@@ -129,18 +147,27 @@ public abstract partial class LuaMarshaler
     {
         var lua = Lua.FromThread(thread);
         lua.UnrefLeakedReferences();
+        var L = thread.State.L;
 
-        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(L, stackIndex, out var reference))
         {
             userData = default;
             return false;
         }
 
-        userData = _entityPool?.RentUserData() ?? new();
-        userData.Lua = lua;
-        userData.Reference = reference;
-        userData.Pointer = pointer;
-        return true;
+        try
+        {
+            userData = _entityPool?.RentUserData() ?? new();
+            userData.Lua = lua;
+            userData.Reference = reference;
+            userData.Pointer = pointer;
+            return true;
+        }
+        catch
+        {
+            luaL_unref(L, LuaRegistry.Index, reference);
+            throw;
+        }
     }
 
     /// <summary>
@@ -158,17 +185,26 @@ public abstract partial class LuaMarshaler
     {
         var lua = Lua.FromThread(thread);
         lua.UnrefLeakedReferences();
+        var L = thread.State.L;
 
-        if (!LuaReference.TryCreate(thread.State.L, stackIndex, out var reference))
+        if (!LuaReference.TryCreate(L, stackIndex, out var reference))
         {
             createdThread = default;
             return false;
         }
 
-        var childThread = _entityPool?.RentThread() ?? new();
-        childThread.Initialize(lua, L1, reference);
-        createdThread = childThread;
-        return true;
+        try
+        {
+            var childThread = _entityPool?.RentThread() ?? new();
+            childThread.Initialize(lua, L1, reference);
+            createdThread = childThread;
+            return true;
+        }
+        catch
+        {
+            luaL_unref(L, LuaRegistry.Index, reference);
+            throw;
+        }
     }
 
     /// <summary>
@@ -185,6 +221,20 @@ public abstract partial class LuaMarshaler
     public abstract bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj);
 
     /// <summary>
+    ///     Tries to convert the Lua value at the specified stack index
+    ///     to a .NET value of type <typeparamref name="T"/>, applying the specified conversion rules.
+    /// </summary>
+    /// <param name="thread"> The Lua thread. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="allowedConversions"> The conversion rules to apply. </param>
+    /// <param name="obj"> The output value. </param>
+    /// <typeparam name="T"> The type of the value. </typeparam>
+    /// <returns>
+    ///     <see langword="true"/> if successful.
+    /// </returns>
+    public abstract bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj);
+
+    /// <summary>
     ///     Pushes the specified .NET value onto the Lua stack,
     ///     converting it to a Lua value appropriately.
     /// </summary>
@@ -196,4 +246,29 @@ public abstract partial class LuaMarshaler
     /// <param name="obj"> The value to push. </param>
     /// <typeparam name="T"> The type of the value. </typeparam>
     public abstract void PushValue<T>(LuaThread thread, T obj);
+
+    /// <summary>
+    ///     Returns the marshaling compatibility for binding the Lua value at the specified stack index
+    ///     to a .NET target type. This method declares what conversions the marshaler supports
+    ///     and their relative costs, without performing any conversion.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This method is the extension point for custom marshalers to advertise their conversion
+    ///         capabilities. The returned result describes the marshaler's raw capability;
+    ///         handler-level policy filtering (via <see cref="LuaAllowedValueConversions"/>) is applied
+    ///         separately by the caller.
+    ///     </para>
+    ///     <para>
+    ///         The caller handles nil values. This method is only invoked for non-nil stack values.
+    ///     </para>
+    /// </remarks>
+    /// <param name="thread">The Lua thread.</param>
+    /// <param name="stackIndex">The index on the Lua stack.</param>
+    /// <param name="targetType">The CLR target type (already normalized past byref/nullable by the caller).</param>
+    /// <returns>
+    ///     A <see cref="LuaMarshalingCompatibility"/> describing the conversion capability and cost,
+    ///     or <see cref="LuaMarshalingCompatibility.Incompatible"/> if the marshaler cannot convert the value.
+    /// </returns>
+    public abstract LuaMarshalingCompatibility GetMarshalingCompatibility(LuaThread thread, int stackIndex, Type targetType);
 }

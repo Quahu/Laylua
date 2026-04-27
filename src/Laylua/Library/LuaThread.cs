@@ -259,7 +259,7 @@ public abstract unsafe partial class LuaThread : LuaReference
 
     // Formats the same string luaL_argerror would, but without calling lua_error
     // Uses lua_getstack + lua_getinfo which are safe (no longjmp)
-    private static unsafe string FormatArgError(lua_State* L, int argumentIndex, string? extraMessage)
+    private static string FormatArgError(lua_State* L, int argumentIndex, string? extraMessage)
     {
         luaL_where(L, 1);
         var where = lua_tostring(L, -1).ToString() ?? "";
@@ -288,10 +288,10 @@ public abstract unsafe partial class LuaThread : LuaReference
     }
 
     // Same deal as FormatArgError but for luaL_typeerror - checks __name metafield, etc.
-    private static unsafe string FormatTypeError(lua_State* L, int argumentIndex, string typeName)
+    private static string FormatTypeError(lua_State* L, int argumentIndex, string typeName)
     {
         string typearg;
-        if (luaL_getmetafield(L, argumentIndex, "__name") == (int)LuaType.String)
+        if (luaL_getmetafield(L, argumentIndex, "__name") == (int) LuaType.String)
         {
             typearg = lua_tostring(L, -1).ToString() ?? "?";
             lua_pop(L, 1);
@@ -315,7 +315,7 @@ public abstract unsafe partial class LuaThread : LuaReference
     }
 
     /// <summary>
-    ///     Emits a Lua warning that can fire <see cref="WarningEmitted"/>. <br/>
+    ///     Emits a Lua warning that can fire <see cref="Lua.WarningEmitted"/>. <br/>
     ///     See <a href="https://www.lua.org/manual/5.4/manual.html#2.3">Error Handling (Lua manual)</a> and
     ///     <a href="https://www.lua.org/manual/5.4/manual.html#pdf-warn"><c>warn (msg1, ···) (Lua Manual)</c></a> for more information about warnings.
     /// </summary>
@@ -485,8 +485,7 @@ public abstract unsafe partial class LuaThread : LuaReference
 
     public static LuaThread FromExtraSpace(lua_State* L)
     {
-        var lua = LayluaState.FromExtraSpace(L).State as Lua;
-        if (lua == null)
+        if (!LayluaState.FromExtraSpace(L).TryGetLua(out var lua))
         {
             luaL_error(L, "Laylua is not attached to this Lua state.");
         }

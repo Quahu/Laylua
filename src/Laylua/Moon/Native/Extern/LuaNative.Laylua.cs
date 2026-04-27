@@ -18,6 +18,35 @@ public static unsafe partial class LuaNative
         lua_pop(L, 1);
     }
 
+    /// <summary>
+    ///     Pushes a pre-wrapped native C function pointer onto the Lua stack.
+    ///     Use with function pointers returned by <see cref="LayluaNative.CreateLuaCFunctionWrapper"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void lua_pushcfunction(lua_State* L, nint wrappedFn)
+    {
+        _lua_pushcclosure(L, wrappedFn, 0);
+    }
+
+    /// <summary>
+    ///     Pushes a pre-wrapped native C function as a closure with <paramref name="n"/> upvalues.
+    ///     The upvalues must already be on the stack before this call.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void lua_pushcclosure(lua_State* L, nint wrappedFn, int n)
+    {
+        _lua_pushcclosure(L, wrappedFn, n);
+    }
+
+    /// <summary>
+    ///     Wraps a managed <see cref="LuaCFunction"/> delegate into a native function pointer
+    ///     with exception-safe error handling for Lua callbacks.
+    /// </summary>
+    public static nint CreateSafeCFunction(LuaCFunction function)
+    {
+        return LayluaNative.CreateLuaCFunctionWrapper(function);
+    }
+
     public static LuaType lua_rawgetglobal(lua_State* L, ReadOnlySpan<char> name)
     {
         luaL_checkstack(L, 2, null);

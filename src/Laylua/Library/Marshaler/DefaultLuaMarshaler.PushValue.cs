@@ -1,10 +1,7 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Laylua.Moon;
-using Qommon;
 
 namespace Laylua.Marshaling;
 
@@ -128,55 +125,40 @@ public unsafe partial class DefaultLuaMarshaler
 
                 return;
             }
-            case UserDataHandle:
-            {
-                ((UserDataHandle) (object) obj).Push(thread);
-                return;
-            }
             default:
             {
-                if (obj is DescribedUserData)
+                if (obj is Type typeValue)
                 {
-                    (obj as DescribedUserData)!.CreateUserDataHandle(thread).Push(thread);
+                    if (LuaTypeRegistry.TryPushDefinition(thread.State.L, typeValue))
+                    {
+                        return;
+                    }
+
+                    if (AllowsDynamicMarshaling)
+                    {
+                        LuaTypeRegistry.PushDynamicDefinition(thread.State.L, typeValue);
+                        return;
+                    }
+
+                    throw new InvalidOperationException($"No Lua type handler is registered for '{typeValue}'. " +
+                        $"Annotate it with {nameof(LuaTypeAttribute)} or set {nameof(AllowsDynamicMarshaling)} to {bool.TrueString}.");
+                }
+
+                var lua = Lua.FromExtraSpace(L);
+                var type = obj.GetType();
+                if (!type.IsValueType && TryPushCachedIdentity(L, lua, obj))
+                {
                     return;
                 }
 
-                if (!typeof(T).IsValueType)
+                if (LuaTypeRegistry.TryPush(thread.State.L, type, obj))
                 {
-                    if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
+                    if (!type.IsValueType)
                     {
-                        var cache = GetUserDataCache(Lua.FromThread(thread));
-                        if (cache.TryGetValue((obj, descriptor), out var handle))
-                        {
-                            handle.Push(thread);
-                            return;
-                        }
-
-                        Type clrType;
-                        if (typeof(T).IsSealed || (clrType = obj.GetType()) == typeof(T))
-                        {
-                            handle = new DescriptorUserDataHandle<T>(thread, obj, descriptor);
-                        }
-                        else
-                        {
-                            // TODO: possibly improve this in the future
-                            var userDataHandleType = typeof(DescriptorUserDataHandle<>).MakeGenericType(clrType);
-                            var constructor = userDataHandleType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
-                            handle = (UserDataHandle) constructor.Invoke([thread, obj, descriptor]);
-                        }
-
-                        handle.Push(thread);
-                        cache[(obj, descriptor)] = handle;
-                        return;
+                        CacheIdentity(L, lua, obj);
                     }
-                }
-                else
-                {
-                    if (UserDataDescriptorProvider.TryGetDescriptor<T>(obj, out var descriptor))
-                    {
-                        new DescriptorUserDataHandle<T>(thread, obj, descriptor).Push(thread);
-                        return;
-                    }
+
+                    return;
                 }
 
                 switch (obj)
@@ -215,9 +197,22 @@ public unsafe partial class DefaultLuaMarshaler
                             case TypeCode.Int32:
                             case TypeCode.UInt32:
                             case TypeCode.Int64:
-                            case TypeCode.UInt64:
                             {
                                 lua_pushinteger(L, ((IConvertible) obj).ToInt64(FormatProvider));
+                                return;
+                            }
+                            case TypeCode.UInt64:
+                            {
+                                var uint64Value = ((IConvertible) obj).ToUInt64(FormatProvider);
+                                if (uint64Value <= long.MaxValue)
+                                {
+                                    lua_pushinteger(L, (long) uint64Value);
+                                }
+                                else
+                                {
+                                    lua_pushnumber(L, uint64Value);
+                                }
+
                                 return;
                             }
                             case TypeCode.Single:
@@ -246,7 +241,20 @@ public unsafe partial class DefaultLuaMarshaler
                     }
                     default:
                     {
-                        Throw.ArgumentException($"The object type {obj.GetType()} cannot be marshaled.", nameof(obj));
+                        if (!AllowsDynamicMarshaling)
+                        {
+                            throw new InvalidOperationException($"No Lua type handler is registered for '{type}'. " +
+                                $"Annotate it with {nameof(LuaTypeAttribute)} or set {nameof(AllowsDynamicMarshaling)} to {bool.TrueString}.");
+                        }
+
+                        var handler = LuaTypeRegistry.GetOrCreate(type);
+                        handler.Push(thread.State.L, obj);
+
+                        if (!type.IsValueType)
+                        {
+                            CacheIdentity(L, lua, obj);
+                        }
+
                         return;
                     }
                 }
