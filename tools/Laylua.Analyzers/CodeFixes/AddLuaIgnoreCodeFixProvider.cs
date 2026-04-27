@@ -111,7 +111,7 @@ public sealed class AddLuaIgnoreCodeFixProvider : CodeFixProvider
 
         var newText = sourceText.WithChanges(new TextChange(
             new TextSpan(insertionPoint, 0),
-            $"{indentation}[LuaIgnore]{endOfLine}"));
+            $"{indentation}[global::Laylua.Marshaling.LuaIgnore]{endOfLine}"));
 
         return document.WithText(newText);
     }

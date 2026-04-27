@@ -99,7 +99,7 @@ public class LuaExportGenerator : IIncrementalGenerator
                 IsSpanByte = isSpanByte,
                 IsDelegate = param.Type.TypeKind == TypeKind.Delegate
             };
-        }).ToList();
+        }).ToArray();
 
         var returnIsDelegate = method.ReturnType.TypeKind == TypeKind.Delegate;
 
@@ -248,14 +248,15 @@ public class LuaExportGenerator : IIncrementalGenerator
 
         if (method.IsOptional)
         {
-            code.Line($"if ({fieldName} == null)");
+            code.Line($"var {fieldName}_local = {fieldName};");
+            code.Line($"if ({fieldName}_local == null)");
             code.OpenBrace();
             code.Line($"throw new InvalidOperationException(\"{method.MethodName} is not available.\");");
             code.CloseBrace();
             code.Line();
         }
 
-        EmitMethodBody(code, method, fieldName);
+        EmitMethodBody(code, method, method.IsOptional ? $"{fieldName}_local" : fieldName);
 
         code.CloseBrace();
         code.Line();
@@ -578,7 +579,7 @@ public class LuaExportGenerator : IIncrementalGenerator
         };
     }
 
-    private struct MethodExport
+    private struct MethodExport : System.IEquatable<MethodExport>
     {
         public string Namespace;
         public string TypeName;
@@ -586,7 +587,7 @@ public class LuaExportGenerator : IIncrementalGenerator
         public string ExportName;
         public string ReturnType;
         public bool ReturnsVoid;
-        public List<ParamInfo> Parameters;
+        public ParamInfo[] Parameters;
         public bool IsOptional;
         public bool Throws;
         public bool PCall;
@@ -594,9 +595,51 @@ public class LuaExportGenerator : IIncrementalGenerator
         public bool ReturnIsDelegate;
         public string? ReturnDelegateType;
         public Accessibility Accessibility;
+
+        public bool Equals(MethodExport other)
+        {
+            return Namespace == other.Namespace
+                && TypeName == other.TypeName
+                && MethodName == other.MethodName
+                && ExportName == other.ExportName
+                && ReturnType == other.ReturnType
+                && ReturnsVoid == other.ReturnsVoid
+                && ParametersEqual(Parameters, other.Parameters)
+                && IsOptional == other.IsOptional
+                && Throws == other.Throws
+                && PCall == other.PCall
+                && ReturnsLuaString == other.ReturnsLuaString
+                && ReturnIsDelegate == other.ReturnIsDelegate
+                && ReturnDelegateType == other.ReturnDelegateType
+                && Accessibility == other.Accessibility;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is MethodExport other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = StringHash(Namespace);
+            hash = CombineHash(hash, StringHash(TypeName));
+            hash = CombineHash(hash, StringHash(MethodName));
+            hash = CombineHash(hash, StringHash(ExportName));
+            hash = CombineHash(hash, StringHash(ReturnType));
+            hash = CombineHash(hash, ReturnsVoid.GetHashCode());
+            hash = CombineHash(hash, ParametersHash(Parameters));
+            hash = CombineHash(hash, IsOptional.GetHashCode());
+            hash = CombineHash(hash, Throws.GetHashCode());
+            hash = CombineHash(hash, PCall.GetHashCode());
+            hash = CombineHash(hash, ReturnsLuaString.GetHashCode());
+            hash = CombineHash(hash, ReturnIsDelegate.GetHashCode());
+            hash = CombineHash(hash, StringHash(ReturnDelegateType));
+            hash = CombineHash(hash, Accessibility.GetHashCode());
+            return hash;
+        }
     }
 
-    private struct FieldExport
+    private struct FieldExport : System.IEquatable<FieldExport>
     {
         public string Namespace;
         public string TypeName;
@@ -605,9 +648,37 @@ public class LuaExportGenerator : IIncrementalGenerator
         public string DelegateName;
         public bool IsOptional;
         public bool Throws;
+
+        public bool Equals(FieldExport other)
+        {
+            return Namespace == other.Namespace
+                && TypeName == other.TypeName
+                && FieldName == other.FieldName
+                && ExportName == other.ExportName
+                && DelegateName == other.DelegateName
+                && IsOptional == other.IsOptional
+                && Throws == other.Throws;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is FieldExport other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = StringHash(Namespace);
+            hash = CombineHash(hash, StringHash(TypeName));
+            hash = CombineHash(hash, StringHash(FieldName));
+            hash = CombineHash(hash, StringHash(ExportName));
+            hash = CombineHash(hash, StringHash(DelegateName));
+            hash = CombineHash(hash, IsOptional.GetHashCode());
+            hash = CombineHash(hash, Throws.GetHashCode());
+            return hash;
+        }
     }
 
-    private struct ParamInfo
+    private struct ParamInfo : System.IEquatable<ParamInfo>
     {
         public string Type;
         public string Name;
@@ -616,6 +687,86 @@ public class LuaExportGenerator : IIncrementalGenerator
         public bool IsSpanChar;
         public bool IsSpanByte;
         public bool IsDelegate;
+
+        public bool Equals(ParamInfo other)
+        {
+            return Type == other.Type
+                && Name == other.Name
+                && RefKind == other.RefKind
+                && MarshalAs == other.MarshalAs
+                && IsSpanChar == other.IsSpanChar
+                && IsSpanByte == other.IsSpanByte
+                && IsDelegate == other.IsDelegate;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is ParamInfo other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = StringHash(Type);
+            hash = CombineHash(hash, StringHash(Name));
+            hash = CombineHash(hash, RefKind.GetHashCode());
+            hash = CombineHash(hash, StringHash(MarshalAs));
+            hash = CombineHash(hash, IsSpanChar.GetHashCode());
+            hash = CombineHash(hash, IsSpanByte.GetHashCode());
+            hash = CombineHash(hash, IsDelegate.GetHashCode());
+            return hash;
+        }
+    }
+
+    private static bool ParametersEqual(ParamInfo[]? left, ParamInfo[]? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left == null || right == null || left.Length != right.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (!left[i].Equals(right[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static int ParametersHash(ParamInfo[]? parameters)
+    {
+        if (parameters == null)
+        {
+            return 0;
+        }
+
+        var hash = 17;
+        foreach (var parameter in parameters)
+        {
+            hash = CombineHash(hash, parameter.GetHashCode());
+        }
+
+        return hash;
+    }
+
+    private static int StringHash(string? value)
+    {
+        return value?.GetHashCode() ?? 0;
+    }
+
+    private static int CombineHash(int left, int right)
+    {
+        unchecked
+        {
+            return (left * 397) ^ right;
+        }
     }
 
     private readonly struct InitEntry(string fieldName, string delegateName, string exportName, bool isOptional, bool throws)
