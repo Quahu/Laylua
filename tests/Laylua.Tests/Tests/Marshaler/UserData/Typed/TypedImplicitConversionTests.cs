@@ -197,17 +197,25 @@ public class TypedImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void FunctionToCallableTarget_Default_AllowsFunctionToDelegate()
+    public void FunctionToCallableTarget_Default_AllowsManagedDelegateRoundTrip()
     {
         // Arrange
+        var invocationCount = 0;
+        Action callback = () =>
+        {
+            invocationCount++;
+        };
+
         var obj = new TypedImplicitConversionDefault();
         Lua["obj"] = obj;
+        Lua["callback"] = callback;
 
         // Act
-        var result = Lua.Evaluate<string>("return obj:AcceptsDelegate(function() end)");
+        var result = Lua.Evaluate<string>("return obj:AcceptsDelegate(callback)");
 
         // Assert
         Assert.That(result, Is.EqualTo("delegate-called"));
+        Assert.That(invocationCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -225,14 +233,15 @@ public class TypedImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void FunctionToCallableTarget_Disabled_FunctionDoesNotBindDelegate()
+    public void FunctionToCallableTarget_Disabled_ManagedDelegateDoesNotBindDelegate()
     {
         // Arrange
         var obj = new TypedImplicitConversionNone();
         Lua["obj"] = obj;
+        Lua["callback"] = (Action) (static () => { });
 
         // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("obj:AcceptsDelegate(function() end)"));
+        Assert.Throws<LuaException>(() => Lua.Execute("obj:AcceptsDelegate(callback)"));
     }
 
     [Test]

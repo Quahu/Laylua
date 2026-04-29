@@ -7,8 +7,15 @@ using Laylua.Moon;
 
 namespace Laylua.Marshaling;
 
-public sealed unsafe class LuaEventSubscriptionTracker
+public sealed unsafe partial class LuaEventSubscriptionTracker
 {
+    private const int MaxSupportedDelegateParameterCount = 16;
+    private const int MaxSupportedDelegateTypeArgumentCount = MaxSupportedDelegateParameterCount + 1;
+
+    private static readonly ConcurrentDictionary<Type, DelegateWrapperMethodCacheEntry> _delegateWrapperMethods = new();
+    private static readonly MethodInfo?[] _actionWrapperMethodDefinitions = BuildDelegateWrapperMethodDefinitions(nameof(EventFunctionDelegateWrapper.InvokeAction));
+    private static readonly MethodInfo?[] _functionWrapperMethodDefinitions = BuildDelegateWrapperMethodDefinitions(nameof(EventFunctionDelegateWrapper.InvokeFunc));
+
     private readonly struct Subscription(LuaFunction function, Delegate handler, EventInfo eventInfo, object? target, object cleanupKey)
     {
         public readonly LuaFunction Function = function;
@@ -18,12 +25,22 @@ public sealed unsafe class LuaEventSubscriptionTracker
         public readonly object CleanupKey = cleanupKey;
     }
 
+    private readonly struct DelegateWrapperMethodCacheEntry(MethodInfo? method, int parameterCount, bool hasTooManyParameters)
+    {
+        public readonly MethodInfo? Method = method;
+
+        public readonly int ParameterCount = parameterCount;
+
+        public readonly bool HasTooManyParameters = hasTooManyParameters;
+    }
+
+    private sealed partial class EventFunctionDelegateWrapper(LuaFunction function);
+
     private readonly ConcurrentDictionary<object, Dictionary<string, List<Subscription>>> _subscriptionsByLookupKey = new();
 
     public bool Subscribe(lua_State* L, object lookupKey, object cleanupKey, string eventName, EventInfo eventInfo, object? target, int functionStackIndex)
     {
         var lua = Lua.FromExtraSpace(L);
-
         if (!LuaReference.TryCreate(L, functionStackIndex, out var reference))
         {
             return false;
@@ -43,7 +60,7 @@ public sealed unsafe class LuaEventSubscriptionTracker
         }
 
         var delegateType = eventInfo.EventHandlerType!;
-        var handler = DefaultLuaMarshaler.CreateDelegateFromFunction(function, delegateType);
+        var handler = CreateEventHandler(function, delegateType);
         if (handler == null)
         {
             function.Dispose();
@@ -120,6 +137,110 @@ public sealed unsafe class LuaEventSubscriptionTracker
         }
     }
 
+    private static Delegate? CreateEventHandler(LuaFunction function, Type delegateType)
+    {
+        var cacheEntry = _delegateWrapperMethods.GetOrAdd(delegateType, static currentDelegateType => CreateDelegateWrapperMethodCacheEntry(currentDelegateType));
+        if (cacheEntry.HasTooManyParameters)
+        {
+            throw new NotSupportedException($"Cannot subscribe Lua function to event handler type '{delegateType.Name}' because it has {cacheEntry.ParameterCount} parameters. " +
+                $"Lua event handlers support at most {MaxSupportedDelegateParameterCount} parameters.");
+        }
+
+        if (cacheEntry.Method == null)
+        {
+            return null;
+        }
+
+        var wrapper = new EventFunctionDelegateWrapper(function);
+        return cacheEntry.Method.CreateDelegate(delegateType, wrapper);
+    }
+
+    private static DelegateWrapperMethodCacheEntry CreateDelegateWrapperMethodCacheEntry(Type delegateType)
+    {
+        var invokeMethod = delegateType.GetMethod("Invoke");
+        if (invokeMethod == null)
+        {
+            return default;
+        }
+
+        var parameters = invokeMethod.GetParameters();
+        var parameterCount = parameters.Length;
+        if (parameterCount > MaxSupportedDelegateParameterCount)
+        {
+            return new DelegateWrapperMethodCacheEntry(method: null, parameterCount, hasTooManyParameters: true);
+        }
+
+        var returnType = invokeMethod.ReturnType;
+        var isVoid = returnType == typeof(void);
+        var typeArgumentCount = isVoid
+            ? parameterCount
+            : parameterCount + 1;
+
+        var typeArguments = new Type[typeArgumentCount];
+        for (var index = 0; index < parameterCount; index++)
+        {
+            var parameterType = parameters[index].ParameterType;
+            if (IsUnsupportedDelegateType(parameterType))
+            {
+                return default;
+            }
+
+            typeArguments[index] = parameterType;
+        }
+
+        if (!isVoid)
+        {
+            if (IsUnsupportedDelegateType(returnType))
+            {
+                return default;
+            }
+
+            typeArguments[parameterCount] = returnType;
+        }
+
+        var methodDefinition = isVoid
+            ? _actionWrapperMethodDefinitions[typeArgumentCount]
+            : _functionWrapperMethodDefinitions[typeArgumentCount];
+
+        if (methodDefinition == null)
+        {
+            return default;
+        }
+
+        var method = typeArgumentCount == 0
+            ? methodDefinition
+            : methodDefinition.MakeGenericMethod(typeArguments);
+
+        return new DelegateWrapperMethodCacheEntry(method, parameterCount, hasTooManyParameters: false);
+    }
+
+    private static MethodInfo?[] BuildDelegateWrapperMethodDefinitions(string methodName)
+    {
+        var methodDefinitions = new MethodInfo?[MaxSupportedDelegateTypeArgumentCount + 1];
+        var methods = typeof(EventFunctionDelegateWrapper).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
+        for (var index = 0; index < methods.Length; index++)
+        {
+            var method = methods[index];
+            if (method.Name != methodName)
+            {
+                continue;
+            }
+
+            var genericArgumentCount = method.GetGenericArguments().Length;
+            if (genericArgumentCount <= MaxSupportedDelegateTypeArgumentCount)
+            {
+                methodDefinitions[genericArgumentCount] = method;
+            }
+        }
+
+        return methodDefinitions;
+    }
+
+    private static bool IsUnsupportedDelegateType(Type type)
+    {
+        return type.IsByRef || type.IsByRefLike || type.IsPointer;
+    }
+
     public bool Unsubscribe(lua_State* L, object lookupKey, string eventName, EventInfo eventInfo, object? target, int functionStackIndex)
     {
         if (!_subscriptionsByLookupKey.TryGetValue(lookupKey, out var subscriptionsForLookupKey))
@@ -138,7 +259,10 @@ public sealed unsafe class LuaEventSubscriptionTracker
             {
                 var sub = list[i];
                 lua_rawgeti(L, LuaRegistry.Index, LuaReference.GetReference(sub.Function));
-                var equal = lua_rawequal(L, -1, functionStackIndex < 0 ? functionStackIndex - 1 : functionStackIndex);
+                var equal = lua_rawequal(L, -1, functionStackIndex < 0
+                    ? functionStackIndex - 1
+                    : functionStackIndex);
+
                 lua_pop(L, 1);
 
                 if (equal)
@@ -183,9 +307,8 @@ public sealed unsafe class LuaEventSubscriptionTracker
     public void CleanupAll(lua_State* L, object cleanupKey)
     {
         Exception? cleanupException = null;
-        foreach (var kvp in _subscriptionsByLookupKey)
+        foreach (var (key, subscriptionsForLookupKey) in _subscriptionsByLookupKey)
         {
-            var subscriptionsForLookupKey = kvp.Value;
             lock (subscriptionsForLookupKey)
             {
                 foreach (var eventName in new List<string>(subscriptionsForLookupKey.Keys))
@@ -238,7 +361,7 @@ public sealed unsafe class LuaEventSubscriptionTracker
 
                 if (subscriptionsForLookupKey.Count == 0)
                 {
-                    _subscriptionsByLookupKey.TryRemove(kvp.Key, out _);
+                    _subscriptionsByLookupKey.TryRemove(key, out _);
                 }
             }
         }
@@ -248,7 +371,10 @@ public sealed unsafe class LuaEventSubscriptionTracker
 
     private static Exception UnwrapInvocationException(Exception exception)
     {
-        if (exception is TargetInvocationException { InnerException: not null } invocationException)
+        if (exception is TargetInvocationException
+        {
+            InnerException: not null
+        } invocationException)
         {
             return invocationException.InnerException!;
         }

@@ -2572,11 +2572,15 @@ public unsafe class DynamicUserDataTests : LuaTestBase
     {
         // Arrange
         Lua["obj"] = new DynamicDelegateCompatibilityOverloadTarget();
+        Lua["callback"] = (Func<int, int>) (static value =>
+        {
+            return value * 2;
+        });
 
         try
         {
             // Act
-            var result = Lua.Evaluate<int>("return obj:Resolve(function(value) return value * 2 end)");
+            var result = Lua.Evaluate<int>("return obj:Resolve(callback)");
 
             // Assert
             Assert.That(result, Is.EqualTo(42));

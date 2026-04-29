@@ -253,7 +253,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
         lua_pushvalue(L, stackIndex);
         reference = luaL_ref(L, LuaRegistry.Index);
         if (reference is LUA_REFNIL or LUA_NOREF)
+        {
             return false;
+        }
 
         return true;
     }

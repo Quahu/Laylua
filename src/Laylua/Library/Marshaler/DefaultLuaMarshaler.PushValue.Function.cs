@@ -129,7 +129,8 @@ public unsafe partial class DefaultLuaMarshaler
             lua_setmetatable(L, -2);
             isMetatableOnStack = false;
 
-            lua_pushcclosure(L, DelegateCFunction, 1);
+            lua_pushlightuserdata(L, (void*) LayluaNative.getPotentialPanicPtr);
+            lua_pushcclosure(L, DelegateCFunction, 2);
             isUserdataOnStack = false;
         }
         catch

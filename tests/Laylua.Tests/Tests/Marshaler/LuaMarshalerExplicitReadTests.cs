@@ -6,6 +6,11 @@ namespace Laylua.Tests;
 
 public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
 {
+    private static readonly LuaCFunction FakeDelegateHandleClosure = static _ =>
+    {
+        return 0;
+    };
+
     [Test]
     public void TryGetValue_StringToInt_WithStringToPrimitive_Succeeds()
     {
@@ -586,7 +591,7 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
     }
 
     [Test]
-    public void TryGetValue_FunctionToCallableTarget_WithFunctionToCallableTarget_Succeeds()
+    public void TryGetValue_FunctionToCallableTarget_WithPlainLuaFunction_Fails()
     {
         // Arrange
         using var _ = Lua.Stack.SnapshotCount();
@@ -597,8 +602,55 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
         var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.FunctionToCallableTarget, out Action? callback);
 
         // Assert
+        Assert.That(result, Is.False);
+        Assert.That(callback, Is.Null);
+    }
+
+    [Test]
+    public void TryGetValue_FunctionToCallableTarget_WithManagedDelegateRoundTrip_ReturnsOriginalDelegate()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        var invocationCount = 0;
+        Action callback = () =>
+        {
+            invocationCount++;
+        };
+
+        Lua.SetGlobal("callback", callback);
+        Lua.Execute("roundTrip = callback");
+        lua_getglobal(L, "roundTrip");
+
+        // Act
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.FunctionToCallableTarget, out Action? roundTrip);
+
+        // Assert
         Assert.That(result, Is.True);
-        Assert.That(callback, Is.Not.Null);
+        Assert.That(roundTrip, Is.SameAs(callback));
+
+        roundTrip!();
+        Assert.That(invocationCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TryGetValue_FunctionToCallableTarget_WithNonDelegateCClosureUsingDelegateHandle_Fails()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        Action callback = static () => { };
+
+        Lua.SetGlobal("callback", callback);
+        lua_getglobal(L, "callback");
+        Assert.That((nint) lua_getupvalue(L, -1, 1).Pointer, Is.Not.EqualTo(0));
+        lua_remove(L, -2);
+        lua_pushcclosure(L, FakeDelegateHandleClosure, 1);
+
+        // Act
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.FunctionToCallableTarget, out Action? roundTrip);
+
+        // Assert
+        Assert.That(result, Is.False);
+        Assert.That(roundTrip, Is.Null);
     }
 
     [Test]

@@ -1,53 +1,12 @@
 using System;
-using System.Collections.Concurrent;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Laylua.Moon;
 
 namespace Laylua.Marshaling;
 
 public unsafe partial class DefaultLuaMarshaler
 {
-    private const int MaxSupportedDelegateParameterCount = 16;
-    private const int MaxSupportedDelegateTypeArgumentCount = MaxSupportedDelegateParameterCount + 1;
-
-    private static readonly ConcurrentDictionary<Type, DelegateWrapperMethodCacheEntry> _delegateWrapperMethods = new();
-    private static readonly MethodInfo?[] _actionWrapperMethodDefinitions = BuildDelegateWrapperMethodDefinitions(nameof(LuaFunctionDelegateWrapper.InvokeAction));
-    private static readonly MethodInfo?[] _functionWrapperMethodDefinitions = BuildDelegateWrapperMethodDefinitions(nameof(LuaFunctionDelegateWrapper.InvokeFunc));
-
-    /// <summary>
-    ///     Wraps a <see cref="LuaFunction"/> so it can be called as a .NET delegate.
-    /// </summary>
-    private sealed partial class LuaFunctionDelegateWrapper(LuaFunction function);
-
-    private readonly struct DelegateWrapperMethodCacheEntry(MethodInfo? method, int parameterCount, bool hasTooManyParameters)
-    {
-        public readonly MethodInfo? Method = method;
-
-        public readonly int ParameterCount = parameterCount;
-
-        public readonly bool HasTooManyParameters = hasTooManyParameters;
-    }
-
-    internal static Delegate? CreateDelegateFromFunction(LuaFunction function, Type delegateType)
-    {
-        var cacheEntry = _delegateWrapperMethods.GetOrAdd(delegateType, static currentDelegateType => CreateDelegateWrapperMethodCacheEntry(currentDelegateType));
-        if (cacheEntry.HasTooManyParameters)
-        {
-            throw new NotSupportedException(
-                $"Cannot marshal a Lua function to delegate type '{delegateType.Name}' because it has {cacheEntry.ParameterCount} parameters. " +
-                $"Marshaling Lua functions to delegates supports at most {MaxSupportedDelegateParameterCount} parameters. " +
-                $"Use {nameof(LuaFunction)} directly for higher-arity calls.");
-        }
-
-        if (cacheEntry.Method == null)
-        {
-            return null;
-        }
-
-        var wrapper = new LuaFunctionDelegateWrapper(function);
-        return cacheEntry.Method.CreateDelegate(delegateType, wrapper);
-    }
-
     internal static bool CanConvertFunctionToDelegate(lua_State* L, int stackIndex, Type delegateType)
     {
         if (delegateType.BaseType != typeof(MulticastDelegate))
@@ -55,18 +14,29 @@ public unsafe partial class DefaultLuaMarshaler
             return false;
         }
 
-        if (TryGetMethodInfoFromFunction(L, stackIndex, delegateType, out _))
-        {
-            return true;
-        }
-
-        var cacheEntry = _delegateWrapperMethods.GetOrAdd(delegateType, static currentDelegateType => CreateDelegateWrapperMethodCacheEntry(currentDelegateType));
-        return !cacheEntry.HasTooManyParameters && cacheEntry.Method != null;
+        return TryGetCallableTargetFromFunction(L, stackIndex, delegateType, out _);
     }
 
     internal static bool CanConvertFunctionToMethodInfo(lua_State* L, int stackIndex)
     {
         return TryGetMethodInfoFromFunction(L, stackIndex, typeof(MethodInfo), out _);
+    }
+
+    internal static bool TryGetCallableTargetFromFunction(lua_State* L, int stackIndex, Type targetType, out object? result)
+    {
+        if (TryGetMethodInfoFromFunction(L, stackIndex, targetType, out result))
+        {
+            return true;
+        }
+
+        if (targetType.BaseType == typeof(MulticastDelegate) && TryGetManagedDelegateFromFunction(L, stackIndex, targetType, out var @delegate))
+        {
+            result = @delegate;
+            return true;
+        }
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -118,89 +88,100 @@ public unsafe partial class DefaultLuaMarshaler
         return false;
     }
 
-    private static DelegateWrapperMethodCacheEntry CreateDelegateWrapperMethodCacheEntry(Type delegateType)
+    private static bool TryGetManagedDelegateFromFunction(lua_State* L, int stackIndex, Type delegateType, out Delegate? result)
     {
-        var invokeMethod = delegateType.GetMethod("Invoke");
-        if (invokeMethod == null)
+        stackIndex = lua_absindex(L, stackIndex);
+        var top = lua_gettop(L);
+        try
         {
-            return default;
-        }
-
-        var parameters = invokeMethod.GetParameters();
-        var parameterCount = parameters.Length;
-        if (parameterCount > MaxSupportedDelegateParameterCount)
-        {
-            return new DelegateWrapperMethodCacheEntry(method: null, parameterCount, hasTooManyParameters: true);
-        }
-
-        var returnType = invokeMethod.ReturnType;
-        var isVoid = returnType == typeof(void);
-        var typeArgumentCount = isVoid
-            ? parameterCount
-            : parameterCount + 1;
-
-        var typeArguments = new Type[typeArgumentCount];
-        for (var i = 0; i < parameterCount; i++)
-        {
-            var parameterType = parameters[i].ParameterType;
-            if (IsUnsupportedDelegateType(parameterType))
+            if (!IsManagedDelegateClosure(L, stackIndex))
             {
-                return default;
+                result = null;
+                return false;
             }
 
-            typeArguments[i] = parameterType;
-        }
-
-        if (!isVoid)
-        {
-            if (IsUnsupportedDelegateType(returnType))
+            if (lua_getupvalue(L, stackIndex, 1).Pointer == null)
             {
-                return default;
+                result = null;
+                return false;
             }
 
-            typeArguments[parameterCount] = returnType;
+            if (lua_type(L, -1) != LuaType.UserData || !IsDelegateHandleUserData(L, -1))
+            {
+                result = null;
+                return false;
+            }
+
+            var ptr = (nint*) lua_touserdata(L, -1);
+            if (ptr == null || *ptr == 0)
+            {
+                result = null;
+                return false;
+            }
+
+            var handlePtr = *ptr;
+            if (!IsDelegateHandleTracked(Lua.FromExtraSpace(L), handlePtr))
+            {
+                result = null;
+                return false;
+            }
+
+            var handle = GCHandle.FromIntPtr(handlePtr);
+            if (handle.Target is Delegate @delegate && delegateType.IsInstanceOfType(@delegate))
+            {
+                result = @delegate;
+                return true;
+            }
+
+            result = null;
+            return false;
         }
-
-        var methodDefinition = isVoid
-            ? _actionWrapperMethodDefinitions[typeArgumentCount]
-            : _functionWrapperMethodDefinitions[typeArgumentCount];
-
-        if (methodDefinition == null)
+        finally
         {
-            return default;
+            lua_settop(L, top);
         }
-
-        var method = typeArgumentCount == 0
-            ? methodDefinition
-            : methodDefinition.MakeGenericMethod(typeArguments);
-
-        return new DelegateWrapperMethodCacheEntry(method, parameterCount, hasTooManyParameters: false);
     }
 
-    private static MethodInfo?[] BuildDelegateWrapperMethodDefinitions(string methodName)
+    private static bool IsManagedDelegateClosure(lua_State* L, int stackIndex)
     {
-        var methodDefinitions = new MethodInfo?[MaxSupportedDelegateTypeArgumentCount + 1];
-        var methods = typeof(LuaFunctionDelegateWrapper).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic);
-        for (var i = 0; i < methods.Length; i++)
+        if (!lua_iscfunction(L, stackIndex))
         {
-            var method = methods[i];
-            if (method.Name != methodName)
-            {
-                continue;
-            }
-
-            var genericArgumentCount = method.GetGenericArguments().Length;
-            if (genericArgumentCount <= MaxSupportedDelegateTypeArgumentCount)
-            {
-                methodDefinitions[genericArgumentCount] = method;
-            }
+            return false;
         }
 
-        return methodDefinitions;
+        if (lua_getupvalue(L, stackIndex, 2).Pointer == null)
+        {
+            return false;
+        }
+
+        if (lua_type(L, -1) != LuaType.LightUserData
+            || (nint) lua_touserdata(L, -1) != (nint) LayluaNative.getPotentialPanicPtr)
+        {
+            lua_pop(L, 1);
+            return false;
+        }
+
+        lua_pop(L, 1);
+        return true;
     }
 
-    private static bool IsUnsupportedDelegateType(Type type)
+    private static bool IsDelegateHandleUserData(lua_State* L, int stackIndex)
     {
-        return type.IsByRef || type.IsByRefLike || type.IsPointer;
+        stackIndex = lua_absindex(L, stackIndex);
+        if (!lua_getmetatable(L, stackIndex))
+        {
+            return false;
+        }
+
+        if (luaL_getmetatable(L, DelegateHandleMetatableName).IsNoneOrNil())
+        {
+            lua_pop(L, 2);
+            return false;
+        }
+
+        var isDelegateHandle = lua_rawequal(L, -1, -2);
+        lua_pop(L, 2);
+        return isDelegateHandle;
     }
+
 }

@@ -242,9 +242,9 @@ public unsafe partial class DefaultLuaMarshaler
             {
                 if ((allowedConversions & LuaAllowedValueConversions.FunctionToCallableTarget) != 0
                     && (clrType == typeof(MethodInfo) || clrType.BaseType == typeof(MulticastDelegate))
-                    && TryGetMethodInfoFromFunction(L, stackIndex, clrType, out var methodResult))
+                    && TryGetCallableTargetFromFunction(L, stackIndex, clrType, out var callableTarget))
                 {
-                    obj = (T) methodResult!;
+                    obj = (T) callableTarget!;
                     return true;
                 }
 
@@ -254,30 +254,6 @@ public unsafe partial class DefaultLuaMarshaler
                     {
                         obj = (T) (object) function;
                         return true;
-                    }
-                }
-                else if ((allowedConversions & LuaAllowedValueConversions.FunctionToCallableTarget) != 0 && clrType.BaseType == typeof(MulticastDelegate))
-                {
-                    if (TryCreateFunctionReference(thread, stackIndex, out var function))
-                    {
-                        var keepFunctionReference = false;
-                        try
-                        {
-                            var @delegate = CreateDelegateFromFunction(function, clrType);
-                            if (@delegate != null)
-                            {
-                                keepFunctionReference = true;
-                                obj = (T) (object) @delegate;
-                                return true;
-                            }
-                        }
-                        finally
-                        {
-                            if (!keepFunctionReference)
-                            {
-                                function.Dispose();
-                            }
-                        }
                     }
                 }
                 else

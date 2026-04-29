@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 namespace Laylua.Generators;
 
 [Generator]
-public class LuaFunctionDelegateWrapperGenerator : IIncrementalGenerator
+public class LuaEventFunctionDelegateWrapperGenerator : IIncrementalGenerator
 {
     private const int MaxParams = 16;
 
@@ -14,7 +14,7 @@ public class LuaFunctionDelegateWrapperGenerator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(static ctx =>
         {
-            ctx.AddSource("LuaFunctionDelegateWrapper.g.cs", Generate());
+            ctx.AddSource("LuaEventFunctionDelegateWrapper.g.cs", Generate());
         });
     }
 
@@ -26,9 +26,9 @@ public class LuaFunctionDelegateWrapperGenerator : IIncrementalGenerator
         code.Line();
         code.Line("namespace Laylua.Marshaling;");
         code.Line();
-        code.Line("public unsafe partial class DefaultLuaMarshaler");
+        code.Line("public sealed unsafe partial class LuaEventSubscriptionTracker");
         code.OpenBrace();
-        code.Line("private sealed partial class LuaFunctionDelegateWrapper");
+        code.Line("private sealed partial class EventFunctionDelegateWrapper");
         code.OpenBrace();
 
         for (var i = 0; i <= MaxParams; i++)

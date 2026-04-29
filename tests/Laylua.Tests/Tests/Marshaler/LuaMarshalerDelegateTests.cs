@@ -388,30 +388,43 @@ public class LuaMarshalerDelegateTests : LuaTestBase
     }
 
     [Test]
-    public void Delegate_5Parameters_Works()
+    public void Delegate_5Parameters_ManagedRoundTrip_ReturnsOriginalDelegate()
     {
         // Arrange
-        Lua.Execute("function bigFunc(a, b, c, d, e) return a + b + c + d + e end");
+        Func<int, int, int, int, int, int> originalFunction = static (first, second, third, fourth, fifth) =>
+        {
+            return first + second + third + fourth + fifth;
+        };
+
+        Lua.SetGlobal("bigFunc", originalFunction);
 
         // Act
         var func = Lua.Evaluate<Func<int, int, int, int, int, int>>("return bigFunc")!;
         var result = func(1, 2, 3, 4, 5);
 
         // Assert
+        Assert.That(func, Is.SameAs(originalFunction));
         Assert.That(result, Is.EqualTo(15));
     }
 
     [Test]
-    public void Delegate_16Parameters_Works()
+    public void Delegate_16Parameters_ManagedRoundTrip_ReturnsOriginalDelegate()
     {
         // Arrange
-        Lua.Execute("function func16(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) return a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p end");
+        Func<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int> originalFunction =
+            static (first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth, eleventh, twelfth, thirteenth, fourteenth, fifteenth, sixteenth) =>
+            {
+                return first + second + third + fourth + fifth + sixth + seventh + eighth + ninth + tenth + eleventh + twelfth + thirteenth + fourteenth + fifteenth + sixteenth;
+            };
+
+        Lua.SetGlobal("func16", originalFunction);
 
         // Act
         var func = Lua.Evaluate<Func<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int>>("return func16")!;
         var result = func(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
         // Assert
+        Assert.That(func, Is.SameAs(originalFunction));
         Assert.That(result, Is.EqualTo(136));
     }
 
@@ -419,17 +432,15 @@ public class LuaMarshalerDelegateTests : LuaTestBase
         int i, int j, int k, int l, int m, int n, int o, int p, int q);
 
     [Test]
-    public void Delegate_MoreThan16Parameters_ThrowsNotSupported()
+    public void Delegate_MoreThan16Parameters_PlainLuaFunction_ThrowsInvalidOperation()
     {
         // Arrange
         Lua.Execute("function hugeFunc() return 0 end");
 
         // Act & Assert
-        var ex = Assert.Throws<NotSupportedException>(() =>
+        Assert.Throws<InvalidOperationException>(() =>
         {
             Lua.Evaluate<TooManyParamsDelegate>("return hugeFunc");
         });
-
-        Assert.That(ex!.Message, Does.Contain("at most 16 parameters"));
     }
 }

@@ -278,61 +278,71 @@ public unsafe class TypedUserDataMarshalingTests : LuaTestBase
     }
 
     [Test]
-    public void FunctionToDelegate_Action()
+    public void FunctionToDelegate_PlainLuaFunction_ThrowsInvalidOperation()
     {
         // Arrange
         Lua.Execute("function noop() end");
 
-        // Act
-        var action = Lua.Evaluate<Action>("return noop");
-
-        // Assert
-        Assert.That(action, Is.Not.Null);
-        Assert.DoesNotThrow(() => action!());
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            Lua.Evaluate<Action>("return noop");
+        });
     }
 
     [Test]
-    public void FunctionToDelegate_Func()
+    public void FunctionToDelegate_ManagedDelegateRoundTrip_ReturnsOriginalDelegate()
+    {
+        // Arrange
+        Func<int, int, int> originalAdd = static (first, second) =>
+        {
+            return first + second;
+        };
+
+        Lua.SetGlobal("add", originalAdd);
+
+        // Act
+        var roundTripAdd = Lua.Evaluate<Func<int, int, int>>("return add");
+
+        // Assert
+        Assert.That(roundTripAdd, Is.SameAs(originalAdd));
+        Assert.That(roundTripAdd!(3, 7), Is.EqualTo(10));
+    }
+
+    [Test]
+    public void FunctionToLuaFunction_PlainLuaFunction_Succeeds()
     {
         // Arrange
         Lua.Execute("function add(a, b) return a + b end");
 
         // Act
-        var add = Lua.Evaluate<Func<int, int, int>>("return add");
+        using var add = Lua.Evaluate<LuaFunction>("return add");
 
         // Assert
         Assert.That(add, Is.Not.Null);
-        Assert.That(add!(3, 7), Is.EqualTo(10));
+        using var results = add!.Call(3, 7);
+        Assert.That(results.Count, Is.EqualTo(1));
+        Assert.That(results.First.GetValue<int>(), Is.EqualTo(10));
     }
 
     [Test]
-    public void FunctionToDelegate_LuaFunction()
+    public void FunctionToDelegate_RepeatedManagedDelegateRoundTrips_ReturnOriginalDelegate()
     {
         // Arrange
-        Lua.Execute("function add(a, b) return a + b end");
+        Func<int, int, int> add = static (first, second) =>
+        {
+            return first + second;
+        };
 
-        // Act
-        var add = Lua.Evaluate<Func<int, int, int>>("return add");
-
-        // Assert
-        Assert.That(add, Is.Not.Null);
-        Assert.That(add!(3, 7), Is.EqualTo(10));
-    }
-
-    [Test]
-    public void FunctionToDelegate_RepeatedConversions_ReturnDistinctWorkingDelegates()
-    {
-        // Arrange
-        Lua.Execute("function add(a, b) return a + b end");
+        Lua.SetGlobal("add", add);
 
         // Act
         var add1 = Lua.Evaluate<Func<int, int, int>>("return add");
         var add2 = Lua.Evaluate<Func<int, int, int>>("return add");
 
         // Assert
-        Assert.That(add1, Is.Not.Null);
-        Assert.That(add2, Is.Not.Null);
-        Assert.That(add1, Is.Not.SameAs(add2));
+        Assert.That(add1, Is.SameAs(add));
+        Assert.That(add2, Is.SameAs(add));
         Assert.That(add1!(3, 7), Is.EqualTo(10));
         Assert.That(add2!(5, 9), Is.EqualTo(14));
     }
