@@ -192,7 +192,7 @@ public unsafe partial class LuaThread
         }
     }
 
-    private void LoadString(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName)
+    internal void LoadString(ReadOnlySpan<char> code, ReadOnlySpan<char> chunkName)
     {
         Stack.EnsureFreeCapacity(1);
 
@@ -203,7 +203,7 @@ public unsafe partial class LuaThread
         }
     }
 
-    private void LoadUtf8String(ReadOnlySpan<byte> code, ReadOnlySpan<char> chunkName)
+    internal void LoadUtf8String(ReadOnlySpan<byte> code, ReadOnlySpan<char> chunkName)
     {
         Stack.EnsureFreeCapacity(1);
 

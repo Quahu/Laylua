@@ -396,7 +396,7 @@ public static unsafe partial class LuaNative
     [LuaExport(Throws = true)]
     public static partial int lua_yieldk(lua_State* L, int nresults, void* ctx, LuaKFunction? k);
 
-    [LuaExport]
+    [LuaExport(PCall = true)]
     public static partial LuaStatus lua_resume(lua_State* L, lua_State* from, int narg, out int nres);
 
     [LuaExport]

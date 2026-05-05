@@ -146,12 +146,23 @@ public unsafe partial class DefaultLuaMarshaler
 
                 var lua = Lua.FromExtraSpace(L);
                 var type = obj.GetType();
+
                 if (!type.IsValueType && TryPushCachedIdentity(L, lua, obj))
                 {
                     return;
                 }
 
                 if (LuaTypeRegistry.TryPush(thread.State.L, type, obj))
+                {
+                    if (!type.IsValueType)
+                    {
+                        CacheIdentity(L, lua, obj);
+                    }
+
+                    return;
+                }
+
+                if (AwaitableUserData.TryPushAwaitable(L, obj))
                 {
                     if (!type.IsValueType)
                     {

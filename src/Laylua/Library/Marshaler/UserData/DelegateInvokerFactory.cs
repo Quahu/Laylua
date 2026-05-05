@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using Laylua.Moon;
 using Qommon;
 
 namespace Laylua.Marshaling;
@@ -24,6 +25,8 @@ internal static class DelegateInvokerFactory
     private static readonly PropertyInfo LuaFunctionResultsRangeProperty;
     private static readonly MethodInfo LuaMarshalerTryToObjectMethod;
     private static readonly MethodInfo GetParamsArgumentMethod;
+    private static readonly MethodInfo PushImplicitAwaitableReturnCountMethod;
+    private static readonly MethodInfo PushReturnAwaitableReturnCountMethod;
 
     private static readonly MethodInfo LuaReferenceDisposeSingle;
     private static readonly MethodInfo LuaReferenceDisposeArray;
@@ -37,8 +40,7 @@ internal static class DelegateInvokerFactory
         Guard.IsNotNull(pushMethod);
         PushMethod = pushMethod;
 
-        var luaStackValueRangeConstructor = Array.Find(
-            typeof(LuaStackValueRange).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic), static c => c.GetParameters().Length == 3);
+        var luaStackValueRangeConstructor = Array.Find(typeof(LuaStackValueRange).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic), static c => c.GetParameters().Length == 3);
 
         Guard.IsNotNull(luaStackValueRangeConstructor);
         LuaStackValueRangeConstructor = luaStackValueRangeConstructor;
@@ -55,8 +57,7 @@ internal static class DelegateInvokerFactory
         Guard.IsNotNull(luaFunctionResultsRangeProperty);
         LuaFunctionResultsRangeProperty = luaFunctionResultsRangeProperty;
 
-        var luaMarshalerTryToObjectMethod = Array.Find(
-            typeof(LuaMarshaler).GetMethods(BindingFlags.Instance | BindingFlags.Public),
+        var luaMarshalerTryToObjectMethod = Array.Find(typeof(LuaMarshaler).GetMethods(BindingFlags.Instance | BindingFlags.Public),
             static method =>
             {
                 if (method.Name != nameof(LuaMarshaler.TryGetValue) || !method.IsGenericMethodDefinition)
@@ -70,12 +71,21 @@ internal static class DelegateInvokerFactory
                     && parameters[1].ParameterType == typeof(int)
                     && parameters[2].IsOut;
             });
+
         Guard.IsNotNull(luaMarshalerTryToObjectMethod);
         LuaMarshalerTryToObjectMethod = luaMarshalerTryToObjectMethod;
 
         var getParamsArgumentMethod = typeof(DelegateInvokerFactory).GetMethod(nameof(GetParamsArgument), BindingFlags.Static | BindingFlags.NonPublic);
         Guard.IsNotNull(getParamsArgumentMethod);
         GetParamsArgumentMethod = getParamsArgumentMethod;
+
+        var pushImplicitAwaitableReturnCountMethod = typeof(DelegateInvokerFactory).GetMethod(nameof(PushImplicitAwaitableReturnCount), BindingFlags.Static | BindingFlags.NonPublic);
+        Guard.IsNotNull(pushImplicitAwaitableReturnCountMethod);
+        PushImplicitAwaitableReturnCountMethod = pushImplicitAwaitableReturnCountMethod;
+
+        var pushReturnAwaitableReturnCountMethod = typeof(DelegateInvokerFactory).GetMethod(nameof(PushReturnAwaitableReturnCount), BindingFlags.Static | BindingFlags.NonPublic);
+        Guard.IsNotNull(pushReturnAwaitableReturnCountMethod);
+        PushReturnAwaitableReturnCountMethod = pushReturnAwaitableReturnCountMethod;
 
         MethodInfo? luaReferenceDisposeSingle = null;
         MethodInfo? luaReferenceDisposeArray = null;
@@ -169,6 +179,18 @@ internal static class DelegateInvokerFactory
         }
     }
 
+    private static unsafe int PushImplicitAwaitableReturnCount<T>(LuaThread thread, T value)
+    {
+        AwaitableUserData.PushImplicitAwaitable(thread.State.L, value);
+        return 1;
+    }
+
+    private static int PushReturnAwaitableReturnCount<T>(LuaThread thread, T value)
+    {
+        LuaTypeServices.PushAwaitable(thread, value);
+        return 1;
+    }
+
     /// <summary>
     ///     Creates an invoker for the given delegate.
     ///     Uses compiled expression trees when JIT is available, falls back to reflection otherwise (e.g., NativeAOT).
@@ -182,16 +204,26 @@ internal static class DelegateInvokerFactory
         {
             if (parameters[i].ParameterType.IsByRef)
             {
-                throw new NotSupportedException(
-                    $"Delegate parameter '{parameters[i].Name}' of '{method.Name}' is a by-reference parameter ({parameters[i].ParameterType.Name}). " +
+                throw new NotSupportedException($"Delegate parameter '{parameters[i].Name}' of '{method.Name}' is a by-reference parameter ({parameters[i].ParameterType.Name}). " +
                     "Delegates with ref, out, or in parameters cannot be marshaled to Lua.");
             }
         }
 
         if (method.ReturnType.IsByRef || method.ReturnType.IsByRefLike || method.ReturnType.IsPointer)
         {
-            throw new NotSupportedException(
-                $"Delegate return type '{method.ReturnType.Name}' of '{method.Name}' cannot be marshaled to Lua.");
+            throw new NotSupportedException($"Delegate return type '{method.ReturnType.Name}' of '{method.Name}' cannot be marshaled to Lua.");
+        }
+
+        if (AwaitableUserData.IsAwaitableType(method.ReturnType))
+        {
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].ParameterType == typeof(LuaStackValueRange))
+                {
+                    throw new NotSupportedException($"Delegate '{method.Name}' returns an awaitable and accepts {nameof(LuaStackValueRange)}. " +
+                        $"{nameof(LuaStackValueRange)} values are stack-bound and cannot be captured across awaits.");
+                }
+            }
         }
 
         if (RuntimeFeature.IsDynamicCodeSupported)
@@ -247,11 +279,18 @@ internal static class DelegateInvokerFactory
         }
 
         var returnType = method.ReturnType;
+        var returnsAwaitable = AwaitableUserData.IsAwaitableType(returnType);
         var pushReturnMethod = returnType != typeof(void)
             && returnType != typeof(LuaFunctionResults)
             && returnType != typeof(LuaStackValueRange)
                 ? PushMethod.MakeGenericMethod(returnType)
                 : null;
+        var pushImplicitAwaitableReturnCountMethod = returnsAwaitable
+            ? PushImplicitAwaitableReturnCountMethod.MakeGenericMethod(returnType)
+            : null;
+        var pushReturnAwaitableReturnCountMethod = returnsAwaitable
+            ? PushReturnAwaitableReturnCountMethod.MakeGenericMethod(returnType)
+            : null;
 
         return (thread, arguments) =>
         {
@@ -293,7 +332,11 @@ internal static class DelegateInvokerFactory
                             }
                             else
                             {
-                                var outArgs = new object?[] { thread, i + 1, null };
+                                var outArgs = new object?[]
+                                {
+                                    thread, i + 1, null
+                                };
+
                                 if (!(bool) tryGetMethods[i].Invoke(thread.Marshaler, outArgs)!)
                                 {
                                     thread.RaiseArgumentTypeError(i + 1, parameters[i].ParameterType.ToTypeString());
@@ -325,6 +368,16 @@ internal static class DelegateInvokerFactory
                     var range = (LuaStackValueRange) result!;
                     range.PushValues();
                     return range.Count;
+                }
+
+                if (returnsAwaitable && AwaitableUserData.ShouldImplicitAwait(thread))
+                {
+                    return (int) pushImplicitAwaitableReturnCountMethod!.Invoke(null, [thread, result])!;
+                }
+
+                if (returnsAwaitable)
+                {
+                    return (int) pushReturnAwaitableReturnCountMethod!.Invoke(null, [thread, result])!;
                 }
 
                 pushReturnMethod!.Invoke(thread.Stack, [result]);
@@ -432,7 +485,7 @@ internal static class DelegateInvokerFactory
         // Invoke through the delegate itself (not Method/Target) to support multicast delegates
         var delegateConstant = Expression.Constant(@delegate);
         var invokeMethod = @delegate.GetType().GetMethod("Invoke")!;
-        var callDelegateExpression = Expression.Call(delegateConstant, invokeMethod, argumentVariableExpressions);
+        Expression callDelegateExpression = Expression.Call(delegateConstant, invokeMethod, argumentVariableExpressions);
 
         for (var i = 0; i < argumentVariableExpressions.Length; i++)
         {
@@ -444,22 +497,16 @@ internal static class DelegateInvokerFactory
             if (i != parameters.Length - 1 || ((!parameter.ParameterType.IsArray || parameter.GetCustomAttribute<ParamArrayAttribute>() == null)
                 && parameter.ParameterType != typeof(LuaStackValueRange)))
             {
-                var getArgumentExpression = Expression.IfThen(
-                    Expression.IsFalse(
-                        Expression.Call(
-                            Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
-                            LuaMarshalerTryToObjectMethod.MakeGenericMethod(parameterType),
-                            luaParameterExpression, argumentIndexExpression, argumentVariableExpression)),
-                    Expression.Call(
-                        luaParameterExpression,
+                var getArgumentExpression = Expression.IfThen(Expression.IsFalse(Expression.Call(Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
+                        LuaMarshalerTryToObjectMethod.MakeGenericMethod(parameterType),
+                        luaParameterExpression, argumentIndexExpression, argumentVariableExpression)),
+                    Expression.Call(luaParameterExpression,
                         nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
                         argumentIndexExpression, Expression.Constant(parameterType.ToTypeString())));
 
                 if (i >= requiredParameterCount)
                 {
-                    getArgumentExpression = Expression.IfThenElse(
-                        Expression.LessThan(
-                            Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
+                    getArgumentExpression = Expression.IfThenElse(Expression.LessThan(Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
                             argumentIndexExpression),
                         Expression.Assign(argumentVariableExpression, parameterType.IsArray && parameterType.GetCustomAttribute<ParamArrayAttribute>() != null
                             ? Expression.Call(typeof(Array), "Empty", [parameterType.GetElementType()!])
@@ -486,10 +533,8 @@ internal static class DelegateInvokerFactory
                         Expression.New(LuaStackValueRangeConstructor,
                             Expression.Property(luaParameterExpression, nameof(Lua.Stack)),
                             argumentIndexExpression,
-                            Expression.Subtract(
-                                Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
-                                Expression.Subtract(
-                                    argumentIndexExpression,
+                            Expression.Subtract(Expression.Property(argumentsParameterExpression, nameof(LuaStackValueRange.Count)),
+                                Expression.Subtract(argumentIndexExpression,
                                     Expression.Constant(1)))));
 
                     bodyExpressions.Add(getArgumentExpression);
@@ -506,8 +551,7 @@ internal static class DelegateInvokerFactory
                 var returnValueVariableExpression = Expression.Variable(typeof(LuaStackValueRange), "returnValue");
                 variableExpressions.Add(returnValueVariableExpression);
 
-                callDelegateExpression = Expression.Call(
-                    Expression.Assign(returnValueVariableExpression, methodInfo.ReturnType == typeof(LuaStackValueRange)
+                callDelegateExpression = Expression.Call(Expression.Assign(returnValueVariableExpression, methodInfo.ReturnType == typeof(LuaStackValueRange)
                         ? callDelegateExpression
                         : Expression.Property(callDelegateExpression, LuaFunctionResultsRangeProperty)),
                     LuaStackValueRangePushValuesMethod);
@@ -516,10 +560,28 @@ internal static class DelegateInvokerFactory
             }
             else
             {
-                var pushMethod = PushMethod.MakeGenericMethod(methodInfo.ReturnType);
-                var luaStack = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
-                callDelegateExpression = Expression.Call(luaStack, pushMethod, callDelegateExpression);
-                returnCountExpression = Expression.Constant(1, typeof(int));
+                if (AwaitableUserData.IsAwaitableType(methodInfo.ReturnType))
+                {
+                    var pushImplicitAwaitableReturnCountMethod = PushImplicitAwaitableReturnCountMethod.MakeGenericMethod(methodInfo.ReturnType);
+                    var pushReturnAwaitableReturnCountMethod = PushReturnAwaitableReturnCountMethod.MakeGenericMethod(methodInfo.ReturnType);
+                    var shouldImplicitAwaitExpression = Expression.Call(typeof(AwaitableUserData), nameof(AwaitableUserData.ShouldImplicitAwait), Type.EmptyTypes, luaParameterExpression);
+                    var returnValueVariableExpression = Expression.Variable(methodInfo.ReturnType, "returnValue");
+                    variableExpressions.Add(returnValueVariableExpression);
+
+                    returnCountExpression = Expression.Condition(
+                        shouldImplicitAwaitExpression,
+                        Expression.Call(null, pushImplicitAwaitableReturnCountMethod, luaParameterExpression, returnValueVariableExpression),
+                        Expression.Call(null, pushReturnAwaitableReturnCountMethod, luaParameterExpression, returnValueVariableExpression));
+
+                    callDelegateExpression = Expression.Assign(returnValueVariableExpression, callDelegateExpression);
+                }
+                else
+                {
+                    var pushMethod = PushMethod.MakeGenericMethod(methodInfo.ReturnType);
+                    var luaStack = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
+                    callDelegateExpression = Expression.Call(luaStack, pushMethod, callDelegateExpression);
+                    returnCountExpression = Expression.Constant(1, typeof(int));
+                }
             }
         }
         else
@@ -544,23 +606,16 @@ internal static class DelegateInvokerFactory
             };
 
             disposeBlockExpressions.AddRange(disposeArgumentExpressions);
-            disposeBlockExpressions.Add(Expression.IfThen(
-                Expression.IsFalse(invocationFailedVariableExpression),
-                Expression.Call(
-                    null,
+            disposeBlockExpressions.Add(Expression.IfThen(Expression.IsFalse(invocationFailedVariableExpression),
+                Expression.Call(null,
                     typeof(DelegateInvokerFactory).GetMethod(nameof(RethrowIfNotNull), BindingFlags.Static | BindingFlags.NonPublic)!,
                     disposeExceptionVariableExpression)));
 
-            bodyExpression = Expression.Block(
-                [invocationFailedVariableExpression],
+            bodyExpression = Expression.Block([invocationFailedVariableExpression],
                 Expression.Assign(invocationFailedVariableExpression, Expression.Constant(false)),
-                Expression.TryFinally(
-                    Expression.TryCatch(
-                        bodyExpression,
-                        Expression.Catch(
-                            typeof(Exception),
-                            Expression.Block(
-                                Expression.Assign(invocationFailedVariableExpression, Expression.Constant(true)),
+                Expression.TryFinally(Expression.TryCatch(bodyExpression,
+                        Expression.Catch(typeof(Exception),
+                            Expression.Block(Expression.Assign(invocationFailedVariableExpression, Expression.Constant(true)),
                                 Expression.Rethrow(bodyExpression.Type)))),
                     Expression.Block([disposeExceptionVariableExpression], disposeBlockExpressions)));
         }
@@ -654,12 +709,10 @@ internal static class DelegateInvokerFactory
             }
 
             var disposeCatchException = Expression.Variable(typeof(Exception), "__disposeExceptionCurrent");
-            var captureFirstException = Expression.IfThen(
-                Expression.Equal(disposeExceptionVariableExpression, Expression.Constant(null, typeof(Exception))),
+            var captureFirstException = Expression.IfThen(Expression.Equal(disposeExceptionVariableExpression, Expression.Constant(null, typeof(Exception))),
                 Expression.Assign(disposeExceptionVariableExpression, disposeCatchException));
 
-            disposeExpressions.Add(Expression.TryCatch(
-                disposeExpression,
+            disposeExpressions.Add(Expression.TryCatch(disposeExpression,
                 Expression.Catch(disposeCatchException, captureFirstException)));
         }
 

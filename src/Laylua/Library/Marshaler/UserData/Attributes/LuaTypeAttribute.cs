@@ -141,6 +141,15 @@ public sealed class LuaTypeAttribute : Attribute
     public LuaObsoleteMemberHandling ObsoleteMembers { get; set; }
 
     /// <summary>
+    ///     Gets or sets how generated callbacks return awaitable CLR method results.
+    /// </summary>
+    /// <remarks>
+    ///     When not set, inherits from <see cref="LuaTypeDefaultsAttribute.AwaitableReturnHandling"/>
+    ///     (built-in default: <see cref="LuaAwaitableReturnHandling.ImplicitAwait"/>).
+    /// </remarks>
+    public LuaAwaitableReturnHandling AwaitableReturnHandling { get; set; }
+
+    /// <summary>
     ///     Gets or sets which value conversions are permitted during argument binding
     ///     and overload resolution for this type's generated callbacks.
     /// </summary>

@@ -61,7 +61,7 @@ public unsafe partial class LuaLibraries
         ///     Gets a library that opens the coroutine Lua standard library.
         ///     <para> See <a href="https://www.lua.org/manual/5.4/manual.html#6.2">Lua manual</a>. </para>
         /// </summary>
-        public static LuaLibrary Coroutine { get; } = new RequireLibrary(LUA_COLIBNAME, luaopen_coroutine);
+        public static LuaLibrary Coroutine { get; } = new CoroutineLibrary();
 
         /// <summary>
         ///     Gets a library that opens the coroutine Lua standard library.
@@ -173,7 +173,17 @@ public unsafe partial class LuaLibraries
             }
         }
 
-        private sealed class RequireLibrary(string global, LuaCFunction openFunction, params string[] extraGlobals)
+        private sealed class CoroutineLibrary()
+            : RequireLibrary(LUA_COLIBNAME, luaopen_coroutine)
+        {
+            protected internal override void Open(Lua lua, bool leaveOnStack)
+            {
+                base.Open(lua, leaveOnStack);
+                LuaAsyncLibrary.RefreshCoroutinePatchIfInitialized(lua);
+            }
+        }
+
+        private class RequireLibrary(string global, LuaCFunction openFunction, params string[] extraGlobals)
             : BaseLibrary(global, extraGlobals.Append(global).ToArray())
         {
             private readonly string _global = global;

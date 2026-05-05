@@ -32,6 +32,17 @@ public class LuaMarshalerDelegate : CallUserDataDescriptor
         }
 
         var invoker = _invokers.GetValue(@delegate, UserDataDescriptorUtilities.CreateDelegateInvoker);
-        return invoker(thread, arguments);
+        var returnCount = invoker(thread, arguments);
+        if (returnCount == 1
+            && AwaitableUserData.ShouldImplicitAwait(thread)
+            && AwaitableUserData.IsAwaitableType(@delegate.Method.ReturnType))
+        {
+            unsafe
+            {
+                return LuaAsyncLibrary.YieldAwaitable(thread.State.L);
+            }
+        }
+
+        return returnCount;
     }
 }

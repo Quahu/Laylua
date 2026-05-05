@@ -73,6 +73,19 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
 
     private readonly LuaThread _thread;
 
+    internal LuaThread Thread
+    {
+        get
+        {
+            if (_thread == null)
+            {
+                throw new InvalidOperationException($"The index of this {nameof(LuaStackValue)} is not valid.");
+            }
+
+            return _thread;
+        }
+    }
+
     internal LuaStackValue(LuaThread thread, int index)
     {
         _thread = thread;

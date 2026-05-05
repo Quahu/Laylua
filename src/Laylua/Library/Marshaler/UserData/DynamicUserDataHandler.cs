@@ -805,6 +805,17 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             return true;
         }
 
+        if (AwaitableUserData.IsAwaitableType(method.ReturnType))
+        {
+            foreach (var parameter in method.GetParameters())
+            {
+                if (ProducesLuaReturnValue(parameter) || UsesLuaStackValueRange(parameter))
+                {
+                    return true;
+                }
+            }
+        }
+
         return HasUnsupportedParameterTypes(method.GetParameters());
     }
 
@@ -921,6 +932,11 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
     private static bool ProducesLuaReturnValue(ParameterInfo parameter)
     {
         return parameter.IsOut || (parameter.ParameterType.IsByRef && !parameter.IsIn);
+    }
+
+    private static bool UsesLuaStackValueRange(ParameterInfo parameter)
+    {
+        return GetLuaBoundaryType(parameter) == typeof(LuaStackValueRange);
     }
 
     private static Type GetLuaBoundaryType(ParameterInfo parameter)
@@ -2126,7 +2142,16 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         return L =>
         {
             var argCount = lua_gettop(L);
-            return InvokeStaticMethod(L, callableName, method, parameters, hasParams, argCount, _options.ArgumentValidation, _options.BindingConversions);
+            return InvokeStaticMethod(
+                L,
+                callableName,
+                method,
+                parameters,
+                hasParams,
+                argCount,
+                _options.ArgumentValidation,
+                _options.BindingConversions,
+                _options.AwaitableReturnHandling);
         };
     }
 
@@ -2168,7 +2193,16 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                     return luaL_error(L, $"ambiguous overload accepts {argCount} argument(s)");
                 }
 
-                return InvokeStaticMethod(L, callableName, bestMatch!.Value.Method, bestMatch.Value.Parameters, bestMatch.Value.HasParams, argCount, _options.ArgumentValidation, _options.BindingConversions);
+                return InvokeStaticMethod(
+                    L,
+                    callableName,
+                    bestMatch!.Value.Method,
+                    bestMatch.Value.Parameters,
+                    bestMatch.Value.HasParams,
+                    argCount,
+                    _options.ArgumentValidation,
+                    _options.BindingConversions,
+                    _options.AwaitableReturnHandling);
             }
 
             return luaL_error(L, $"no overload accepts {argCount} argument(s)");
@@ -2275,7 +2309,8 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         bool hasParams,
         int argCount,
         LuaArgumentValidation argValidation = LuaArgumentValidation.None,
-        LuaAllowedValueConversions allowedConversions = LuaAllowedValueConversions.Default)
+        LuaAllowedValueConversions allowedConversions = LuaAllowedValueConversions.Default,
+        LuaAwaitableReturnHandling awaitableReturnHandling = LuaAwaitableReturnHandling.ImplicitAwait)
     {
         var validationResult = ValidateInvocationArguments(L, callableName, parameters, hasParams, argCount, stackOffset: 1, argValidation, allowedConversions);
         if (validationResult >= 0)
@@ -2347,14 +2382,31 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             }
         }
 
+        var returnCount = 0;
+        var shouldYieldAwaitable = false;
+
         try
         {
             var result = method.Invoke(null, args);
 
-            var returnCount = 0;
             if (method.ReturnType != typeof(void))
             {
-                PushObject(L, result);
+                if (AwaitableUserData.IsAwaitableType(method.ReturnType))
+                {
+                    if (awaitableReturnHandling == LuaAwaitableReturnHandling.ImplicitAwait)
+                    {
+                        LuaTypeServices.PushImplicitAwaitable(L, result);
+                        shouldYieldAwaitable = true;
+                    }
+                    else
+                    {
+                        LuaTypeServices.PushAwaitable(L, result);
+                    }
+                }
+                else
+                {
+                    PushObject(L, result);
+                }
                 returnCount++;
             }
 
@@ -2367,7 +2419,6 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 }
             }
 
-            return returnCount;
         }
         catch (TargetInvocationException ex)
         {
@@ -2378,6 +2429,13 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         {
             DisposeLuaReferenceArguments(args, parameters);
         }
+
+        if (shouldYieldAwaitable)
+        {
+            return LuaAsyncLibrary.YieldAwaitable(L);
+        }
+
+        return returnCount;
     }
 
     private static void PushObject(lua_State* L, object? value)
@@ -2954,7 +3012,17 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                     return luaL_error(L, $"ambiguous overload accepts {argCount} argument(s)");
                 }
 
-                return InvokeMethod(L, self, callableName, bestMatch!.Value.Method, bestMatch.Value.Parameters, bestMatch.Value.HasParams, argCount, _options.ArgumentValidation, _options.BindingConversions);
+                return InvokeMethod(
+                    L,
+                    self,
+                    callableName,
+                    bestMatch!.Value.Method,
+                    bestMatch.Value.Parameters,
+                    bestMatch.Value.HasParams,
+                    argCount,
+                    _options.ArgumentValidation,
+                    _options.BindingConversions,
+                    _options.AwaitableReturnHandling);
             }
 
             return luaL_error(L, $"no overload accepts {argCount} argument(s)");
@@ -2975,7 +3043,17 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 return validationResult;
             }
 
-            return InvokeMethod(L, self, callableName, method, parameters, hasParams, argCount, _options.ArgumentValidation, _options.BindingConversions);
+            return InvokeMethod(
+                L,
+                self,
+                callableName,
+                method,
+                parameters,
+                hasParams,
+                argCount,
+                _options.ArgumentValidation,
+                _options.BindingConversions,
+                _options.AwaitableReturnHandling);
         };
     }
 
@@ -2988,7 +3066,8 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         bool hasParams,
         int argCount,
         LuaArgumentValidation argValidation = LuaArgumentValidation.None,
-        LuaAllowedValueConversions allowedConversions = LuaAllowedValueConversions.Default)
+        LuaAllowedValueConversions allowedConversions = LuaAllowedValueConversions.Default,
+        LuaAwaitableReturnHandling awaitableReturnHandling = LuaAwaitableReturnHandling.ImplicitAwait)
     {
         var validationResult = ValidateInvocationArguments(L, callableName, parameters, hasParams, argCount, stackOffset: 2, argValidation, allowedConversions);
         if (validationResult >= 0)
@@ -3060,14 +3139,31 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             }
         }
 
+        var returnCount = 0;
+        var shouldYieldAwaitable = false;
+
         try
         {
             var result = method.Invoke(self, args);
 
-            var returnCount = 0;
             if (method.ReturnType != typeof(void))
             {
-                PushObject(L, result);
+                if (AwaitableUserData.IsAwaitableType(method.ReturnType))
+                {
+                    if (awaitableReturnHandling == LuaAwaitableReturnHandling.ImplicitAwait)
+                    {
+                        LuaTypeServices.PushImplicitAwaitable(L, result);
+                        shouldYieldAwaitable = true;
+                    }
+                    else
+                    {
+                        LuaTypeServices.PushAwaitable(L, result);
+                    }
+                }
+                else
+                {
+                    PushObject(L, result);
+                }
                 returnCount++;
             }
 
@@ -3080,7 +3176,6 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 }
             }
 
-            return returnCount;
         }
         catch (TargetInvocationException ex)
         {
@@ -3091,6 +3186,13 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         {
             DisposeLuaReferenceArguments(args, parameters);
         }
+
+        if (shouldYieldAwaitable)
+        {
+            return LuaAsyncLibrary.YieldAwaitable(L);
+        }
+
+        return returnCount;
     }
 
     private bool TryCreateParameterlessInstance([NotNullWhen(true)] out object? instance)

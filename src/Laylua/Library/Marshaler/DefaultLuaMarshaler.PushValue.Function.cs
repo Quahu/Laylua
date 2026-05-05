@@ -38,7 +38,15 @@ public unsafe partial class DefaultLuaMarshaler
             : lua.Stack.GetRange(1);
 
         var invoker = DelegateInvokers.GetValue(@delegate, DelegateInvokerFactory.CreateInvoker);
-        return invoker(lua, arguments);
+        var returnCount = invoker(lua, arguments);
+        if (returnCount == 1
+            && AwaitableUserData.ShouldImplicitAwait(lua)
+            && AwaitableUserData.IsAwaitableType(@delegate.Method.ReturnType))
+        {
+            return LuaAsyncLibrary.YieldAwaitable(L);
+        }
+
+        return returnCount;
     };
 
     private static readonly LuaCFunction DelegateHandleGcCFunction = static L =>
@@ -97,6 +105,7 @@ public unsafe partial class DefaultLuaMarshaler
         var handlePtr = (nint) 0;
         var isUserdataOnStack = true;
         var isMetatableOnStack = false;
+        var isClosureOnStack = false;
         var lua = Lua.FromThread(thread);
         try
         {
@@ -132,6 +141,8 @@ public unsafe partial class DefaultLuaMarshaler
             lua_pushlightuserdata(L, (void*) LayluaNative.getPotentialPanicPtr);
             lua_pushcclosure(L, DelegateCFunction, 2);
             isUserdataOnStack = false;
+            isClosureOnStack = true;
+
         }
         catch
         {
@@ -149,6 +160,11 @@ public unsafe partial class DefaultLuaMarshaler
             }
 
             if (isUserdataOnStack)
+            {
+                lua_pop(L);
+            }
+
+            if (isClosureOnStack)
             {
                 lua_pop(L);
             }

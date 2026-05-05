@@ -197,6 +197,58 @@ public sealed class LuaTypeAnalyzerTests
     }
 
     [Test]
+    public void MethodWithAwaitableReturnAndOutParameter_ReportsGeneratorWarning()
+    {
+        // Arrange
+        const string source = """
+                              using System.Threading.Tasks;
+                              using Laylua.Marshaling;
+
+                              [LuaType]
+                              public partial class Sample
+                              {
+                                  public Task<int> GetValueAsync(out int extra)
+                                  {
+                                      extra = 1;
+                                      return Task.FromResult(2);
+                                  }
+                              }
+                              """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.Output, Does.Contain(LuaTypeUnsupportedMethodDiagnosticId));
+    }
+
+    [Test]
+    public void MethodWithAwaitableReturnAndLuaStackValueRangeParameter_ReportsGeneratorWarning()
+    {
+        // Arrange
+        const string source = """
+                              using System.Threading.Tasks;
+                              using Laylua;
+                              using Laylua.Marshaling;
+
+                              [LuaType]
+                              public partial class Sample
+                              {
+                                  public Task<int> GetValueAsync(LuaStackValueRange arguments)
+                                  {
+                                      return Task.FromResult(arguments.Count);
+                                  }
+                              }
+                              """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.Output, Does.Contain(LuaTypeUnsupportedMethodDiagnosticId));
+    }
+
+    [Test]
     public void EventWithUnsupportedReturnType_ReportsGeneratorWarning()
     {
         // Arrange

@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace Laylua.Marshaling;
@@ -31,12 +32,41 @@ public class MethodUserDataDescriptor : CallUserDataDescriptor
             return thread.RaiseError("The userdata argument must be a method definition.");
         }
 
-        // if (!method.IsConstructedGenericMethod)
-        // {
-        //     lua.RaiseError("");
-        // }
+        if (AwaitableUserData.IsAwaitableType(method.ReturnType))
+        {
+            foreach (var parameter in method.GetParameters())
+            {
+                if (parameter.IsOut || (parameter.ParameterType.IsByRef && !parameter.IsIn))
+                {
+                    throw new NotSupportedException("Awaitable-returning userdata methods cannot expose out or ref Lua return values.");
+                }
+
+                if (GetLuaBoundaryType(parameter.ParameterType) == typeof(LuaStackValueRange))
+                {
+                    throw new NotSupportedException($"{nameof(LuaStackValueRange)} values are stack-bound and cannot be captured across awaits.");
+                }
+            }
+        }
 
         var invoker = _invokers.GetValue(method, UserDataDescriptorUtilities.CreateMethodInvoker);
-        return invoker(thread, arguments);
+        var returnCount = invoker(thread, arguments);
+        if (returnCount == 1
+            && AwaitableUserData.ShouldImplicitAwait(thread)
+            && AwaitableUserData.IsAwaitableType(method.ReturnType))
+        {
+            unsafe
+            {
+                return LuaAsyncLibrary.YieldAwaitable(thread.State.L);
+            }
+        }
+
+        return returnCount;
+    }
+
+    private static Type GetLuaBoundaryType(Type type)
+    {
+        return type.IsByRef
+            ? type.GetElementType()!
+            : type;
     }
 }

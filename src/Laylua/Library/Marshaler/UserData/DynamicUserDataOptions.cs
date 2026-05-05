@@ -84,6 +84,11 @@ public class DynamicUserDataOptions
     public LuaObsoleteMemberHandling ObsoleteMembers { get; set; } = LuaObsoleteMemberHandling.Include;
 
     /// <summary>
+    ///     Controls how awaitable CLR method results are returned to Lua.
+    /// </summary>
+    public LuaAwaitableReturnHandling AwaitableReturnHandling { get; set; } = LuaAwaitableReturnHandling.ImplicitAwait;
+
+    /// <summary>
     ///     Controls which value conversions are permitted during argument binding and overload resolution.
     ///     Defaults to <see cref="LuaAllowedValueConversions.Default"/>.
     /// </summary>
@@ -182,6 +187,7 @@ public class DynamicUserDataOptions
             ObjectMembers = ObjectMembers,
             ArgumentValidation = ArgumentValidation,
             ObsoleteMembers = ObsoleteMembers,
+            AwaitableReturnHandling = AwaitableReturnHandling,
             BindingConversions = BindingConversions,
             MemberFilter = MemberFilter,
             ConstructionMode = ConstructionMode,

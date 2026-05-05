@@ -281,6 +281,12 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaType.UserData:
             {
+                if (AwaitableUserData.TryGetValue(L, stackIndex, out T? awaitableValue))
+                {
+                    obj = awaitableValue;
+                    return true;
+                }
+
                 if (LuaTypeRegistry.TryGet(L, stackIndex, typeof(T), out var generatedValue))
                 {
                     obj = (T) generatedValue!;

@@ -179,6 +179,10 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
     private const int ObsoleteMembersIgnore = 1;
     private const int ObsoleteMembersInclude = 2;
 
+    // LuaAwaitableReturnHandling values (must match LuaAwaitableReturnHandling)
+    private const int AwaitableReturnImplicitAwait = 1;
+    private const int AwaitableReturnReturnAwaitable = 2;
+
     // LuaAllowedValueConversions flag values (must match LuaAllowedValueConversions)
     private const int AllowedConversionsNone = 0;
     private const int AllowedConversionsStringToPrimitive = 1 << 0;
@@ -668,6 +672,23 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                             ObjectMethodFlag = objectMethodFlag,
                         };
 
+                        if (IsAwaitableTypeName(methodInfo.ReturnType)
+                            && (methodInfo.ReturnsRawCount
+                                || methodInfo.Parameters.Any(static parameter =>
+                                    parameter.RefKind == RefKindOut
+                                    || parameter.RefKind == RefKindRef
+                                    || IsLuaStackValueRangeTypeName(parameter.TypeName))))
+                        {
+                            AddUnsupportedMethodDiagnostic(info,
+                                symbol,
+                                currentType,
+                                method,
+                                "awaitable return type with out/ref Lua returns or stack-bound arguments",
+                                method.ReturnType);
+
+                            break;
+                        }
+
                         var seenSet = method.IsStatic ? seenStaticMethodNames : seenInstanceMethodNames;
 
                         // [LuaTypeCall] methods go to TypeCallMethods, not regular method dispatch
@@ -997,6 +1018,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                     config.ObsoleteMembers = obsoleteMembers;
                     break;
                 }
+                case "AwaitableReturnHandling" when namedArgument.Value.Value is int awaitableReturnHandling:
+                {
+                    config.AwaitableReturnHandling = awaitableReturnHandling;
+                    break;
+                }
                 case "BindingConversions" when namedArgument.Value.Value is int bindingConversions:
                 {
                     config.BindingConversions = bindingConversions;
@@ -1026,6 +1052,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             ArgumentValidation = ArgValidationStrict,
             ObjectMembers = ObjectMembersNone,
             ObsoleteMembers = ObsoleteMembersIgnore,
+            AwaitableReturnHandling = AwaitableReturnImplicitAwait,
             BindingConversions = AllowedConversionsDefault,
         };
 
@@ -1109,6 +1136,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                 case "ObsoleteMembers" when namedArgument.Value.Value is int obsoleteMembers:
                 {
                     defaults.ObsoleteMembers = obsoleteMembers;
+                    break;
+                }
+                case "AwaitableReturnHandling" when namedArgument.Value.Value is int awaitableReturnHandling:
+                {
+                    defaults.AwaitableReturnHandling = awaitableReturnHandling;
                     break;
                 }
                 case "BindingConversions" when namedArgument.Value.Value is int bindingConversions:
@@ -1217,6 +1249,14 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaObsoleteMemberHandling",
             ObsoleteMembersIgnore,
             ObsoleteMembersInclude);
+        info.AwaitableReturnHandling = ResolveEnumConfig(info,
+            config.AwaitableReturnHandling,
+            assemblyDefaults.AwaitableReturnHandling,
+            AwaitableReturnImplicitAwait,
+            "AwaitableReturnHandling",
+            "LuaAwaitableReturnHandling",
+            AwaitableReturnImplicitAwait,
+            AwaitableReturnReturnAwaitable);
         info.BindingConversions = ResolveFlagsConfig(info,
             config.BindingConversions,
             assemblyDefaults.BindingConversions,
@@ -1866,6 +1906,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
         }
 
         writer.Line($"private const int BindingConversions = {typeInfo.BindingConversions};");
+        writer.Line($"private const int AwaitableReturnHandling = {typeInfo.AwaitableReturnHandling};");
         writer.Line();
 
         EmitCallbackFields(writer, typeInfo);

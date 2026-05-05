@@ -248,6 +248,7 @@ public partial class LuaTypeGenerator
         var returnCount = outParams.Count;
         var rawCountVariableName = "__rawCount";
         var capturesRawCount = false;
+        var returnsAwaitable = false;
         if (method.ReturnsRawCount)
         {
             if (outParams.Count > 0)
@@ -267,8 +268,25 @@ public partial class LuaTypeGenerator
         else
         {
             writer.Line($"var __retval = {callExpression};");
-            EmitPushExpression(writer, typeInfo, method.ReturnValueKind, method.ReturnType, "__retval", threadAvailable: needsThread);
-            returnCount++;
+            if (IsAwaitableTypeName(method.ReturnType))
+            {
+                if (typeInfo.AwaitableReturnHandling == AwaitableReturnImplicitAwait)
+                {
+                    returnsAwaitable = true;
+                    writer.Line("global::Laylua.Moon.LuaTypeServices.PushImplicitAwaitable(L, __retval);");
+                    returnCount++;
+                }
+                else
+                {
+                    writer.Line("global::Laylua.Moon.LuaTypeServices.PushAwaitable(L, __retval);");
+                    returnCount++;
+                }
+            }
+            else
+            {
+                EmitPushExpression(writer, typeInfo, method.ReturnValueKind, method.ReturnType, "__retval", threadAvailable: needsThread);
+                returnCount++;
+            }
         }
 
         if (method.IsObsolete)
@@ -285,7 +303,7 @@ public partial class LuaTypeGenerator
         {
             writer.Line($"return checked({rawCountVariableName} + {returnCount});");
         }
-        else if (!method.ReturnsRawCount || outParams.Count > 0)
+        else if (!returnsAwaitable && (!method.ReturnsRawCount || outParams.Count > 0))
         {
             writer.Line($"return {returnCount};");
         }
@@ -301,6 +319,11 @@ public partial class LuaTypeGenerator
             }
 
             writer.CloseBrace();
+        }
+
+        if (returnsAwaitable)
+        {
+            writer.Line("return global::Laylua.Moon.LuaTypeServices.YieldAwaitable(L);");
         }
     }
 
@@ -348,6 +371,7 @@ public partial class LuaTypeGenerator
         var returnCount = outParams.Count;
         var rawCountVariableName = "__rawCount";
         var capturesRawCount = false;
+        var returnsAwaitable = false;
         if (method.ReturnsRawCount)
         {
             if (outParams.Count > 0)
@@ -367,8 +391,25 @@ public partial class LuaTypeGenerator
         else
         {
             writer.Line($"var __retval = {callExpression};");
-            EmitPushExpression(writer, typeInfo, method.ReturnValueKind, method.ReturnType, "__retval", threadAvailable: true);
-            returnCount++;
+            if (IsAwaitableTypeName(method.ReturnType))
+            {
+                if (typeInfo.AwaitableReturnHandling == AwaitableReturnImplicitAwait)
+                {
+                    returnsAwaitable = true;
+                    writer.Line("global::Laylua.Moon.LuaTypeServices.PushImplicitAwaitable(L, __retval);");
+                    returnCount++;
+                }
+                else
+                {
+                    writer.Line("global::Laylua.Moon.LuaTypeServices.PushAwaitable(L, __retval);");
+                    returnCount++;
+                }
+            }
+            else
+            {
+                EmitPushExpression(writer, typeInfo, method.ReturnValueKind, method.ReturnType, "__retval", threadAvailable: true);
+                returnCount++;
+            }
         }
 
         if (method.IsObsolete)
@@ -385,7 +426,7 @@ public partial class LuaTypeGenerator
         {
             writer.Line($"return checked({rawCountVariableName} + {returnCount});");
         }
-        else if (!method.ReturnsRawCount || outParams.Count > 0)
+        else if (!returnsAwaitable && (!method.ReturnsRawCount || outParams.Count > 0))
         {
             writer.Line($"return {returnCount};");
         }
@@ -401,6 +442,11 @@ public partial class LuaTypeGenerator
             }
 
             writer.CloseBrace();
+        }
+
+        if (returnsAwaitable)
+        {
+            writer.Line("return global::Laylua.Moon.LuaTypeServices.YieldAwaitable(L);");
         }
     }
 

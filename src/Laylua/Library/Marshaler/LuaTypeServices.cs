@@ -192,6 +192,63 @@ public static unsafe class LuaTypeServices
         return thread.Stack[stackIndex].GetValue<T>(allowedConversions);
     }
 
+    /// <summary>
+    ///     Yields the awaitable currently on top of the Lua stack to Laylua's asynchronous coroutine driver.
+    /// </summary>
+    public static int YieldAwaitable(lua_State* L)
+    {
+        return LuaAsyncLibrary.YieldAwaitable(L);
+    }
+
+    /// <summary>
+    ///     Pushes the given awaitable as ordinary awaitable userdata so Lua can await it explicitly or round-trip it back to CLR.
+    /// </summary>
+    public static void PushAwaitable<T>(lua_State* L, T value)
+    {
+        AwaitableUserData.PushReturnAwaitable(L, value);
+    }
+
+    /// <summary>
+    ///     Pushes the given awaitable as ordinary awaitable userdata on the specified Lua thread.
+    /// </summary>
+    public static void PushAwaitable<T>(LuaThread thread, T value)
+    {
+        PushAwaitable(thread.State.L, value);
+    }
+
+    /// <summary>
+    ///     Pushes the given awaitable for implicit-await handling without yielding yet.
+    /// </summary>
+    public static void PushImplicitAwaitable<T>(lua_State* L, T value)
+    {
+        AwaitableUserData.PushImplicitAwaitable(L, value);
+    }
+
+    /// <summary>
+    ///     Pushes the given awaitable for implicit-await handling on the specified Lua thread without yielding yet.
+    /// </summary>
+    public static void PushImplicitAwaitable<T>(LuaThread thread, T value)
+    {
+        PushImplicitAwaitable(thread.State.L, value);
+    }
+
+    /// <summary>
+    ///     Pushes the given awaitable for implicit-await handling and yields it to Laylua's asynchronous coroutine driver.
+    /// </summary>
+    public static int YieldAwaitable<T>(lua_State* L, T value)
+    {
+        AwaitableUserData.PushImplicitAwaitable(L, value);
+        return LuaAsyncLibrary.YieldAwaitable(L);
+    }
+
+    /// <summary>
+    ///     Pushes the given awaitable for implicit-await handling and yields it on the specified Lua thread.
+    /// </summary>
+    public static int YieldAwaitable<T>(LuaThread thread, T value)
+    {
+        return YieldAwaitable(thread.State.L, value);
+    }
+
     /// <inheritdoc cref="LuaTypeRegistry.TryGet(lua_State*, int, Type, out object)" />
     public static bool TryGet(lua_State* L, int stackIndex, Type type, out object? value)
     {

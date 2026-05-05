@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Laylua.Moon;
 using Qommon;
 
@@ -55,14 +56,9 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
 
     ~LuaReference()
     {
-        if (!IsAlive(this, out var lua))
+        if (!TryPushLeakedReference(out var lua))
         {
             return;
-        }
-
-        if (!LuaRegistry.IsPersistentReference(_reference))
-        {
-            lua.PushLeakedReference(_reference);
         }
 
         if (lua.Marshaler.ReturnReference(this))
@@ -272,5 +268,27 @@ public abstract unsafe partial class LuaReference : IEquatable<LuaReference>, ID
     {
         lua = reference.LuaCore;
         return lua != null && !lua.IsDisposed && !reference.IsDisposed;
+    }
+
+    internal bool TryPushLeakedReference([MaybeNullWhen(false)] out Lua lua)
+    {
+        lua = LuaCore;
+        if (lua == null || lua.IsDisposed)
+        {
+            return false;
+        }
+
+        var reference = Interlocked.Exchange(ref _reference, LUA_NOREF);
+        if (reference is LUA_NOREF or LUA_REFNIL)
+        {
+            return false;
+        }
+
+        if (!LuaRegistry.IsPersistentReference(reference))
+        {
+            lua.PushLeakedReference(reference);
+        }
+
+        return true;
     }
 }

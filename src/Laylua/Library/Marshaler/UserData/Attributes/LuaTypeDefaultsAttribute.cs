@@ -144,6 +144,15 @@ public sealed class LuaTypeDefaultsAttribute : Attribute
     public LuaObsoleteMemberHandling ObsoleteMembers { get; set; } = LuaObsoleteMemberHandling.Ignore;
 
     /// <summary>
+    ///     Gets or sets the default handling of awaitable CLR method results.
+    /// </summary>
+    /// <remarks>
+    ///     Defaults to <see cref="LuaAwaitableReturnHandling.ImplicitAwait"/>.
+    ///     Applied when <see cref="LuaTypeAttribute.AwaitableReturnHandling"/> is not set.
+    /// </remarks>
+    public LuaAwaitableReturnHandling AwaitableReturnHandling { get; set; } = LuaAwaitableReturnHandling.ImplicitAwait;
+
+    /// <summary>
     ///     Gets or sets the default binding conversion policy for generated callbacks.
     /// </summary>
     /// <remarks>

@@ -51,6 +51,7 @@ public partial class LuaTypeGenerator
         public int ArgumentValidation;
         public int ObjectMembers;
         public int ObsoleteMembers;
+        public int AwaitableReturnHandling;
         public int BindingConversions;
         public bool EmitLength;
         public string? LengthPropertyName;
@@ -236,6 +237,7 @@ public partial class LuaTypeGenerator
         public int? ArgumentValidation;
         public int? ObjectMembers;
         public int? ObsoleteMembers;
+        public int? AwaitableReturnHandling;
         public int? BindingConversions;
     }
 }

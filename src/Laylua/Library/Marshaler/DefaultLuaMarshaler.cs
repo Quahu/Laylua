@@ -28,6 +28,11 @@ public unsafe partial class DefaultLuaMarshaler : LuaMarshaler
     /// </summary>
     public bool AllowsDynamicMarshaling { get; set; }
 
+    /// <summary>
+    ///     Gets or sets how awaitable CLR delegate and method results are returned to Lua.
+    /// </summary>
+    public LuaAwaitableReturnHandling AwaitableReturnHandling { get; set; } = LuaAwaitableReturnHandling.ImplicitAwait;
+
     private static readonly ConditionalWeakTable<Lua, DelegateHandleSet> _delegateHandles = new();
     private static readonly ConditionalWeakTable<Lua, IdentityCache> _identityCaches = new();
     private static long _nextIdentityCacheKey;

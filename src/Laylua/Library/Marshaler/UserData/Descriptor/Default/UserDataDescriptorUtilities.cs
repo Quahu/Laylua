@@ -29,6 +29,8 @@ public static class UserDataDescriptorUtilities
     private static readonly MethodInfo _luaMarshalerTryToObjectMethod;
 
     private static readonly MethodInfo _getParamsArgument;
+    private static readonly MethodInfo _pushImplicitAwaitableReturnCountMethod;
+    private static readonly MethodInfo _pushReturnAwaitableReturnCountMethod;
 
     private static readonly MethodInfo _luaReferenceDisposeSingle;
     private static readonly MethodInfo _luaReferenceDisposeArray;
@@ -74,6 +76,14 @@ public static class UserDataDescriptorUtilities
         var getParamsArgument = typeof(UserDataDescriptorUtilities).GetMethod(nameof(GetParamsArgument), BindingFlags.Static | BindingFlags.NonPublic);
         Guard.IsNotNull(getParamsArgument);
         _getParamsArgument = getParamsArgument;
+
+        var pushImplicitAwaitableReturnCountMethod = typeof(UserDataDescriptorUtilities).GetMethod(nameof(PushImplicitAwaitableReturnCount), BindingFlags.Static | BindingFlags.NonPublic);
+        Guard.IsNotNull(pushImplicitAwaitableReturnCountMethod);
+        _pushImplicitAwaitableReturnCountMethod = pushImplicitAwaitableReturnCountMethod;
+
+        var pushReturnAwaitableReturnCountMethod = typeof(UserDataDescriptorUtilities).GetMethod(nameof(PushReturnAwaitableReturnCount), BindingFlags.Static | BindingFlags.NonPublic);
+        Guard.IsNotNull(pushReturnAwaitableReturnCountMethod);
+        _pushReturnAwaitableReturnCountMethod = pushReturnAwaitableReturnCountMethod;
 
         MethodInfo? luaReferenceDisposeSingle = null;
         MethodInfo? luaReferenceDisposeArray = null;
@@ -167,6 +177,18 @@ public static class UserDataDescriptorUtilities
         }
 
         return paramsArgument;
+    }
+
+    private static unsafe int PushImplicitAwaitableReturnCount<T>(LuaThread thread, T value)
+    {
+        AwaitableUserData.PushImplicitAwaitable(thread.State.L, value);
+        return 1;
+    }
+
+    private static int PushReturnAwaitableReturnCount<T>(LuaThread thread, T value)
+    {
+        LuaTypeServices.PushAwaitable(thread, value);
+        return 1;
     }
 
     public static MethodInvokerDelegate CreateDelegateInvoker(Delegate @delegate)
@@ -263,7 +285,7 @@ public static class UserDataDescriptorUtilities
         }
 
         // @delegate(arg1, arg2, arg3);
-        var callDelegateExpression = Expression.Call(instanceExpression, methodInfo, argumentVariableExpressions);
+        Expression callDelegateExpression = Expression.Call(instanceExpression, methodInfo, argumentVariableExpressions);
 
         // // if (arguments.Count < requiredParameterCount)
         // //     lua.RaiseArgumentError(requiredParameterCount - arguments.Count, "Missing argument.");
@@ -378,11 +400,28 @@ public static class UserDataDescriptorUtilities
             }
             else
             {
-                // lua.Stack.Push(@delegate(...));
-                var pushMethod = _pushMethod.MakeGenericMethod(methodInfo.ReturnType);
-                var luaStack = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
-                callDelegateExpression = Expression.Call(luaStack, pushMethod, callDelegateExpression);
-                returnCountExpression = Expression.Constant(1, typeof(int));
+                if (AwaitableUserData.IsAwaitableType(methodInfo.ReturnType))
+                {
+                    var pushImplicitAwaitableReturnCountMethod = _pushImplicitAwaitableReturnCountMethod.MakeGenericMethod(methodInfo.ReturnType);
+                    var pushReturnAwaitableReturnCountMethod = _pushReturnAwaitableReturnCountMethod.MakeGenericMethod(methodInfo.ReturnType);
+                    var shouldImplicitAwaitExpression = Expression.Call(typeof(AwaitableUserData), nameof(AwaitableUserData.ShouldImplicitAwait), Type.EmptyTypes, luaParameterExpression);
+                    var returnValueVariableExpression = Expression.Variable(methodInfo.ReturnType, "returnValue");
+                    variableExpressions.Add(returnValueVariableExpression);
+
+                    callDelegateExpression = Expression.Assign(returnValueVariableExpression, callDelegateExpression);
+                    returnCountExpression = Expression.Condition(
+                        shouldImplicitAwaitExpression,
+                        Expression.Call(null, pushImplicitAwaitableReturnCountMethod, luaParameterExpression, returnValueVariableExpression),
+                        Expression.Call(null, pushReturnAwaitableReturnCountMethod, luaParameterExpression, returnValueVariableExpression));
+                }
+                else
+                {
+                    // lua.Stack.Push(@delegate(...));
+                    var pushMethod = _pushMethod.MakeGenericMethod(methodInfo.ReturnType);
+                    var luaStack = Expression.Property(luaParameterExpression, nameof(Lua.Stack));
+                    callDelegateExpression = Expression.Call(luaStack, pushMethod, callDelegateExpression);
+                    returnCountExpression = Expression.Constant(1, typeof(int));
+                }
             }
         }
         else

@@ -44,6 +44,19 @@ public partial class LuaTypeGenerator
         EmitPushExpression(writer, GetInteropKind(typeInfo, kind), typeName, expression, threadAvailable, scopeThread);
     }
 
+    private static bool IsAwaitableTypeName(string typeName)
+    {
+        return typeName == "global::System.Threading.Tasks.Task"
+            || typeName.StartsWith("global::System.Threading.Tasks.Task<", StringComparison.Ordinal)
+            || typeName == "global::System.Threading.Tasks.ValueTask"
+            || typeName.StartsWith("global::System.Threading.Tasks.ValueTask<", StringComparison.Ordinal);
+    }
+
+    private static bool IsLuaStackValueRangeTypeName(string typeName)
+    {
+        return typeName == "global::Laylua.LuaStackValueRange";
+    }
+
     private static void EmitPushExpression(CodeWriter writer, LuaValueKind kind, string typeName, string expression, bool threadAvailable = false, bool scopeThread = true)
     {
         switch (kind)
