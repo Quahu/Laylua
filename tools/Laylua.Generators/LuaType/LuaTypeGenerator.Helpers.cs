@@ -87,17 +87,19 @@ public partial class LuaTypeGenerator
                 }
                 else if (scopeThread)
                 {
-                    writer.Line("{");
-                    writer.Indent();
-                    writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
-                    writer.Line($"thread.Stack.Push({expression});");
-                    writer.Dedent();
-                    writer.Line("}");
+                    writer.Code($$"""
+                        {
+                            using var thread = LuaThread.FromExtraSpace(L);
+                            thread.Stack.Push({{expression}});
+                        }
+                        """);
                 }
                 else
                 {
-                    writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
-                    writer.Line($"thread.Stack.Push({expression});");
+                    writer.Code($$"""
+                        using var thread = LuaThread.FromExtraSpace(L);
+                        thread.Stack.Push({{expression}});
+                        """);
                 }
 
                 break;
@@ -449,28 +451,34 @@ public partial class LuaTypeGenerator
     /// </summary>
     private static void EmitSelfVariable(CodeWriter writer, LuaTypeInfo typeInfo, int stackIndex = 1)
     {
-        writer.Line($"if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, {stackIndex}), out var __target))");
-        writer.OpenBrace();
-        writer.Line($"return luaL_error(L, \"{typeInfo.Name}: 'self' is not a valid userdata\");");
-        writer.CloseBrace();
+        writer.Code($$"""
+            if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, {{stackIndex}}), out var __target))
+            {
+                return luaL_error(L, "{{typeInfo.Name}}: 'self' is not a valid userdata");
+            }
+            """);
+
         writer.Line();
 
         if (typeInfo.IsValueType)
         {
-            writer.Line($"if (__target is not {typeInfo.Name})");
-            writer.OpenBrace();
-            writer.Line($"return luaL_error(L, \"{typeInfo.Name}: 'self' is not a valid {typeInfo.Name} instance\");");
-            writer.CloseBrace();
-            writer.Line();
-            writer.Line($"ref var self = ref Unsafe.Unbox<{typeInfo.Name}>(__target!);");
+            writer.Code($$"""
+                if (__target is not {{typeInfo.Name}})
+                {
+                    return luaL_error(L, "{{typeInfo.Name}}: 'self' is not a valid {{typeInfo.Name}} instance");
+                }
+
+                ref var self = ref Unsafe.Unbox<{{typeInfo.Name}}>(__target!);
+                """);
         }
         else
         {
-            writer.Line($"if (__target is not {typeInfo.Name} self)");
-            writer.OpenBrace();
-            writer.Line($"return luaL_error(L, \"{typeInfo.Name}: 'self' is not a valid {typeInfo.Name} instance\");");
-            writer.CloseBrace();
-            writer.Line();
+            writer.Code($$"""
+                if (__target is not {{typeInfo.Name}} self)
+                {
+                    return luaL_error(L, "{{typeInfo.Name}}: 'self' is not a valid {{typeInfo.Name}} instance");
+                }
+                """);
         }
     }
 

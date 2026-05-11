@@ -80,15 +80,18 @@ public partial class LuaTypeGenerator
 
                 if (param.IsAnnotatedType)
                 {
-                    writer.Line($"if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, {stackIndex}), out var __{varName}Target))");
-                    writer.OpenBrace();
-                    writer.Line($"return luaL_error(L, \"{typeInfo.Name}: '{varName}' is not a valid userdata\");");
-                    writer.CloseBrace();
-                    writer.Line();
-                    writer.Line($"if (__{varName}Target is not {typeInfo.Name} {varName})");
-                    writer.OpenBrace();
-                    writer.Line($"return luaL_error(L, \"{typeInfo.Name}: '{varName}' is not a valid {typeInfo.Name} instance\");");
-                    writer.CloseBrace();
+                    writer.Code($$"""
+                        if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, {{stackIndex}}), out var __{{varName}}Target))
+                        {
+                            return luaL_error(L, "{{typeInfo.Name}}: '{{varName}}' is not a valid userdata");
+                        }
+
+                        if (__{{varName}}Target is not {{typeInfo.Name}} {{varName}})
+                        {
+                            return luaL_error(L, "{{typeInfo.Name}}: '{{varName}}' is not a valid {{typeInfo.Name}} instance");
+                        }
+                        """);
+
                     writer.Line();
                 }
                 else
@@ -131,7 +134,7 @@ public partial class LuaTypeGenerator
         }
 
         writer.Line();
-        writer.Line($"return luaL_error(L, \"{typeInfo.Name}: no matching operator overload for '{first.MetamethodName}'\");");
+        writer.Code($"return luaL_error(L, \"{typeInfo.Name}: no matching operator overload for '{first.MetamethodName}'\");");
         writer.CloseBrace();
     }
 
@@ -153,15 +156,18 @@ public partial class LuaTypeGenerator
 
             if (parameter.IsAnnotatedType)
             {
-                writer.Line($"if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, {stackIndex}), out var __{variableName}Target))");
-                writer.OpenBrace();
-                writer.Line($"return luaL_error(L, \"{typeInfo.Name}: '{variableName}' is not a valid userdata\");");
-                writer.CloseBrace();
-                writer.Line();
-                writer.Line($"if (__{variableName}Target is not {typeInfo.Name} {variableName})");
-                writer.OpenBrace();
-                writer.Line($"return luaL_error(L, \"{typeInfo.Name}: '{variableName}' is not a valid {typeInfo.Name} instance\");");
-                writer.CloseBrace();
+                writer.Code($$"""
+                    if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, {{stackIndex}}), out var __{{variableName}}Target))
+                    {
+                        return luaL_error(L, "{{typeInfo.Name}}: '{{variableName}}' is not a valid userdata");
+                    }
+
+                    if (__{{variableName}}Target is not {{typeInfo.Name}} {{variableName}})
+                    {
+                        return luaL_error(L, "{{typeInfo.Name}}: '{{variableName}}' is not a valid {{typeInfo.Name}} instance");
+                    }
+                    """);
+
                 writer.Line();
             }
             else
@@ -205,9 +211,11 @@ public partial class LuaTypeGenerator
 
     private static void EmitGcCallback(CodeWriter writer, LuaTypeInfo typeInfo)
     {
-        writer.Line("private static int __Gc(lua_State* L)");
-        writer.OpenBrace();
-        writer.Line("var ud = (nint*) lua_touserdata(L, 1);");
+        writer.Code($$"""
+            private static int __Gc(lua_State* L)
+            {
+                var ud = (nint*) lua_touserdata(L, 1);
+            """);
 
         var hasEvents = typeInfo.Events.Count > 0 || typeInfo.StaticEvents.Count > 0;
         var needsCleanupException = hasEvents || typeInfo.EmitDispose;
@@ -218,40 +226,44 @@ public partial class LuaTypeGenerator
 
         if (hasEvents)
         {
-            writer.Line("if (_eventTracker != null && ud != null && ud[0] != 0)");
-            writer.OpenBrace();
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("_eventTracker.CleanupAll(L, (nint) ud);");
-            writer.CloseBrace();
-            writer.Line("catch (Exception ex)");
-            writer.OpenBrace();
-            writer.Line("cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);");
-            writer.CloseBrace();
-            writer.CloseBrace();
+            writer.Code("""
+                if (_eventTracker != null && ud != null && ud[0] != 0)
+                {
+                    try
+                    {
+                        _eventTracker.CleanupAll(L, (nint) ud);
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);
+                    }
+                }
+                """);
         }
 
         if (typeInfo.EmitDispose)
         {
-            writer.Line("if (LuaTypeServices.TryGetUserDataTarget(ud, out var target))");
-            writer.OpenBrace();
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("((IDisposable) target).Dispose();");
-            writer.CloseBrace();
-            writer.Line("catch (Exception ex)");
-            writer.OpenBrace();
-            writer.Line("cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);");
-            writer.CloseBrace();
-            writer.Line("finally");
-            writer.OpenBrace();
-            writer.Line("LuaTypeServices.TryFreeUserData(ud);");
-            writer.CloseBrace();
-            writer.CloseBrace();
-            writer.Line("else");
-            writer.OpenBrace();
-            writer.Line("LuaTypeServices.TryFreeUserData(ud);");
-            writer.CloseBrace();
+            writer.Code("""
+                if (LuaTypeServices.TryGetUserDataTarget(ud, out var target))
+                {
+                    try
+                    {
+                        ((IDisposable) target).Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);
+                    }
+                    finally
+                    {
+                        LuaTypeServices.TryFreeUserData(ud);
+                    }
+                }
+                else
+                {
+                    LuaTypeServices.TryFreeUserData(ud);
+                }
+                """);
         }
         else
         {
@@ -270,50 +282,58 @@ public partial class LuaTypeGenerator
 
     private static void EmitCloseCallback(CodeWriter writer, LuaTypeInfo typeInfo)
     {
-        writer.Line("private static int __Close(lua_State* L)");
-        writer.OpenBrace();
-        writer.Line("var ud = (nint*) lua_touserdata(L, 1);");
-        writer.Line("Exception? cleanupException = null;");
+        writer.Code("""
+            private static int __Close(lua_State* L)
+            {
+                var ud = (nint*) lua_touserdata(L, 1);
+                Exception? cleanupException = null;
+            """);
 
         var hasEvents = typeInfo.Events.Count > 0 || typeInfo.StaticEvents.Count > 0;
         if (hasEvents)
         {
-            writer.Line("if (_eventTracker != null && ud != null && ud[0] != 0)");
-            writer.OpenBrace();
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("_eventTracker.CleanupAll(L, (nint) ud);");
-            writer.CloseBrace();
-            writer.Line("catch (Exception ex)");
-            writer.OpenBrace();
-            writer.Line("cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);");
-            writer.CloseBrace();
-            writer.CloseBrace();
+            writer.Code("""
+                if (_eventTracker != null && ud != null && ud[0] != 0)
+                {
+                    try
+                    {
+                        _eventTracker.CleanupAll(L, (nint) ud);
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);
+                    }
+                }
+                """);
         }
 
-        writer.Line("if (LuaTypeServices.TryGetUserDataTarget(ud, out var target))");
-        writer.OpenBrace();
-        writer.Line("try");
-        writer.OpenBrace();
-        writer.Line("((IDisposable) target).Dispose();");
-        writer.CloseBrace();
-        writer.Line("catch (Exception ex)");
-        writer.OpenBrace();
-        writer.Line("cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);");
-        writer.CloseBrace();
-        writer.Line("finally");
-        writer.OpenBrace();
-        writer.Line("LuaTypeServices.TryFreeUserData(ud);");
-        writer.CloseBrace();
-        writer.CloseBrace();
-        writer.Line("else");
-        writer.OpenBrace();
-        writer.Line("LuaTypeServices.TryFreeUserData(ud);");
-        writer.CloseBrace();
-        writer.Line("LuaTypeServices.ThrowCleanupException(cleanupException);");
-        writer.Line();
-        writer.Line("return 0;");
-        writer.CloseBrace();
+        writer.Code("""
+            if (LuaTypeServices.TryGetUserDataTarget(ud, out var target))
+            {
+                try
+                {
+                    ((IDisposable) target).Dispose();
+                }
+                catch (Exception ex)
+                {
+                    cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);
+                }
+                finally
+                {
+                    LuaTypeServices.TryFreeUserData(ud);
+                }
+            }
+            else
+            {
+                LuaTypeServices.TryFreeUserData(ud);
+            }
+            """);
+
+        writer.Code("""
+                LuaTypeServices.ThrowCleanupException(cleanupException);
+                return 0;
+            }
+        """);
     }
 
     private static void EmitLenCallback(CodeWriter writer, LuaTypeInfo typeInfo)
@@ -321,9 +341,11 @@ public partial class LuaTypeGenerator
         writer.Line("private static int __Len(lua_State* L)");
         writer.OpenBrace();
         EmitSelfVariable(writer, typeInfo);
-        writer.Line($"lua_pushinteger(L, {typeInfo.LengthPropertyName});");
-        writer.Line("return 1;");
-        writer.CloseBrace();
+        writer.Code($$"""
+                lua_pushinteger(L, {{typeInfo.LengthPropertyName}});
+                return 1;
+            }
+        """);
     }
 
     private static void EmitPairsCallback(CodeWriter writer, LuaTypeInfo typeInfo)
@@ -337,19 +359,24 @@ public partial class LuaTypeGenerator
 
             if (readableMembers.Count == 0)
             {
-                writer.Line("lua_pushcfunction(L, static (lua_State* L) => 0);");
-                writer.Line("lua_pushnil(L);");
-                writer.Line("lua_pushnil(L);");
-                writer.Line("return 3;");
-                writer.CloseBrace();
+                writer.Code("""
+                        lua_pushcfunction(L, static (lua_State* L) => 0);
+                        lua_pushnil(L);
+                        lua_pushnil(L);
+                        return 3;
+                    }
+                """);
+
                 return;
             }
 
             EmitSelfVariable(writer, typeInfo);
             writer.Line();
 
-            writer.Line("luaL_checkstack(L, 3, null);");
-            writer.Line($"lua_createtable(L, 0, {readableMembers.Count});");
+            writer.Code($$"""
+                luaL_checkstack(L, 3, null);
+                lua_createtable(L, 0, {{readableMembers.Count}});
+                """);
 
             foreach (var member in readableMembers)
             {
@@ -375,95 +402,98 @@ public partial class LuaTypeGenerator
             }
 
             writer.Line();
-            writer.Line("lua_getglobal(L, \"next\");");
-            writer.Line("lua_pushvalue(L, -2);");
-            writer.Line("lua_remove(L, -3);");
-            writer.Line("lua_pushnil(L);");
-            writer.Line("return 3;");
+            writer.Code("""
+                lua_getglobal(L, "next");
+                lua_pushvalue(L, -2);
+                lua_remove(L, -3);
+                lua_pushnil(L);
+                return 3;
+                """);
         }
         else if (typeInfo.PairsBehavior == PairsIfEnumerable && typeInfo.ImplementsEnumerable)
         {
             EmitSelfVariable(writer, typeInfo);
-            writer.Line("var enumerator = ((IEnumerable) self).GetEnumerator();");
-            writer.Line("GCHandle enumHandle = default;");
-            writer.Line("nint* enumUd = null;");
-            writer.Line("var isEnumUdOnStack = false;");
-            writer.Line("var isMetatableOnStack = false;");
-            writer.Line();
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("enumHandle = GCHandle.Alloc(new object[] { enumerator, 0 });");
-            writer.Line();
-            writer.Line("enumUd = (nint*) lua_newuserdatauv(L, (nuint) sizeof(nint), 0);");
-            writer.Line("isEnumUdOnStack = true;");
-            writer.Line("*enumUd = GCHandle.ToIntPtr(enumHandle);");
-            writer.Line();
-            writer.Line("if (luaL_newmetatable(L, \"__Laylua:PairsEnumerator\"))");
-            writer.OpenBrace();
-            writer.Line("isMetatableOnStack = true;");
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("lua_pushcfunction(L, _pairsEnumeratorGcFunctionPtr);");
-            writer.Line("lua_setfield(L, -2, \"__gc\");");
-            writer.Line("lua_pushboolean(L, false);");
-            writer.Line("lua_setfield(L, -2, \"__metatable\");");
-            writer.CloseBrace();
-            writer.Line("catch");
-            writer.OpenBrace();
-            writer.Line("lua_pushnil(L);");
-            writer.Line("lua_setfield(L, LuaRegistry.Index, \"__Laylua:PairsEnumerator\");");
-            writer.Line("var popCount = (isMetatableOnStack ? 1 : 0) + (isEnumUdOnStack ? 1 : 0);");
-            writer.Line("if (popCount > 0)");
-            writer.OpenBrace();
-            writer.Line("lua_pop(L, popCount);");
-            writer.Line("isMetatableOnStack = false;");
-            writer.Line("isEnumUdOnStack = false;");
-            writer.CloseBrace();
-            writer.Line("throw;");
-            writer.CloseBrace();
-            writer.CloseBrace();
-            writer.Line("else");
-            writer.OpenBrace();
-            writer.Line("isMetatableOnStack = true;");
-            writer.CloseBrace();
-            writer.Line();
-            writer.Line("lua_setmetatable(L, -2);");
-            writer.Line("isMetatableOnStack = false;");
-            writer.Line();
-            writer.Line("lua_pushcclosure(L, _pairsIteratorFunctionPtr, 1);");
-            writer.Line("isEnumUdOnStack = false;");
-            writer.Line("lua_pushnil(L);");
-            writer.Line("lua_pushnil(L);");
-            writer.Line("enumHandle = default;");
-            writer.Line("return 3;");
-            writer.CloseBrace();
-            writer.Line("catch");
-            writer.OpenBrace();
-            writer.Line("var popCount = (isMetatableOnStack ? 1 : 0) + (isEnumUdOnStack ? 1 : 0);");
-            writer.Line("if (popCount > 0)");
-            writer.OpenBrace();
-            writer.Line("lua_pop(L, popCount);");
-            writer.CloseBrace();
-            writer.Line("if (enumHandle.IsAllocated)");
-            writer.OpenBrace();
-            writer.Line("enumHandle.Free();");
-            writer.Line("if (enumUd != null)");
-            writer.OpenBrace();
-            writer.Line("*enumUd = 0;");
-            writer.CloseBrace();
-            writer.CloseBrace();
-            writer.Line("if (enumerator is IDisposable disposable)");
-            writer.OpenBrace();
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("disposable.Dispose();");
-            writer.CloseBrace();
-            writer.Line("catch");
-            writer.OpenBrace();
-            writer.CloseBrace();
-            writer.CloseBrace();
-            writer.Line("throw;");
-            writer.CloseBrace();
+            writer.Code("""
+                var enumerator = ((IEnumerable) self).GetEnumerator();
+                GCHandle enumHandle = default;
+                nint* enumUd = null;
+                var isEnumUdOnStack = false;
+                var isMetatableOnStack = false;
+
+                try
+                {
+                    enumHandle = GCHandle.Alloc(new object[] { enumerator, 0 });
+
+                    enumUd = (nint*) lua_newuserdatauv(L, (nuint) sizeof(nint), 0);
+                    isEnumUdOnStack = true;
+                    *enumUd = GCHandle.ToIntPtr(enumHandle);
+
+                    if (luaL_newmetatable(L, "__Laylua:PairsEnumerator"))
+                    {
+                        isMetatableOnStack = true;
+                        try
+                        {
+                            lua_pushcfunction(L, _pairsEnumeratorGcFunctionPtr);
+                            lua_setfield(L, -2, "__gc");
+                            lua_pushboolean(L, false);
+                            lua_setfield(L, -2, "__metatable");
+                        }
+                        catch
+                        {
+                            lua_pushnil(L);
+                            lua_setfield(L, LuaRegistry.Index, "__Laylua:PairsEnumerator");
+                            var popCount = (isMetatableOnStack ? 1 : 0) + (isEnumUdOnStack ? 1 : 0);
+                            if (popCount > 0)
+                            {
+                                lua_pop(L, popCount);
+                                isMetatableOnStack = false;
+                                isEnumUdOnStack = false;
+                            }
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        isMetatableOnStack = true;
+                    }
+
+                    lua_setmetatable(L, -2);
+                    isMetatableOnStack = false;
+
+                    lua_pushcclosure(L, _pairsIteratorFunctionPtr, 1);
+                    isEnumUdOnStack = false;
+                    lua_pushnil(L);
+                    lua_pushnil(L);
+                    enumHandle = default;
+                    return 3;
+                }
+                catch
+                {
+                    var popCount = (isMetatableOnStack ? 1 : 0) + (isEnumUdOnStack ? 1 : 0);
+                    if (popCount > 0)
+                    {
+                        lua_pop(L, popCount);
+                    }
+                    if (enumHandle.IsAllocated)
+                    {
+                        enumHandle.Free();
+                        if (enumUd != null)
+                        {
+                            *enumUd = 0;
+                        }
+                    }
+                    if (enumerator is IDisposable disposable)
+                    {
+                        try
+                        {
+                            disposable.Dispose();
+                        }
+                        catch
+                        { }
+                    }
+                    throw;
+                }
+                """);
         }
 
         writer.CloseBrace();
@@ -473,21 +503,24 @@ public partial class LuaTypeGenerator
     {
         writer.Line("private static int __PairsIterator(lua_State* L)");
         writer.OpenBrace();
-        writer.Line("var enumUd = *(nint*) lua_touserdata(L, lua_upvalueindex(1));");
-        writer.Line("var state = (object[]) GCHandle.FromIntPtr(enumUd).Target!;");
-        writer.Line("var enumerator = (IEnumerator) state[0];");
-        writer.Line("if (!enumerator.MoveNext())");
-        writer.OpenBrace();
-        writer.Line("LuaTypeServices.DisposePairsEnumeratorState((nint*) lua_touserdata(L, lua_upvalueindex(1)));");
-        writer.Line("return 0;");
-        writer.CloseBrace();
-        writer.Line();
-        writer.Line("var index = (int) state[1] + 1;");
-        writer.Line("state[1] = index;");
-        writer.Line("lua_pushinteger(L, index);");
-        writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
-        writer.Line("thread.Stack.Push(enumerator.Current);");
-        writer.Line("return 2;");
+        writer.Code("""
+            var enumUd = *(nint*) lua_touserdata(L, lua_upvalueindex(1));
+            var state = (object[]) GCHandle.FromIntPtr(enumUd).Target!;
+            var enumerator = (IEnumerator) state[0];
+            if (!enumerator.MoveNext())
+            {
+                LuaTypeServices.DisposePairsEnumeratorState((nint*) lua_touserdata(L, lua_upvalueindex(1)));
+                return 0;
+            }
+
+            var index = (int) state[1] + 1;
+            state[1] = index;
+            lua_pushinteger(L, index);
+            using var thread = LuaThread.FromExtraSpace(L);
+            thread.Stack.Push(enumerator.Current);
+            return 2;
+            """);
+
         writer.CloseBrace();
     }
 
@@ -495,32 +528,35 @@ public partial class LuaTypeGenerator
     {
         writer.Line("private static int __PairsEnumeratorGc(lua_State* L)");
         writer.OpenBrace();
-        writer.Line("var ud = (nint*) lua_touserdata(L, 1);");
-        writer.Line("if (ud == null)");
-        writer.OpenBrace();
-        writer.Line("return 0;");
-        writer.CloseBrace();
-        writer.Line();
-        writer.Line("var ptr = *ud;");
-        writer.Line("if (ptr != 0)");
-        writer.OpenBrace();
-        writer.Line("var handle = GCHandle.FromIntPtr(ptr);");
-        writer.Line("try");
-        writer.OpenBrace();
-        writer.Line("var state = (object[]) handle.Target!;");
-        writer.Line("if (state[0] is IDisposable disposable)");
-        writer.OpenBrace();
-        writer.Line("disposable.Dispose();");
-        writer.CloseBrace();
-        writer.CloseBrace();
-        writer.Line("finally");
-        writer.OpenBrace();
-        writer.Line("handle.Free();");
-        writer.Line("*ud = 0;");
-        writer.CloseBrace();
-        writer.CloseBrace();
-        writer.Line();
-        writer.Line("return 0;");
+        writer.Code("""
+            var ud = (nint*) lua_touserdata(L, 1);
+            if (ud == null)
+            {
+                return 0;
+            }
+
+            var ptr = *ud;
+            if (ptr != 0)
+            {
+                var handle = GCHandle.FromIntPtr(ptr);
+                try
+                {
+                    var state = (object[]) handle.Target!;
+                    if (state[0] is IDisposable disposable)
+                    {
+                        disposable.Dispose();
+                    }
+                }
+                finally
+                {
+                    handle.Free();
+                    *ud = 0;
+                }
+            }
+
+            return 0;
+            """);
+
         writer.CloseBrace();
     }
 
@@ -551,20 +587,22 @@ public partial class LuaTypeGenerator
 
                 if (requiredCount > 0)
                 {
-                    writer.Line($"if (argCount < {requiredCount})");
-                    writer.OpenBrace();
-                    writer.Line($"return luaL_error(L, \"{typeInfo.Name}: expected at least {requiredCount} argument(s)\");");
-                    writer.CloseBrace();
-                    writer.Line();
+                    writer.Code($$"""
+                        if (argCount < {{requiredCount}})
+                        {
+                            return luaL_error(L, "{{typeInfo.Name}}: expected at least {{requiredCount}} argument(s)");
+                        }
+                        """);
                 }
 
                 if (!hasParams)
                 {
-                    writer.Line($"if (argCount > {maxCount})");
-                    writer.OpenBrace();
-                    writer.Line($"return luaL_error(L, \"{typeInfo.Name}: invalid number of arguments\");");
-                    writer.CloseBrace();
-                    writer.Line();
+                    writer.Code($$"""
+                        if (argCount > {{maxCount}})
+                        {
+                            return luaL_error(L, "{{typeInfo.Name}}: invalid number of arguments");
+                        }
+                        """);
                 }
             }
 
@@ -621,10 +659,11 @@ public partial class LuaTypeGenerator
                         .OrderBy(static constructor => constructor.Parameters.Count)
                         .ToList();
 
-                    writer.Line("var __bestMatch = -1;");
-                    writer.Line("var __bestCost = int.MaxValue;");
-                    writer.Line("var __compatibleCount = 0;");
-                    writer.Line();
+                    writer.Code("""
+                        var __bestMatch = -1;
+                        var __bestCost = int.MaxValue;
+                        var __isCompatibleCount = 0;
+                        """);
 
                     for (var constructorIndex = 0; constructorIndex < orderedConstructors.Count; constructorIndex++)
                     {
@@ -636,8 +675,10 @@ public partial class LuaTypeGenerator
 
                         writer.Line("{");
                         writer.Indent();
-                        writer.Line("var __candidateCost = 0;");
-                        writer.Line("var __compatible = true;");
+                        writer.Code("""
+                            var __candidateCost = 0;
+                            var __isCompatible = true;
+                            """);
 
                         for (var argumentIndex = 0; argumentIndex < kvp.Key; argumentIndex++)
                         {
@@ -657,29 +698,34 @@ public partial class LuaTypeGenerator
                                 continue;
                             }
 
-                            writer.Line("if (__compatible)");
-                            writer.OpenBrace();
-                            writer.Line($"var __parameterCost = {EmitCompatibilityCostExpression(typeInfo, parameter, stackOffset + argumentIndex, isParamsElement)};");
-                            writer.Line("if (__parameterCost < 0)");
-                            writer.OpenBrace();
-                            writer.Line("__compatible = false;");
-                            writer.CloseBrace();
-                            writer.Line("else");
-                            writer.OpenBrace();
-                            writer.Line("__candidateCost += __parameterCost;");
-                            writer.CloseBrace();
-                            writer.CloseBrace();
+                            writer.Code($$"""
+                                if (__isCompatible)
+                                {
+                                    var __parameterCost = {{EmitCompatibilityCostExpression(typeInfo, parameter, stackOffset + argumentIndex, isParamsElement)}};
+                                    if (__parameterCost < 0)
+                                    {
+                                        __isCompatible = false;
+                                    }
+                                    else
+                                    {
+                                        __candidateCost += __parameterCost;
+                                    }
+                                }
+                                """);
                         }
 
-                        writer.Line("if (__compatible)");
-                        writer.OpenBrace();
-                        writer.Line("__compatibleCount++;");
-                        writer.Line("if (__candidateCost < __bestCost)");
-                        writer.OpenBrace();
-                        writer.Line($"__bestMatch = {constructorIndex};");
-                        writer.Line("__bestCost = __candidateCost;");
-                        writer.CloseBrace();
-                        writer.CloseBrace();
+                        writer.Code($$"""
+                            if (__isCompatible)
+                            {
+                                __isCompatibleCount++;
+                                if (__candidateCost < __bestCost)
+                                {
+                                    __bestMatch = {{constructorIndex}};
+                                    __bestCost = __candidateCost;
+                                }
+                            }
+                            """);
+
                         writer.Dedent();
                         writer.Line("}");
                         writer.Line();
@@ -695,10 +741,13 @@ public partial class LuaTypeGenerator
                         writer.CloseBrace();
                     }
 
-                    writer.Line("default:");
-                    writer.OpenBrace();
-                    writer.Line($"return luaL_error(L, \"{typeInfo.Name}: incompatible argument types\");");
-                    writer.CloseBrace();
+                    writer.Code($$"""
+                        default:
+                        {
+                            return luaL_error(L, "{{typeInfo.Name}}: incompatible argument types");
+                        }
+                        """);
+
                     writer.CloseBrace();
                 }
 
@@ -715,9 +764,11 @@ public partial class LuaTypeGenerator
             }
             else
             {
-                writer.OpenBrace();
-                writer.Line($"return luaL_error(L, \"{typeInfo.Name}: invalid number of arguments\");");
-                writer.CloseBrace();
+                writer.Code($$"""
+                    {
+                        return luaL_error(L, "{{typeInfo.Name}}: invalid number of arguments");
+                    }
+                    """);
             }
 
             writer.CloseBrace();
@@ -730,10 +781,12 @@ public partial class LuaTypeGenerator
     {
         var needsTypeValidationThread = (typeInfo.ArgumentValidation & ArgValidationType) != 0
             && constructor.Parameters.Any(static parameter => !parameter.IsOptional && !parameter.IsLuaString && !parameter.IsParams);
+
         var needsThread = constructor.Parameters.Any(parameter =>
-            UseMarshaledInterop(typeInfo, parameter.ValueKind)
-            || (parameter.IsParams && UseMarshaledInterop(typeInfo, parameter.ParamsElementKind)))
+                UseMarshaledInterop(typeInfo, parameter.ValueKind)
+                || (parameter.IsParams && UseMarshaledInterop(typeInfo, parameter.ParamsElementKind)))
             || needsTypeValidationThread;
+
         if (needsThread && !threadAvailable)
         {
             writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
@@ -746,10 +799,13 @@ public partial class LuaTypeGenerator
 
             if (parameter.IsParams)
             {
-                writer.Line($"var __paramsCount = lua_gettop(L) - {stackIndex} + 1;");
-                writer.Line($"var {parameter.Name} = new {parameter.ParamsElementTypeName}[__paramsCount > 0 ? __paramsCount : 0];");
-                writer.Line("for (var __pi = 0; __pi < __paramsCount; __pi++)");
-                writer.OpenBrace();
+                writer.Code($$"""
+                    var __paramsCount = lua_gettop(L) - {{stackIndex}} + 1;
+                    var {{parameter.Name}} = new {{parameter.ParamsElementTypeName}}[__paramsCount > 0 ? __paramsCount : 0];
+                    for (var __pi = 0; __pi < __paramsCount; __pi++)
+                    {
+                    """);
+
                 if (UseMarshaledInterop(typeInfo, parameter.ParamsElementKind))
                 {
                     writer.Line($"{parameter.Name}[__pi] = thread.Stack[{stackIndex} + __pi].GetValue<{parameter.ParamsElementTypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsParamsElementNonNullableReference)};");
@@ -770,33 +826,44 @@ public partial class LuaTypeGenerator
                 var rangeCheck = GetRangeCheckForParameter(typeInfo, parameter);
                 if (rangeCheck != null)
                 {
-                    writer.Line($"{parameter.TypeName} {parameter.Name};");
-                    writer.Line($"if (lua_gettop(L) >= {stackIndex})");
-                    writer.OpenBrace();
+                    writer.Code($$"""
+                        {{parameter.TypeName}} {{parameter.Name}};
+                        if (lua_gettop(L) >= {{stackIndex}})
+                        {
+                        """);
+
                     EmitRangeCheckedRead(writer, typeInfo, parameter, typeInfo.Name, stackIndex, rangeCheck.Value, declareVariable: false);
-                    writer.CloseBrace();
-                    writer.Line("else");
-                    writer.OpenBrace();
-                    writer.Line($"{parameter.Name} = {defaultValue};");
-                    writer.CloseBrace();
+                    writer.Code($$"""
+                        }
+                        else
+                        {
+                            {{parameter.Name}} = {{defaultValue}};
+                        }
+                        """);
                 }
                 else if (parameter.IsLuaString)
                 {
-                    writer.Line($"{parameter.TypeName} {parameter.Name} = lua_gettop(L) >= {stackIndex}");
-                    writer.Line($"    ? {EmitLuaStringReadExpression(parameter.TypeName, stackIndex)}");
-                    writer.Line($"    : {defaultValue};");
+                    writer.Code($$"""
+                        {{parameter.TypeName}} {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
+                            ? {{EmitLuaStringReadExpression(parameter.TypeName, stackIndex)}}
+                            : {{defaultValue}};
+                        """);
                 }
                 else if (UseMarshaledInterop(typeInfo, parameter.ValueKind))
                 {
-                    writer.Line($"{parameter.TypeName} {parameter.Name} = lua_gettop(L) >= {stackIndex}");
-                    writer.Line($"    ? thread.Stack[{stackIndex}].GetValue<{parameter.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}");
-                    writer.Line($"    : {defaultValue};");
+                    writer.Code($$"""
+                        {{parameter.TypeName}} {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
+                            ? thread.Stack[{{stackIndex}}].GetValue<{{parameter.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){{GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}}
+                            : {{defaultValue}};
+                        """);
                 }
                 else
                 {
-                    writer.Line($"{parameter.TypeName} {parameter.Name} = lua_gettop(L) >= {stackIndex}");
-                    writer.Line($"    ? {EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}");
-                    writer.Line($"    : {defaultValue};");
+                    writer.Code($$"""
+                        {{parameter.TypeName}} {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
+                            ? {{EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}}
+                            : {{defaultValue}};
+                        """);
                 }
 
                 writer.Line();
@@ -840,9 +907,11 @@ public partial class LuaTypeGenerator
         }
 
         var arguments = string.Join(", ", constructor.Parameters.Select(static parameter => parameter.Name));
-        writer.Line($"var instance = new {typeInfo.Name}({arguments});");
-        writer.Line("Push(L, instance);");
-        writer.Line("return 1;");
+        writer.Code($$"""
+            var instance = new {{typeInfo.Name}}({{arguments}});
+            Push(L, instance);
+            return 1;
+            """);
 
         if (luaRefParams.Count > 0)
         {
@@ -860,9 +929,11 @@ public partial class LuaTypeGenerator
 
     private static void EmitDefinitionGcCallback(CodeWriter writer, LuaTypeInfo typeInfo)
     {
-        writer.Line("private static int __DefinitionGc(lua_State* L)");
-        writer.OpenBrace();
-        writer.Line("var ud = (nint*) lua_touserdata(L, 1);");
+        writer.Code($$"""
+            private static int __DefinitionGc(lua_State* L)
+            {
+                var ud = (nint*) lua_touserdata(L, 1);
+            """);
 
         var hasEvents = typeInfo.Events.Count > 0 || typeInfo.StaticEvents.Count > 0;
         if (hasEvents)
@@ -872,17 +943,19 @@ public partial class LuaTypeGenerator
 
         if (hasEvents)
         {
-            writer.Line("if (_eventTracker != null && ud != null && ud[0] != 0)");
-            writer.OpenBrace();
-            writer.Line("try");
-            writer.OpenBrace();
-            writer.Line("_eventTracker.CleanupAll(L, (nint) ud);");
-            writer.CloseBrace();
-            writer.Line("catch (Exception ex)");
-            writer.OpenBrace();
-            writer.Line("cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);");
-            writer.CloseBrace();
-            writer.CloseBrace();
+            writer.Code("""
+                if (_eventTracker != null && ud != null && ud[0] != 0)
+                {
+                    try
+                    {
+                        _eventTracker.CleanupAll(L, (nint) ud);
+                    }
+                    catch (Exception ex)
+                    {
+                        cleanupException = LuaTypeServices.CombineCleanupException(cleanupException, ex);
+                    }
+                }
+                """);
         }
 
         writer.Line("LuaTypeServices.TryFreeUserData(ud);");
@@ -925,7 +998,10 @@ public partial class LuaTypeGenerator
 
         if (typeInfo.EmitFactory)
         {
-            switchEntries.Add(new IndexSwitchEntry(typeInfo.FactoryMethodName!, null, null) { IsFactory = true });
+            switchEntries.Add(new IndexSwitchEntry(typeInfo.FactoryMethodName!, null, null)
+            {
+                IsFactory = true
+            });
         }
 
         if (switchEntries.Count == 0)
@@ -935,13 +1011,14 @@ public partial class LuaTypeGenerator
             return;
         }
 
-        writer.Line("if (lua_type(L, 2) != LuaType.String)");
-        writer.OpenBrace();
-        writer.Line("return 0;");
-        writer.CloseBrace();
-        writer.Line();
-        writer.Line("var key = lua_tostring(L, 2).Span;");
-        writer.Line();
+        writer.Code("""
+            if (lua_type(L, 2) != LuaType.String)
+            {
+                return 0;
+            }
+
+            var key = lua_tostring(L, 2).Span;
+            """);
 
         EmitIndexSwitch(writer, typeInfo, switchEntries, null!, isStatic: true);
 
@@ -958,6 +1035,7 @@ public partial class LuaTypeGenerator
         var writableMembers = typeInfo.StaticProperties.Where(static property => property.CanWrite)
             .Concat(typeInfo.StaticFields.Where(static field => field.CanWrite))
             .ToList();
+
         var readOnlyMembers = typeInfo.StaticProperties.Where(static property => property.CanRead && !property.CanWrite)
             .Concat(typeInfo.StaticFields.Where(static field => field.CanRead && !field.CanWrite))
             .ToList();
@@ -969,13 +1047,14 @@ public partial class LuaTypeGenerator
             return;
         }
 
-        writer.Line("if (lua_type(L, 2) != LuaType.String)");
-        writer.OpenBrace();
-        writer.Line("return 0;");
-        writer.CloseBrace();
-        writer.Line();
-        writer.Line("var key = lua_tostring(L, 2).Span;");
-        writer.Line();
+        writer.Code("""
+            if (lua_type(L, 2) != LuaType.String)
+            {
+                return 0;
+            }
+
+            var key = lua_tostring(L, 2).Span;
+            """);
 
         if (writableMembers.Count > 0)
         {

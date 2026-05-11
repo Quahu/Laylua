@@ -10,43 +10,53 @@ public partial class LuaTypeGenerator
         writer.Line("private static int __ToString(lua_State* L)");
         writer.OpenBrace();
 
-        writer.Line("if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, 1), out var __target))");
-        writer.OpenBrace();
-        writer.Line($"lua_pushstring(L, \"{typeInfo.Name}\"u8);");
-        writer.Line("return 1;");
-        writer.CloseBrace();
-        writer.Line();
+        writer.Code($$"""
+            if (!LuaTypeServices.TryGetUserDataTarget((nint*) lua_touserdata(L, 1), out var __target))
+            {
+                lua_pushstring(L, "{{typeInfo.Name}}"u8);
+                return 1;
+            }
+            """);
 
+        writer.Line();
         if (typeInfo.IsValueType)
         {
-            writer.Line($"if (__target is not {typeInfo.Name})");
-            writer.OpenBrace();
-            writer.Line($"return luaL_error(L, \"{typeInfo.Name}: 'self' is not a valid {typeInfo.Name} instance\");");
-            writer.CloseBrace();
-            writer.Line();
-            writer.Line($"ref var self = ref Unsafe.Unbox<{typeInfo.Name}>(__target!);");
+            writer.Code($$"""
+                if (__target is not {{typeInfo.Name}})
+                {
+                    return luaL_error(L, "{{typeInfo.Name}}: 'self' is not a valid {{typeInfo.Name}} instance");
+                }
+
+                ref var self = ref Unsafe.Unbox<{{typeInfo.Name}}>(__target!);
+                """);
         }
         else
         {
-            writer.Line($"if (__target is not {typeInfo.Name} self)");
-            writer.OpenBrace();
-            writer.Line($"return luaL_error(L, \"{typeInfo.Name}: 'self' is not a valid {typeInfo.Name} instance\");");
-            writer.CloseBrace();
+            writer.Code($$"""
+                if (__target is not {{typeInfo.Name}} self)
+                {
+                    return luaL_error(L, "{{typeInfo.Name}}: 'self' is not a valid {{typeInfo.Name}} instance");
+                }
+                """);
         }
 
         writer.Line();
-        writer.Line("lua_pushstring(L, self.ToString());");
-        writer.Line("return 1;");
-        writer.CloseBrace();
+        writer.Code("""
+                lua_pushstring(L, self.ToString());
+                return 1;
+            }
+        """);
     }
 
     private static void EmitDefinitionToStringCallback(CodeWriter writer, LuaTypeInfo typeInfo)
     {
         writer.Line("private static int __DefinitionToString(lua_State* L)");
         writer.OpenBrace();
-        writer.Line($"lua_pushstring(L, \"{typeInfo.Name}\"u8);");
-        writer.Line("return 1;");
-        writer.CloseBrace();
+        writer.Code($$"""
+                lua_pushstring(L, "{{typeInfo.Name}}"u8);
+                return 1;
+            }
+        """);
     }
 
     private static void EmitMethodCallback(
@@ -67,7 +77,11 @@ public partial class LuaTypeGenerator
         if (method.Overloads != null && method.Overloads.Count > 0)
         {
             // Overloaded method - dispatch on argument count
-            var allOverloads = new List<LuaMethodInfo> { method };
+            var allOverloads = new List<LuaMethodInfo>
+            {
+                method
+            };
+
             allOverloads.AddRange(method.Overloads);
 
             int stackOffset;
@@ -141,9 +155,11 @@ public partial class LuaTypeGenerator
             }
             else
             {
-                writer.OpenBrace();
-                writer.Line($"return luaL_error(L, \"{method.LuaName}: unexpected number of arguments\");");
-                writer.CloseBrace();
+                writer.Code($$"""
+                    {
+                        return luaL_error(L, "{{method.LuaName}}: unexpected number of arguments");
+                    }
+                    """);
             }
 
             writer.CloseBrace();
@@ -185,6 +201,7 @@ public partial class LuaTypeGenerator
         var stackParams = method.Parameters.Where(p => !p.IsCallingThread && p.RefKind != RefKindOut).ToList();
         var needsTypeValidationThread = (typeInfo.ArgumentValidation & ArgValidationType) != 0
             && stackParams.Any(static parameter => !parameter.IsOptional && !parameter.IsLuaString);
+
         var needsThread = hasCallingThread
             || method.Parameters.Any(p => !p.IsCallingThread && (UseMarshaledInterop(typeInfo, p.ValueKind) || (p.IsParams && UseMarshaledInterop(typeInfo, p.ParamsElementKind))))
             || (!method.ReturnsVoid && !method.ReturnsRawCount && UseMarshaledInterop(typeInfo, method.ReturnValueKind))
@@ -204,10 +221,13 @@ public partial class LuaTypeGenerator
                 ? $"var __argCount = lua_gettop(L) - {__argOffset};"
                 : "var __argCount = lua_gettop(L);");
 
-            writer.Line($"if (__argCount < {requiredCount})");
-            writer.OpenBrace();
-            writer.Line($"return luaL_error(L, \"{method.LuaName}: expected at least {requiredCount} argument(s)\");");
-            writer.CloseBrace();
+            writer.Code($$"""
+                if (__argCount < {{requiredCount}})
+                {
+                    return luaL_error(L, "{{method.LuaName}}: expected at least {{requiredCount}} argument(s)");
+                }
+                """);
+
             writer.Line();
         }
 
@@ -368,8 +388,9 @@ public partial class LuaTypeGenerator
             writer.DisableWarning("CS0618");
         }
 
+        const string rawCountVariableName = "__rawCount";
+
         var returnCount = outParams.Count;
-        var rawCountVariableName = "__rawCount";
         var capturesRawCount = false;
         var returnsAwaitable = false;
         if (method.ReturnsRawCount)
@@ -469,10 +490,11 @@ public partial class LuaTypeGenerator
             ? SortOverloadsBySpecificity(overloads, dispatchIndex)
             : overloads;
 
-        writer.Line("var __bestMatch = -1;");
-        writer.Line("var __bestCost = int.MaxValue;");
-        writer.Line("var __compatibleCount = 0;");
-        writer.Line();
+        writer.Code("""
+            var __bestMatch = -1;
+            var __bestCost = int.MaxValue;
+            var __isCompatibleCount = 0;
+            """);
 
         for (var i = 0; i < sorted.Count; i++)
         {
@@ -480,6 +502,7 @@ public partial class LuaTypeGenerator
             var stackParameters = overload.Parameters
                 .Where(static parameter => !parameter.IsCallingThread && parameter.RefKind != RefKindOut)
                 .ToList();
+
             var fixedParameters = stackParameters.Where(static parameter => !parameter.IsParams).ToList();
             var paramsParameter = stackParameters.Count > 0 && stackParameters[stackParameters.Count - 1].IsParams
                 ? stackParameters[stackParameters.Count - 1]
@@ -487,8 +510,10 @@ public partial class LuaTypeGenerator
 
             writer.Line("{");
             writer.Indent();
-            writer.Line("var __candidateCost = 0;");
-            writer.Line("var __compatible = true;");
+            writer.Code("""
+                var __candidateCost = 0;
+                var __isCompatible = true;
+                """);
 
             for (var argumentIndex = 0; argumentIndex < argCount; argumentIndex++)
             {
@@ -508,29 +533,34 @@ public partial class LuaTypeGenerator
                     continue;
                 }
 
-                writer.Line("if (__compatible)");
-                writer.OpenBrace();
-                writer.Line($"var __parameterCost = {EmitCompatibilityCostExpression(typeInfo, parameter, stackOffset + argumentIndex, isParamsElement)};");
-                writer.Line("if (__parameterCost < 0)");
-                writer.OpenBrace();
-                writer.Line("__compatible = false;");
-                writer.CloseBrace();
-                writer.Line("else");
-                writer.OpenBrace();
-                writer.Line("__candidateCost += __parameterCost;");
-                writer.CloseBrace();
-                writer.CloseBrace();
+                writer.Code($$"""
+                    if (__isCompatible)
+                    {
+                        var __parameterCost = {{EmitCompatibilityCostExpression(typeInfo, parameter, stackOffset + argumentIndex, isParamsElement)}};
+                        if (__parameterCost < 0)
+                        {
+                            __isCompatible = false;
+                        }
+                        else
+                        {
+                            __candidateCost += __parameterCost;
+                        }
+                    }
+                    """);
             }
 
-            writer.Line("if (__compatible)");
-            writer.OpenBrace();
-            writer.Line("__compatibleCount++;");
-            writer.Line("if (__candidateCost < __bestCost)");
-            writer.OpenBrace();
-            writer.Line($"__bestMatch = {i};");
-            writer.Line("__bestCost = __candidateCost;");
-            writer.CloseBrace();
-            writer.CloseBrace();
+            writer.Code($$"""
+                if (__isCompatible)
+                {
+                    __isCompatibleCount++;
+                    if (__candidateCost < __bestCost)
+                    {
+                        __bestMatch = {{i}};
+                        __bestCost = __candidateCost;
+                    }
+                }
+                """);
+
             writer.Dedent();
             writer.Line("}");
             writer.Line();
@@ -538,11 +568,12 @@ public partial class LuaTypeGenerator
 
         if (typeInfo.OverloadResolution == OverloadError)
         {
-            writer.Line("if (__compatibleCount > 1)");
-            writer.OpenBrace();
-            writer.Line($"return luaL_error(L, \"{luaName}: ambiguous overload resolution\");");
-            writer.CloseBrace();
-            writer.Line();
+            writer.Code($$"""
+                if (__isCompatibleCount > 1)
+                {
+                    return luaL_error(L, "{{luaName}}: ambiguous overload resolution");
+                }
+                """);
         }
 
         writer.Line("switch (__bestMatch)");
@@ -555,10 +586,13 @@ public partial class LuaTypeGenerator
             writer.CloseBrace();
         }
 
-        writer.Line("default:");
-        writer.OpenBrace();
-        writer.Line($"return luaL_error(L, \"{luaName}: incompatible argument types\");");
-        writer.CloseBrace();
+        writer.Code($$"""
+            default:
+            {
+                return luaL_error(L, "{{luaName}}: incompatible argument types");
+            }
+            """);
+
         writer.CloseBrace();
     }
 
@@ -644,10 +678,12 @@ public partial class LuaTypeGenerator
 
             if (parameter.IsParams)
             {
-                writer.Line($"var __paramsCount = lua_gettop(L) - {stackIndex} + 1;");
-                writer.Line($"var {parameter.Name} = new {parameter.ParamsElementTypeName}[__paramsCount > 0 ? __paramsCount : 0];");
-                writer.Line("for (var __pi = 0; __pi < __paramsCount; __pi++)");
-                writer.OpenBrace();
+                writer.Code($$"""
+                    var __paramsCount = lua_gettop(L) - {{stackIndex}} + 1;
+                    var {{parameter.Name}} = new {{parameter.ParamsElementTypeName}}[__paramsCount > 0 ? __paramsCount : 0];
+                    for (var __pi = 0; __pi < __paramsCount; __pi++)
+                    {
+                    """);
 
                 if (UseMarshaledInterop(typeInfo, parameter.ParamsElementKind))
                 {
@@ -668,27 +704,36 @@ public partial class LuaTypeGenerator
                 if (rangeCheck != null)
                 {
                     // Range-checked optional parameter needs multi-line form
-                    writer.Line($"{parameter.TypeName} {parameter.Name};");
-                    writer.Line($"if (lua_gettop(L) >= {stackIndex})");
-                    writer.OpenBrace();
+                    writer.Code($$"""
+                        {{parameter.TypeName}} {{parameter.Name}};
+                        if (lua_gettop(L) >= {{stackIndex}})
+                        {
+                        """);
+
                     EmitRangeCheckedRead(writer, typeInfo, parameter, method.LuaName, stackIndex, rangeCheck.Value, declareVariable: false);
-                    writer.CloseBrace();
-                    writer.Line("else");
-                    writer.OpenBrace();
-                    writer.Line($"{parameter.Name} = {parameter.DefaultValue ?? $"default({parameter.TypeName})"};");
-                    writer.CloseBrace();
+                    writer.Code($$"""
+                        }
+                        else
+                        {
+                            {{parameter.Name}} = {{parameter.DefaultValue ?? $"default({parameter.TypeName})"}};
+                        }
+                        """);
                 }
                 else if (UseMarshaledInterop(typeInfo, parameter.ValueKind))
                 {
-                    writer.Line($"var {parameter.Name} = lua_gettop(L) >= {stackIndex}");
-                    writer.Line($"    ? thread.Stack[{stackIndex}].GetValue<{parameter.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}");
-                    writer.Line($"    : {parameter.DefaultValue ?? $"default({parameter.TypeName})"};");
+                    writer.Code($$"""
+                        var {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
+                            ? thread.Stack[{{stackIndex}}].GetValue<{{parameter.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){{GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}}
+                            : {{parameter.DefaultValue ?? $"default({parameter.TypeName})"}};
+                        """);
                 }
                 else
                 {
-                    writer.Line($"var {parameter.Name} = lua_gettop(L) >= {stackIndex}");
-                    writer.Line($"    ? {EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}");
-                    writer.Line($"    : {parameter.DefaultValue ?? $"default({parameter.TypeName})"};");
+                    writer.Code($$"""
+                        var {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
+                            ? {{EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}}
+                            : {{parameter.DefaultValue ?? $"default({parameter.TypeName})"}};
+                        """);
                 }
 
                 writer.Line();
@@ -720,9 +765,11 @@ public partial class LuaTypeGenerator
                     {
                         if (useNilDefault)
                         {
-                            writer.Line($"var {parameter.Name} = lua_type(L, {stackIndex}) == LuaType.Nil");
-                            writer.Line($"    ? default({parameter.TypeName})");
-                            writer.Line($"    : thread.Stack[{stackIndex}].GetValue<{parameter.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)};");
+                            writer.Code($$"""
+                                var {{parameter.Name}} = lua_type(L, {{stackIndex}}) == LuaType.Nil
+                                    ? default({{parameter.TypeName}})
+                                    : thread.Stack[{{stackIndex}}].GetValue<{{parameter.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){{GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}};
+                                """);
                         }
                         else
                         {
@@ -733,13 +780,16 @@ public partial class LuaTypeGenerator
                     {
                         if (useNilDefault)
                         {
-                            writer.Line($"{parameter.TypeName} {parameter.Name};");
-                            writer.Line($"if (lua_type(L, {stackIndex}) == LuaType.Nil)");
-                            writer.OpenBrace();
-                            writer.Line($"{parameter.Name} = default;");
-                            writer.CloseBrace();
-                            writer.Line("else");
-                            writer.OpenBrace();
+                            writer.Code($$"""
+                                    {{parameter.TypeName}} {{parameter.Name}};
+                                    if (lua_type(L, {{stackIndex}}) == LuaType.Nil)
+                                    {
+                                        {{parameter.Name}} = default;
+                                    }
+                                    else
+                                    {
+                                """);
+
                             EmitRangeCheckedRead(writer, typeInfo, parameter, method.LuaName, stackIndex, rangeCheck.Value);
                             writer.CloseBrace();
                         }
@@ -754,17 +804,21 @@ public partial class LuaTypeGenerator
                     }
                     else if (useNilDefault)
                     {
-                        writer.Line($"var {parameter.Name} = lua_type(L, {stackIndex}) == LuaType.Nil");
-                        writer.Line($"    ? default({parameter.TypeName})");
-                        writer.Line($"    : {(useImplicitConversionRead ? EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString()) : EmitCheckedReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex))};");
+                        writer.Code($$"""
+                            var {{parameter.Name}} = lua_type(L, {{stackIndex}}) == LuaType.Nil
+                                ? default({{parameter.TypeName}})
+                                : {{(useImplicitConversionRead ? EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString()) : EmitCheckedReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex))}};
+                            """);
                     }
                     else
                     {
                         if (useImplicitConversionRead)
                         {
-                            writer.Line($"var {parameter.Name} = lua_type(L, {stackIndex}) == LuaType.Nil");
-                            writer.Line($"    ? {EmitCheckedReadExpression(parameter.ValueKind, parameter.TypeName, stackIndex)}");
-                            writer.Line($"    : {EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString())};");
+                            writer.Code($$"""
+                                var {{parameter.Name}} = lua_type(L, {{stackIndex}}) == LuaType.Nil
+                                    ? {{EmitCheckedReadExpression(parameter.ValueKind, parameter.TypeName, stackIndex)}}
+                                    : {{EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString())}};
+                                """);
                         }
                         else
                         {
@@ -800,11 +854,12 @@ public partial class LuaTypeGenerator
             return;
         }
 
-        writer.Line($"if (lua_type(L, {stackIndex}) == LuaType.Nil)");
-        writer.OpenBrace();
-        writer.Line($"return luaL_error(L, \"{methodLuaName}: argument '{parameter.Name}' cannot be nil\");");
-        writer.CloseBrace();
-        writer.Line();
+        writer.Code($$"""
+            if (lua_type(L, {{stackIndex}}) == LuaType.Nil)
+            {
+                return luaL_error(L, "{{methodLuaName}}: argument '{{parameter.Name}}' cannot be nil");
+            }
+            """);
     }
 
     /// <summary>
@@ -832,11 +887,12 @@ public partial class LuaTypeGenerator
             _ => parameter.TypeName,
         };
 
-        writer.Line($"if (lua_type(L, {stackIndex}) != LuaType.Nil && !LuaTypeServices.IsImplicitlyCompatible(thread, {stackIndex}, typeof({parameter.TypeName}), (LuaAllowedValueConversions) BindingConversions))");
-        writer.OpenBrace();
-        writer.Line($"return luaL_error(L, \"{methodLuaName}: argument '{parameter.Name}' expected {expectedKind}, got \" + lua_type(L, {stackIndex}));");
-        writer.CloseBrace();
-        writer.Line();
+        writer.Code($$"""
+            if (lua_type(L, {{stackIndex}}) != LuaType.Nil && !LuaTypeServices.IsImplicitlyCompatible(thread, {{stackIndex}}, typeof({{parameter.TypeName}}), (LuaAllowedValueConversions) BindingConversions))
+            {
+                return luaL_error(L, "{{methodLuaName}}: argument '{{parameter.Name}}' expected {{expectedKind}}, got " + lua_type(L, {{stackIndex}}));
+            }
+            """);
     }
 
     private static string EmitCompatibilityCostExpression(
@@ -848,9 +904,11 @@ public partial class LuaTypeGenerator
         var targetTypeName = isParamsElement
             ? parameter.ParamsElementTypeName!
             : parameter.TypeName;
+
         var validateNumericRangeArgument = (typeInfo.ArgumentValidation & ArgValidationRange) != 0
             ? ", validateNumericRange: true"
             : "";
+
         var compatibilityExpression =
             $"LuaTypeServices.GetImplicitCompatibilityCost(thread, {stackIndex}, typeof({targetTypeName}), (LuaAllowedValueConversions) BindingConversions{validateNumericRangeArgument})";
 
@@ -947,11 +1005,12 @@ public partial class LuaTypeGenerator
             writer.Line($"var {rawVar} = luaL_checknumber(L, {stackIndex});");
         }
 
-        writer.Line($"if ({rawVar} < {rangeCheck.Min} || {rawVar} > {rangeCheck.Max})");
-        writer.OpenBrace();
-        writer.Line($"return luaL_error(L, \"{methodLuaName}: argument '{parameter.Name}' is out of range for {parameter.TypeName}\");");
-        writer.CloseBrace();
-        writer.Line();
+        writer.Code($$"""
+            if ({{rawVar}} < {{rangeCheck.Min}} || {{rawVar}} > {{rangeCheck.Max}})
+            {
+                return luaL_error(L, "{{methodLuaName}}: argument '{{parameter.Name}}' is out of range for {{parameter.TypeName}}");
+            }
+            """);
 
         if (declareVariable)
         {

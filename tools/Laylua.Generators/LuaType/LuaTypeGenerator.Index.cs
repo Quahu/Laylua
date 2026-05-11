@@ -54,9 +54,12 @@ public partial class LuaTypeGenerator
             // After indexer dispatch, try named members without mutating non-string keys.
             if (switchEntries.Count > 0)
             {
-                writer.Line("if (lua_type(L, 2) == LuaType.String)");
-                writer.OpenBrace();
-                writer.Line("var key = lua_tostring(L, 2).Span;");
+                writer.Code("""
+                    if (lua_type(L, 2) == LuaType.String)
+                    {
+                        var key = lua_tostring(L, 2).Span;
+                    """);
+
                 writer.Line();
                 EmitIndexSwitch(writer, typeInfo, switchEntries, "self", isStatic: false);
                 writer.CloseBrace();
@@ -149,9 +152,12 @@ public partial class LuaTypeGenerator
 
             if (hasNamedMembers)
             {
-                writer.Line("if (lua_type(L, 2) == LuaType.String)");
-                writer.OpenBrace();
-                writer.Line("var key = lua_tostring(L, 2).Span;");
+                writer.Code("""
+                    if (lua_type(L, 2) == LuaType.String)
+                    {
+                        var key = lua_tostring(L, 2).Span;
+                    """);
+
                 writer.Line();
 
                 if (writableMembers.Count > 0)
@@ -304,7 +310,7 @@ public partial class LuaTypeGenerator
             }
 
             writer.Line();
-            writer.Line("break;");
+            writer.Code("break;");
             writer.CloseBrace();
         }
 
@@ -349,7 +355,7 @@ public partial class LuaTypeGenerator
             }
 
             writer.Line();
-            writer.Line("break;");
+            writer.Code("break;");
             writer.CloseBrace();
         }
 
@@ -373,14 +379,16 @@ public partial class LuaTypeGenerator
 
             foreach (var member in bucket)
             {
-                writer.Line($"if (key.SequenceEqual(\"{member.LuaName}\"u8))");
-                writer.OpenBrace();
-                writer.Line($"return luaL_error(L, \"{typeName}.{member.LuaName}: property is read-only\");");
-                writer.CloseBrace();
+                writer.Code($$"""
+                    if (key.SequenceEqual("{{member.LuaName}}"u8))
+                    {
+                        return luaL_error(L, "{{typeName}}.{{member.LuaName}}: property is read-only");
+                    }
+                    """);
             }
 
             writer.Line();
-            writer.Line("break;");
+            writer.Code("break;");
             writer.CloseBrace();
         }
 
@@ -391,16 +399,18 @@ public partial class LuaTypeGenerator
     {
         if (typeInfo.UnknownPropertyBehavior == UnknownPropError)
         {
-            writer.Line("if (lua_type(L, 2) == LuaType.String)");
-            writer.OpenBrace();
-            writer.Line("var keyStr = lua_tostring(L, 2).ToString();");
-            writer.Line($"return luaL_error(L, $\"{typeInfo.Name}: unknown property '{{keyStr}}'\");");
-            writer.CloseBrace();
-            writer.Line("else");
-            writer.OpenBrace();
-            writer.Line("var keyTypeName = lua_typename(L, lua_type(L, 2)).ToString();");
-            writer.Line($"return luaL_error(L, $\"{typeInfo.Name}: invalid key type '{{keyTypeName}}'\");");
-            writer.CloseBrace();
+            writer.Code($$"""
+                if (lua_type(L, 2) == LuaType.String)
+                {
+                    var keyStr = lua_tostring(L, 2).ToString();
+                    return luaL_error(L, $"{{typeInfo.Name}}: unknown property '{keyStr}'");
+                }
+                else
+                {
+                    var keyTypeName = lua_typename(L, lua_type(L, 2)).ToString();
+                    return luaL_error(L, $"{{typeInfo.Name}}: invalid key type '{keyTypeName}'");
+                }
+                """);
         }
 
         writer.Line("return 0;");
@@ -414,8 +424,10 @@ public partial class LuaTypeGenerator
     {
         if (UseMarshaledInterop(typeInfo, member.ValueKind))
         {
-            writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
-            writer.Line($"{memberAccess} = thread.Stack[{stackIndex}].GetValue<{member.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;");
+            writer.Code($$"""
+                using var thread = LuaThread.FromExtraSpace(L);
+                {{memberAccess}} = thread.Stack[{{stackIndex}}].GetValue<{{member.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
+                """);
         }
         else if (member.ValueKind == LuaValueKind.String)
         {
@@ -443,8 +455,11 @@ public partial class LuaTypeGenerator
             }
 
             var keyRead = EmitReadExpression(typeInfo, indexer.KeyValueKind, indexer.KeyTypeName, 2);
-            writer.Line($"var indexerKey = {keyRead};");
-            writer.Line($"var indexerValue = {target}[indexerKey];");
+            writer.Code($$"""
+                var indexerKey = {{keyRead}};
+                var indexerValue = {{target}}[indexerKey];
+                """);
+
             EmitPushExpression(writer, typeInfo, indexer.ValueKind, indexer.ValueTypeName, "indexerValue", threadAvailable: needsThread, scopeThread: false);
             writer.Line("return 1;");
             writer.CloseBrace();
@@ -466,8 +481,11 @@ public partial class LuaTypeGenerator
                 }
 
                 var keyRead = EmitReadExpression(typeInfo, indexer.KeyValueKind, indexer.KeyTypeName, 2);
-                writer.Line($"var indexerKey = {keyRead};");
-                writer.Line($"var indexerValue = {target}[indexerKey];");
+                writer.Code($$"""
+                    var indexerKey = {{keyRead}};
+                    var indexerValue = {{target}}[indexerKey];
+                    """);
+
                 EmitPushExpression(writer, typeInfo, indexer.ValueKind, indexer.ValueTypeName, "indexerValue", threadAvailable: needsThread, scopeThread: false);
                 writer.Line("return 1;");
                 writer.CloseBrace();
@@ -494,13 +512,17 @@ public partial class LuaTypeGenerator
 
             if (UseMarshaledInterop(typeInfo, indexer.ValueKind))
             {
-                writer.Line($"var indexerKey = {keyRead};");
-                writer.Line($"{target}[indexerKey] = thread.Stack[3].GetValue<{indexer.ValueTypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;");
+                writer.Code($$"""
+                    var indexerKey = {{keyRead}};
+                    {{target}}[indexerKey] = thread.Stack[3].GetValue<{{indexer.ValueTypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
+                    """);
             }
             else
             {
-                writer.Line($"var indexerKey = {keyRead};");
-                writer.Line($"{target}[indexerKey] = {EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)};");
+                writer.Code($$"""
+                    var indexerKey = {{keyRead}};
+                    {{target}}[indexerKey] = {{EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)}};
+                    """);
             }
 
             writer.Line("return 0;");
@@ -526,13 +548,17 @@ public partial class LuaTypeGenerator
 
                 if (UseMarshaledInterop(typeInfo, indexer.ValueKind))
                 {
-                    writer.Line($"var indexerKey = {keyRead};");
-                    writer.Line($"{target}[indexerKey] = thread.Stack[3].GetValue<{indexer.ValueTypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;");
+                    writer.Code($$"""
+                        var indexerKey = {{keyRead}};
+                        {{target}}[indexerKey] = thread.Stack[3].GetValue<{{indexer.ValueTypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
+                        """);
                 }
                 else
                 {
-                    writer.Line($"var indexerKey = {keyRead};");
-                    writer.Line($"{target}[indexerKey] = {EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)};");
+                    writer.Code($$"""
+                        var indexerKey = {{keyRead}};
+                        {{target}}[indexerKey] = {{EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)}};
+                        """);
                 }
 
                 writer.Line("return 0;");
