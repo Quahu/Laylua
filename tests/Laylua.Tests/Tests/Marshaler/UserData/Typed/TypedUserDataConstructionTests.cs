@@ -229,6 +229,215 @@ public unsafe class TypedUserDataConstructionTests : LuaTestBase
     }
 
     [Test]
+    public void GeneratedTableToPoco_InitOnlyRequiredMember_Materializes()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableRequiredInitTarget>("return { Name = 'from_table', Health = 15 }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("from_table"));
+            Assert.That(result.Health, Is.EqualTo(15));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_RequiredSetMember_Materializes()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableRequiredSetTarget>("return { Name = 'from_table', Health = 15 }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("from_table"));
+            Assert.That(result.Health, Is.EqualTo(15));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_MissingRequiredMember_Throws()
+    {
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            Lua.Evaluate<TestTableRequiredInitTarget>("return { Health = 15 }"));
+
+        Assert.That(exception!.Message, Does.Contain(nameof(TestTableRequiredInitTarget)));
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_NilRequiredMember_Throws()
+    {
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            Lua.Evaluate<TestTableRequiredInitTarget>("return { Name = nil, Health = 15 }"));
+
+        Assert.That(exception!.Message, Does.Contain(nameof(TestTableRequiredInitTarget)));
+    }
+
+    [Test]
+    public void GeneratedTableToStruct_RequiredInitMember_Materializes()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableRequiredInitStruct>("return { Value = 42, Health = 15 }");
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value, Is.EqualTo(42));
+            Assert.That(result.Health, Is.EqualTo(15));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_InheritedRequiredInitMember_Materializes()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableInheritedRequiredInitDerived>("return { Name = 'base', BaseHealth = 10, DerivedHealth = 20 }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("base"));
+            Assert.That(result.BaseHealth, Is.EqualTo(10));
+            Assert.That(result.DerivedHealth, Is.EqualTo(20));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_StrictNumericKey_FailsWithoutCorruptingStack()
+    {
+        // Arrange
+        Lua.Execute("t = { 1, Value = 10 }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestStrictType? value);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(lua_gettop(L), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToStruct_ExplicitParameterlessConstructor_UsesInitializedValue()
+    {
+        // Act
+        var result = Lua.Evaluate<TestExplicitParameterlessStructConstructor>("return { }");
+
+        // Assert
+        Assert.That(result.Value, Is.EqualTo(123));
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_WithoutParameterlessConstruction_Fails()
+    {
+        // Arrange
+        Lua.Execute("t = { Name = 'constructor' }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestTableNoParameterlessTarget? value);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_DisabledFromTableConversion_Fails()
+    {
+        // Arrange
+        Lua.Execute("t = { Name = 'disabled' }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestTableDisabledTarget? value);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_BeforeAfterHooks_RunAroundBuiltInConversion()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableHookTarget>("return { Name = 'hooked' }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("hooked!"));
+            Assert.That(result.Health, Is.EqualTo(25));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_InterfaceOverride_CanReuseBuiltInHelper()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableOverrideTarget>("return { Name = 'override', Health = 12 }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("override"));
+            Assert.That(result.Health, Is.EqualTo(17));
+            Assert.That(result.OverrideUsed, Is.True);
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_ExplicitInterfaceOverride_IsUsed()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableExplicitInterfaceTarget>("return { Name = 'explicit' }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("explicit"));
+            Assert.That(result.ExplicitInterfaceUsed, Is.True);
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_CustomStaticMethodWithoutInterface_IsIgnored()
+    {
+        // Act
+        var result = Lua.Evaluate<TestTableCustomMethodWithoutInterface>("return { Name = 'custom' }");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Name, Is.EqualTo("custom"));
+            Assert.That(result.CustomMethodUsed, Is.False);
+        });
+    }
+
+    [Test]
     public void Constructor_ImplicitStructViaCall_RejectsZeroArgCallButKeepsExplicitConstructor()
     {
         // Arrange

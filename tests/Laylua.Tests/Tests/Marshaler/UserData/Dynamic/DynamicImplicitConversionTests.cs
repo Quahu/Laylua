@@ -74,6 +74,11 @@ public class ImplicitConversionOverloaded
         return $"target:{target.Name}:{target.Value}";
     }
 
+    public string AcceptsConstructorTarget(DynamicTableConstructorTarget target)
+    {
+        return $"target:{target.Name}:{target.Health}:{target.ConstructorUsed}";
+    }
+
     public string NumericOrObject(double number)
     {
         return $"double:{number}";
@@ -96,7 +101,7 @@ public class ImplicitConversionOverloaded
 
     public string PointerOnly(IntPtr pointer)
     {
-        return $"ptr:0x{pointer.ToString("x")}";
+        return $"ptr:0x{pointer:x}";
     }
 
     public string CharOnly(char value)
@@ -135,13 +140,35 @@ public class ImplicitConversionOverloaded
     }
 }
 
-public class ImplicitConversionConstructable
+public class ImplicitConversionConstructable(ImplicitConversionTarget target)
 {
-    public string Summary { get; }
+    public string Summary { get; } = $"target:{target.Name}:{target.Value}";
+}
 
-    public ImplicitConversionConstructable(ImplicitConversionTarget target)
+public class DynamicTableRequiredInitTarget
+{
+    public required string Name { get; init; }
+
+    public int Health { get; set; }
+}
+
+public class DynamicTableConstructorTarget
+{
+    public string Name { get; }
+
+    public int Health { get; set; }
+
+    public bool ConstructorUsed { get; }
+
+    public DynamicTableConstructorTarget()
     {
-        Summary = $"target:{target.Name}:{target.Value}";
+        Name = "parameterless";
+    }
+
+    public DynamicTableConstructorTarget(string name)
+    {
+        Name = name;
+        ConstructorUsed = true;
     }
 }
 
@@ -154,6 +181,8 @@ public class DynamicImplicitConversionTests : LuaTestBase
         LuaTypeRegistry.Unregister<ImplicitConversionTarget>();
         LuaTypeRegistry.Unregister<ImplicitConversionOverloaded>();
         LuaTypeRegistry.Unregister<ImplicitConversionConstructable>();
+        LuaTypeRegistry.Unregister<DynamicTableRequiredInitTarget>();
+        LuaTypeRegistry.Unregister<DynamicTableConstructorTarget>();
     }
 
     public override void TearDown()
@@ -161,11 +190,13 @@ public class DynamicImplicitConversionTests : LuaTestBase
         LuaTypeRegistry.Unregister<ImplicitConversionTarget>();
         LuaTypeRegistry.Unregister<ImplicitConversionOverloaded>();
         LuaTypeRegistry.Unregister<ImplicitConversionConstructable>();
+        LuaTypeRegistry.Unregister<DynamicTableRequiredInitTarget>();
+        LuaTypeRegistry.Unregister<DynamicTableConstructorTarget>();
         base.TearDown();
     }
 
     [Test]
-    public void DefaultPolicy_Table_DoesNotBindToTypedUserDataParameter()
+    public void DefaultPolicy_Table_RemainsBehindObjectFallbackDuringOverloadResolution()
     {
         // Arrange
         LuaTypeRegistry.ConfigureDynamic<ImplicitConversionTarget>(static options =>
@@ -189,7 +220,7 @@ public class DynamicImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void DefaultPolicy_Table_DoesNotBindToTypedMethodParameter()
+    public void DefaultPolicy_Table_BindsToTypedMethodParameter()
     {
         // Arrange
         LuaTypeRegistry.ConfigureDynamic<ImplicitConversionTarget>(static options =>
@@ -205,8 +236,11 @@ public class DynamicImplicitConversionTests : LuaTestBase
         var obj = new ImplicitConversionOverloaded();
         Lua["obj"] = obj;
 
-        // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("obj:AcceptsTarget({Name = 'test'})"));
+        // Act
+        var result = Lua.Evaluate<string>("return obj:AcceptsTarget({Name = 'test'})");
+
+        // Assert
+        Assert.That(result, Is.EqualTo("target:test:0"));
     }
 
     [Test]
@@ -436,7 +470,7 @@ public class DynamicImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void DefaultPolicy_Table_DoesNotBindToTypedConstructorParameter()
+    public void DefaultPolicy_Table_BindsToTypedConstructorParameter()
     {
         // Arrange
         LuaTypeRegistry.ConfigureDynamic<ImplicitConversionTarget>(static options =>
@@ -452,8 +486,12 @@ public class DynamicImplicitConversionTests : LuaTestBase
 
         Lua["ImplicitConversionConstructable"] = typeof(ImplicitConversionConstructable);
 
-        // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("return ImplicitConversionConstructable({Name = 'test', Value = 42})"));
+        // Act
+        var result = Lua.Evaluate<ImplicitConversionConstructable>("return ImplicitConversionConstructable({Name = 'test', Value = 42})");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Summary, Is.EqualTo("target:test:42"));
     }
 
     [Test]
@@ -597,7 +635,7 @@ public class DynamicImplicitConversionTests : LuaTestBase
 
         var obj = new ImplicitConversionOverloaded();
         Lua["obj"] = obj;
-        SetGlobalLightUserData("pointer", (IntPtr) 0x1234);
+        SetGlobalLightUserData("pointer", 0x1234);
 
         // Act
         var result = Lua.Evaluate<string>("return obj:PointerOnly(pointer)");

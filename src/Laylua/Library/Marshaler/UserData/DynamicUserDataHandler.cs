@@ -1157,8 +1157,8 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             {
                 if (lua_type(L, -1) != LuaType.Nil)
                 {
-                    var propType = _writableProperties[luaName].PropertyType;
-                    if (!TryReadWithMarshaler(thread, -1, propType, out var fieldValue))
+                    var propertyType = _writableProperties[luaName].PropertyType;
+                    if (!TryReadWithMarshaler(thread, -1, propertyType, out var fieldValue))
                     {
                         value = default;
                         return false;

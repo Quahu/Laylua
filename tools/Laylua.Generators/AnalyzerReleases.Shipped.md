@@ -14,3 +14,4 @@ LAYLUA103 | Usage | Warning | LuaTypeGenerator, Constructor skipped due to unsup
 LAYLUA107 | Usage | Error | LuaTypeGenerator, Invalid enum configuration
 LAYLUA108 | Usage | Error | LuaTypeGenerator, Invalid flags configuration
 LAYLUA109 | Usage | Error | LuaTypeGenerator, Member name collides with another generated member
+LAYLUA110 | Usage | Error | LuaTypeGenerator, Generated table conversion is unsupported

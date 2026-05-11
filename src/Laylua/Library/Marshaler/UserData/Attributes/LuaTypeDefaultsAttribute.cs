@@ -153,6 +153,17 @@ public sealed class LuaTypeDefaultsAttribute : Attribute
     public LuaAwaitableReturnHandling AwaitableReturnHandling { get; set; } = LuaAwaitableReturnHandling.ImplicitAwait;
 
     /// <summary>
+    ///     Gets or sets the default source-generated table-to-object conversion support mode.
+    /// </summary>
+    /// <remarks>
+    ///     Defaults to <see cref="LuaFromTableConversion.WhenTypeHasParameterlessConstructor"/>.
+    ///     Applied when <see cref="LuaTypeAttribute.FromTableConversion"/> is not set.
+    ///     This controls whether generated handlers support reading their own type from a Lua table;
+    ///     <see cref="BindingConversions"/> still controls whether generated member binding is allowed to attempt table-to-object conversion.
+    /// </remarks>
+    public LuaFromTableConversion FromTableConversion { get; set; } = LuaFromTableConversion.WhenTypeHasParameterlessConstructor;
+
+    /// <summary>
     ///     Gets or sets the default binding conversion policy for generated callbacks.
     /// </summary>
     /// <remarks>

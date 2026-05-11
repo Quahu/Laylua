@@ -150,6 +150,17 @@ public sealed class LuaTypeAttribute : Attribute
     public LuaAwaitableReturnHandling AwaitableReturnHandling { get; set; }
 
     /// <summary>
+    ///     Gets or sets whether source-generated table-to-object conversion support is emitted for this type.
+    /// </summary>
+    /// <remarks>
+    ///     When not set, inherits from <see cref="LuaTypeDefaultsAttribute.FromTableConversion"/>
+    ///     (built-in default: <see cref="LuaFromTableConversion.WhenTypeHasParameterlessConstructor"/>).
+    ///     This controls whether the generated handler supports reading this type from a Lua table;
+    ///     <see cref="BindingConversions"/> still controls whether generated member binding is allowed to attempt table-to-object conversion.
+    /// </remarks>
+    public LuaFromTableConversion FromTableConversion { get; set; }
+
+    /// <summary>
     ///     Gets or sets which value conversions are permitted during argument binding
     ///     and overload resolution for this type's generated callbacks.
     /// </summary>

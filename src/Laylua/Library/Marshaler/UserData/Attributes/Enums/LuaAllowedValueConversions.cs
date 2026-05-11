@@ -85,12 +85,14 @@ public enum LuaAllowedValueConversions
     AllowOverflow = 1 << 9,
 
     /// <summary>
-    ///     The default policy: all conversions except <see cref="TableToObject"/>.
+    ///     The default policy: all conversions enabled.
     /// </summary>
-    Default = All & ~TableToObject,
+    Default = All,
 
     /// <summary>
     ///     All conversions enabled.
     /// </summary>
+#pragma warning disable CA1069
     All = StringToPrimitive | TableToObject | FunctionToCallableTarget | ObjectFallback | PrimitiveToString | StringToChar | StringToEnum | NumberToEnum | TruncateFraction | AllowOverflow,
+#pragma warning restore CA1069
 }

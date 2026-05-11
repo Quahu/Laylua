@@ -19,6 +19,7 @@ public sealed class LuaTypeAnalyzerTests
     private const string LuaTypeInvalidEnumConfigDiagnosticId = "LAYLUA107";
     private const string LuaTypeInvalidFlagsConfigDiagnosticId = "LAYLUA108";
     private const string LuaTypeNameCollisionDiagnosticId = "LAYLUA109";
+    private const string LuaTypeUnsupportedFromTableConversionDiagnosticId = "LAYLUA110";
 
 #if NET8_0
     private const string TargetFramework = "net8.0";
@@ -389,6 +390,128 @@ public sealed class LuaTypeAnalyzerTests
         // Assert
         Assert.That(result.ExitCode, Is.Not.EqualTo(0));
         Assert.That(result.Output, Does.Contain(LuaTypeNameCollisionDiagnosticId));
+    }
+
+    [Test]
+    public void FromTableConversion_EnabledWithoutParameterlessConstructor_ReportsGeneratorError()
+    {
+        // Arrange
+        const string source = """
+                               using Laylua;
+                               using Laylua.Marshaling;
+
+                               [LuaType(FromTableConversion = LuaFromTableConversion.Enabled)]
+                               public partial class Sample
+                               {
+                                   public Sample(string value)
+                                   {
+                                   }
+                               }
+                               """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.ExitCode, Is.Not.EqualTo(0));
+        Assert.That(result.Output, Does.Contain(LuaTypeUnsupportedFromTableConversionDiagnosticId));
+    }
+
+    [Test]
+    public void FromTableConversion_OptionalInitOnlyMember_ReportsGeneratorError()
+    {
+        // Arrange
+        const string source = """
+                               using Laylua.Marshaling;
+
+                               [LuaType]
+                               public partial class Sample
+                               {
+                                   public string Name { get; init; } = "";
+                               }
+                               """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.ExitCode, Is.Not.EqualTo(0));
+        Assert.That(result.Output, Does.Contain(LuaTypeUnsupportedFromTableConversionDiagnosticId));
+    }
+
+    [Test]
+    public void FromTableConversion_IgnoredRequiredMember_ReportsGeneratorError()
+    {
+        // Arrange
+        const string source = """
+                               using Laylua.Marshaling;
+
+                               [LuaType]
+                               public partial class Sample
+                               {
+                                   [LuaIgnore]
+                                   public required string Hidden { get; init; }
+
+                                   public int Visible { get; set; }
+                               }
+                               """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.ExitCode, Is.Not.EqualTo(0));
+        Assert.That(result.Output, Does.Contain(LuaTypeUnsupportedFromTableConversionDiagnosticId));
+    }
+
+    [Test]
+    public void TableConversionMethod_NonPublicCustomSignature_DoesNotReportGeneratorError()
+    {
+        // Arrange
+        const string source = """
+                               using Laylua;
+                               using Laylua.Marshaling;
+
+                               [LuaType]
+                               public partial class Sample
+                               {
+                                   private static bool TryGetFromTable(LuaThread thread, LuaTable table, out Sample value)
+                                   {
+                                       value = new Sample();
+                                       return true;
+                                   }
+                               }
+                               """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.ExitCode, Is.EqualTo(0), result.Output);
+        Assert.That(result.Output, Does.Not.Contain(LuaTypeUnsupportedFromTableConversionDiagnosticId));
+    }
+
+    [Test]
+    public void TypeMember_NamedBindingConversions_DoesNotCollideWithGeneratedTableConversion()
+    {
+        // Arrange
+        const string source = """
+                               using Laylua.Marshaling;
+
+                               [LuaType]
+                               public partial class Sample
+                               {
+                                   private const int BindingConversions = 42;
+
+                                   public required string Name { get; init; }
+                               }
+                               """;
+
+        // Act
+        var result = BuildSource(source);
+
+        // Assert
+        Assert.That(result.ExitCode, Is.EqualTo(0), result.Output);
     }
 
     private static BuildResult BuildSource(string source)

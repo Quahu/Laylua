@@ -12,7 +12,7 @@ public class TypedImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void DefaultPolicy_Table_DoesNotBindToTypedUserDataParameter()
+    public void DefaultPolicy_Table_RemainsBehindObjectFallbackDuringOverloadResolution()
     {
         // Arrange
         var obj = new TypedImplicitConversionDefault();
@@ -26,14 +26,17 @@ public class TypedImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void DefaultPolicy_Table_DoesNotBindToTypedMethodParameter()
+    public void DefaultPolicy_Table_BindsToTypedMethodParameter()
     {
         // Arrange
         var obj = new TypedImplicitConversionDefault();
         Lua["obj"] = obj;
 
-        // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("obj:AcceptsTarget({ Name = 'test', Value = 42 })"));
+        // Act
+        var result = Lua.Evaluate<string>("return obj:AcceptsTarget({ Name = 'test', Value = 42 })");
+
+        // Assert
+        Assert.That(result, Is.EqualTo("target:test:42"));
     }
 
     [Test]
@@ -51,13 +54,17 @@ public class TypedImplicitConversionTests : LuaTestBase
     }
 
     [Test]
-    public void DefaultPolicy_Table_DoesNotBindToTypedConstructorParameter()
+    public void DefaultPolicy_Table_BindsToTypedConstructorParameter()
     {
         // Arrange
         Lua["TypedImplicitConversionConstructableDefault"] = typeof(TypedImplicitConversionConstructableDefault);
 
-        // Act & Assert
-        Assert.Throws<LuaException>(() => Lua.Execute("return TypedImplicitConversionConstructableDefault({ Name = 'test', Value = 42 })"));
+        // Act
+        var result = Lua.Evaluate<TypedImplicitConversionConstructableDefault>("return TypedImplicitConversionConstructableDefault({ Name = 'test', Value = 42 })");
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Summary, Is.EqualTo("target:test:42"));
     }
 
     [Test]

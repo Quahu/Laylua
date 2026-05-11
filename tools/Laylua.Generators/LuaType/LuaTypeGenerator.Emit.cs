@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -5,7 +6,7 @@ namespace Laylua.Generators;
 
 public partial class LuaTypeGenerator
 {
-    private static void EmitPartialHookDeclarations(CodeWriter writer)
+    private static void EmitPartialHookDeclarations(CodeWriter writer, LuaTypeInfo typeInfo)
     {
         writer.Line("/// <summary>");
         writer.Line("///     Called when the Lua metatable for instances of this type is first created.");
@@ -18,6 +19,19 @@ public partial class LuaTypeGenerator
         writer.Line("///     Use this to add custom metamethods or metatable entries to the definition.");
         writer.Line("/// </summary>");
         writer.Line("static partial void OnDefinitionMetatableCreated(LuaThread thread, LuaStackValue metatable);");
+        if (typeInfo.EmitGeneratedFromTableConversion)
+        {
+            writer.Line();
+            writer.Line("/// <summary>");
+            writer.Line("///     Called before the generated table-to-object conversion runs.");
+            writer.Line("/// </summary>");
+            writer.Line("static partial void OnBeforeTryGetFromTable(LuaThread thread, LuaTable table);");
+            writer.Line();
+            writer.Line("/// <summary>");
+            writer.Line("///     Called after the generated table-to-object conversion succeeds.");
+            writer.Line("/// </summary>");
+            writer.Line($"static partial void OnAfterTryGetFromTable(LuaThread thread, LuaTable table, ref {typeInfo.Name} value);");
+        }
     }
 
     private static void EmitCallbackFields(CodeWriter writer, LuaTypeInfo typeInfo)
@@ -267,6 +281,7 @@ public partial class LuaTypeGenerator
                 var bindingFlags = eventInfo.IsStatic
                     ? "BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy"
                     : "BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance";
+
                 writer.Line($"_event{eventInfo.ClrName}Info = typeof({typeInfo.Name}).GetEvent(\"{eventInfo.ClrName}\", {bindingFlags})!;");
             }
         }
@@ -466,52 +481,148 @@ public partial class LuaTypeGenerator
         writer.CloseBrace();
     }
 
-    private static void EmitTryGetFromTable(
+    private static void EmitOuterTryGetFromTable(
         CodeWriter writer,
         LuaTypeInfo typeInfo,
         List<LuaMemberInfo> tableMembers)
     {
+        var bindableMembers = tableMembers.Where(static member => member.CanTableWrite).ToList();
+        var requiredMembers = tableMembers.Where(static member => member.IsRequired).ToList();
+        var memberIdentifiers = CreateTableMemberIdentifiers(bindableMembers);
+        var needsThread = bindableMembers.Any(member => UseMarshaledInterop(typeInfo, member.ValueKind));
+
         writer.Line("/// <summary>");
-        writer.Line($"///     Attempts to read a Lua table into a <see cref=\"{typeInfo.Name}\"/> instance.");
+        writer.Line($"///     Runs the generated built-in Lua table conversion for <see cref=\"{typeInfo.Name}\"/>.");
         writer.Line("/// </summary>");
-        var nullableSuffix = typeInfo.IsValueType ? "" : "?";
-        writer.Line($"public static bool TryGetFromTable(lua_State* L, int stackIndex, out {typeInfo.Name}{nullableSuffix} value)");
+        writer.Line($"private static bool TryGetFromTableDefault(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out {typeInfo.Name} value)");
+        writer.OpenBrace();
+        writer.Line("thread.Stack.EnsureFreeCapacity(1);");
+        writer.Line();
+        writer.Line("using (thread.Stack.SnapshotCount())");
+        writer.OpenBrace();
+        writer.Line("thread.Stack.Push(table);");
+        writer.Line("return TryGetFromTableDefaultCore(thread.State.L, -1, out value);");
+        writer.CloseBrace();
+        writer.CloseBrace();
+
+        if (typeInfo.EmitGeneratedFromTableConversion)
+        {
+            writer.Line();
+            writer.Line("/// <summary>");
+            writer.Line($"///     Runs the generated Lua table conversion for <see cref=\"{typeInfo.Name}\"/>.");
+            writer.Line("/// </summary>");
+            writer.Line($"private static bool __TryGetFromTableGenerated(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out {typeInfo.Name} value)");
+            writer.OpenBrace();
+            writer.Line("OnBeforeTryGetFromTable(thread, table);");
+            writer.Line();
+            writer.Line("if (!TryGetFromTableDefault(thread, table, out value))");
+            writer.OpenBrace();
+            writer.Line("return false;");
+            writer.CloseBrace();
+            writer.Line();
+            writer.Line("OnAfterTryGetFromTable(thread, table, ref value);");
+            writer.Line();
+            writer.Line("return true;");
+            writer.CloseBrace();
+        }
+
+        writer.Line();
+        writer.Line($"private static bool TryGetFromTableDefaultCore(lua_State* L, int stackIndex, [MaybeNullWhen(false)] out {typeInfo.Name} value)");
         writer.OpenBrace();
         writer.Line("if (lua_type(L, stackIndex) != LuaType.Table)");
         writer.OpenBrace();
         writer.Line("value = default;");
         writer.Line("return false;");
         writer.CloseBrace();
-        writer.Line();
-        writer.Line("if (!lua_checkstack(L, 1))");
-        writer.OpenBrace();
-        writer.Line("throw new InvalidOperationException(\"The stack could not be resized to fit 1 extra value.\");");
-        writer.CloseBrace();
-        writer.Line();
-        writer.Line($"var result = new {typeInfo.Name}();");
 
-        var needsThread = tableMembers.Any(member => member.CanWrite && UseMarshaledInterop(typeInfo, member.ValueKind));
+        writer.Line();
+        writer.Line("var tableIndex = lua_absindex(L, stackIndex);");
+
+        if (typeInfo.UnknownPropertyBehavior == UnknownPropError)
+        {
+            writer.Line();
+            writer.Line("lua_pushnil(L);");
+            writer.Line("while (lua_next(L, tableIndex))");
+            writer.OpenBrace();
+            writer.Line("try");
+            writer.OpenBrace();
+
+            if (bindableMembers.Count == 0)
+            {
+                writer.Line("value = default;");
+                writer.Line("return false;");
+            }
+            else
+            {
+                writer.Line("if (lua_type(L, -2) != LuaType.String)");
+                writer.OpenBrace();
+                writer.Line("value = default;");
+                writer.Line("return false;");
+                writer.CloseBrace();
+                writer.Line();
+                writer.Line("var key = lua_tolstring(L, -2, out _);");
+                writer.Line("if (key.Pointer == null");
+                writer.Indent();
+                for (var i = 0; i < bindableMembers.Count; i++)
+                {
+                    var joiner = i == 0 ? "|| (" : "&& ";
+                    var suffix = i == bindableMembers.Count - 1 ? "))" : "";
+                    writer.Line($"{joiner}key != \"{bindableMembers[i].LuaName}\"u8{suffix}");
+                }
+
+                writer.Dedent();
+                writer.OpenBrace();
+                writer.Line("value = default;");
+                writer.Line("return false;");
+                writer.CloseBrace();
+            }
+
+            writer.CloseBrace();
+            writer.Line("finally");
+            writer.OpenBrace();
+            writer.Line("lua_pop(L);");
+            writer.CloseBrace();
+            writer.CloseBrace();
+        }
+
         if (needsThread)
         {
+            writer.Line();
             writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
         }
 
-        foreach (var member in tableMembers.Where(static member => member.CanWrite))
+        for (var i = 0; i < bindableMembers.Count; i++)
         {
+            var member = bindableMembers[i];
+            var memberIdentifier = memberIdentifiers[i];
             writer.Line();
-            writer.Line($"lua_getfield(L, stackIndex, \"{member.LuaName}\");");
+            writer.Line($"var {memberIdentifier}WasProvided = false;");
+            writer.Line($"{member.TypeName} {memberIdentifier} = default!;");
+        }
+
+        for (var i = 0; i < bindableMembers.Count; i++)
+        {
+            var member = bindableMembers[i];
+            var memberIdentifier = memberIdentifiers[i];
+            writer.Line();
+            writer.Line($"lua_getfield(L, tableIndex, \"{member.LuaName}\");");
             writer.Line("try");
             writer.OpenBrace();
             writer.Line("if (lua_type(L, -1) != LuaType.Nil)");
             writer.OpenBrace();
+            writer.Line($"{memberIdentifier}WasProvided = true;");
 
             if (member.IsObsolete)
+            {
                 writer.DisableWarning("CS0618");
+            }
 
-            writer.Line($"result.{member.ClrName} = {EmitReadExpression(typeInfo, member.ValueKind, member.TypeName, -1)};");
+            writer.Line($"{memberIdentifier} = {EmitReadExpression(typeInfo, member.ValueKind, member.TypeName, -1)};");
 
             if (member.IsObsolete)
+            {
                 writer.RestoreWarning("CS0618");
+            }
 
             writer.CloseBrace();
             writer.CloseBrace();
@@ -521,10 +632,186 @@ public partial class LuaTypeGenerator
             writer.CloseBrace();
         }
 
+        foreach (var member in requiredMembers)
+        {
+            var memberIndex = bindableMembers.IndexOf(member);
+            var memberIdentifier = memberIdentifiers[memberIndex];
+            writer.Line();
+            writer.Line($"if (!{memberIdentifier}WasProvided)");
+            writer.OpenBrace();
+            writer.Line("value = default;");
+            writer.Line("return false;");
+            writer.CloseBrace();
+        }
+
+        writer.Line();
+        EmitTableResultConstruction(writer, typeInfo, bindableMembers, memberIdentifiers);
+
+        for (var i = 0; i < bindableMembers.Count; i++)
+        {
+            var member = bindableMembers[i];
+            var memberIdentifier = memberIdentifiers[i];
+            if (member.IsRequired || member.IsInitOnly)
+            {
+                continue;
+            }
+
+            writer.Line();
+            writer.Line($"if ({memberIdentifier}WasProvided)");
+            writer.OpenBrace();
+
+            if (member.IsObsolete)
+            {
+                writer.DisableWarning("CS0618");
+            }
+
+            writer.Line($"result.{member.ClrName} = {memberIdentifier};");
+
+            if (member.IsObsolete)
+            {
+                writer.RestoreWarning("CS0618");
+            }
+
+            writer.CloseBrace();
+        }
+
         writer.Line();
         writer.Line("value = result;");
         writer.Line("return true;");
         writer.CloseBrace();
+    }
+
+    private static void EmitTableResultConstruction(
+        CodeWriter writer,
+        LuaTypeInfo typeInfo,
+        List<LuaMemberInfo> bindableMembers,
+        List<string> memberIdentifiers)
+    {
+        var initializerMembers = bindableMembers
+            .Where(static member => member.IsRequired || member.IsInitOnly)
+            .ToList();
+
+        if (initializerMembers.Count == 0)
+        {
+            writer.Line($"var result = new {typeInfo.Name}();");
+            return;
+        }
+
+        writer.Line($"var result = new {typeInfo.Name}");
+        EmitObjectInitializer(writer, initializerMembers, bindableMembers, memberIdentifiers);
+    }
+
+    private static void EmitObjectInitializer(
+        CodeWriter writer,
+        List<LuaMemberInfo> initializerMembers,
+        List<LuaMemberInfo> bindableMembers,
+        List<string> memberIdentifiers)
+    {
+        writer.OpenBrace();
+        foreach (var member in initializerMembers)
+        {
+            var memberIdentifier = memberIdentifiers[bindableMembers.IndexOf(member)];
+            writer.Line($"{member.ClrName} = {memberIdentifier},");
+        }
+
+        writer.Dedent();
+        writer.Line("};");
+    }
+
+    private static List<string> CreateTableMemberIdentifiers(List<LuaMemberInfo> members)
+    {
+        var identifiers = new List<string>(members.Count);
+        var usedIdentifiers = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 0; i < members.Count; i++)
+        {
+            var identifier = "__" + SanitizeGeneratedIdentifier(ToCamelCase(members[i].ClrName));
+            var uniqueIdentifier = identifier;
+            var suffix = 2;
+            while (!usedIdentifiers.Add(uniqueIdentifier))
+            {
+                uniqueIdentifier = identifier + suffix.ToString();
+                suffix++;
+            }
+
+            identifiers.Add(uniqueIdentifier);
+        }
+
+        return identifiers;
+    }
+
+    private static string SanitizeGeneratedIdentifier(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "member";
+        }
+
+        var chars = value.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (!char.IsLetterOrDigit(chars[i]) && chars[i] != '_')
+            {
+                chars[i] = '_';
+            }
+        }
+
+        if (char.IsDigit(chars[0]))
+        {
+            return "_" + new string(chars);
+        }
+
+        return new string(chars);
+    }
+
+    private static void EmitTryGetFromTable(
+        CodeWriter writer,
+        LuaTypeInfo typeInfo)
+    {
+        writer.Line("/// <summary>");
+        writer.Line($"///     Attempts to read a Lua table into a <see cref=\"{typeInfo.Name}\"/> instance.");
+        writer.Line("/// </summary>");
+        var nullableSuffix = typeInfo.IsValueType ? "" : "?";
+        writer.Line($"public static bool TryGetFromTable(lua_State* L, int stackIndex, out {typeInfo.Name}{nullableSuffix} value)");
+        writer.OpenBrace();
+        if (!typeInfo.ImplementsLuaUserDataFromTable && !typeInfo.EmitGeneratedFromTableConversion)
+        {
+            writer.Line("value = default;");
+            writer.Line("return false;");
+            writer.CloseBrace();
+            return;
+        }
+
+        writer.Line("if (lua_type(L, stackIndex) != LuaType.Table)");
+        writer.OpenBrace();
+        writer.Line("value = default;");
+        writer.Line("return false;");
+        writer.CloseBrace();
+        writer.Line();
+        writer.Line("using var thread = LuaThread.FromExtraSpace(L);");
+        writer.Line("using var table = thread.Stack[stackIndex].GetValue<LuaTable>()!;");
+        if (typeInfo.ImplementsLuaUserDataFromTable)
+        {
+            writer.Line($"return __TryGetFromTableInterface<{typeInfo.Name}>(thread, table, out value);");
+        }
+        else
+        {
+            writer.Line("return __TryGetFromTableGenerated(thread, table, out value);");
+        }
+
+        writer.CloseBrace();
+
+        if (typeInfo.ImplementsLuaUserDataFromTable)
+        {
+            writer.Line();
+            writer.Line("private static bool __TryGetFromTableInterface<TValue>(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TValue value)");
+            writer.Indent();
+            writer.Line("where TValue : ILuaUserDataFromTable<TValue>");
+            writer.Dedent();
+            writer.OpenBrace();
+            writer.Line("return TValue.TryGetFromTable(thread, table, out value);");
+            writer.CloseBrace();
+        }
     }
 
     private static void EmitInterfaceImplementation(CodeWriter writer, LuaTypeInfo typeInfo)
@@ -576,21 +863,14 @@ public partial class LuaTypeGenerator
         writer.CloseBrace();
         writer.Line();
 
-        var hasTableMembers = HasAccessibleParameterlessConstructor(typeInfo) && typeInfo.Properties.Concat(typeInfo.Fields)
-            .Any(static member => member.CanRead || member.CanWrite);
-
         writer.Line("bool ILuaUserDataHandler.TryGetFromTable(lua_State* L, int stackIndex, out object? value)");
         writer.OpenBrace();
-        if (hasTableMembers)
-        {
-            writer.Line("if (TryGetFromTable(L, stackIndex, out var typed))");
-            writer.OpenBrace();
-            writer.Line("value = typed;");
-            writer.Line("return true;");
-            writer.CloseBrace();
-            writer.Line();
-        }
-
+        writer.Line("if (TryGetFromTable(L, stackIndex, out var typed))");
+        writer.OpenBrace();
+        writer.Line("value = typed;");
+        writer.Line("return true;");
+        writer.CloseBrace();
+        writer.Line();
         writer.Line("value = null;");
         writer.Line("return false;");
         writer.CloseBrace();
@@ -598,16 +878,7 @@ public partial class LuaTypeGenerator
 
         writer.Line($"bool ILuaUserDataHandler<{typeInfo.Name}>.TryGetFromTable(lua_State* L, int stackIndex, out {typeInfo.Name}{nullableSuffix} value)");
         writer.OpenBrace();
-        if (hasTableMembers)
-        {
-            writer.Line("return TryGetFromTable(L, stackIndex, out value);");
-        }
-        else
-        {
-            writer.Line("value = default;");
-            writer.Line("return false;");
-        }
-
+        writer.Line("return TryGetFromTable(L, stackIndex, out value);");
         writer.CloseBrace();
         writer.Line();
 
@@ -624,7 +895,6 @@ public partial class LuaTypeGenerator
         }
 
         writer.CloseBrace();
-
         writer.Line();
 
         writer.Line("void ILuaUserDataHandler.CleanUpState(lua_State* L)");
@@ -658,7 +928,11 @@ public partial class LuaTypeGenerator
 
     private static string CollectClrNames(LuaMethodInfo method)
     {
-        var names = new HashSet<string> { method.ClrName };
+        var names = new HashSet<string>
+        {
+            method.ClrName
+        };
+
         if (method.Overloads != null)
         {
             foreach (var overload in method.Overloads)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Laylua.Marshaling;
 using Laylua.Moon;
@@ -1798,12 +1799,148 @@ public partial class TestObsoleteIncluded
     }
 }
 
-[LuaType]
+[LuaType(FromTableConversion = LuaFromTableConversion.Disabled)]
 public partial class InitOnlyPropertyPlayer
 {
     public string Name { get; init; } = "";
 
     public int Health { get; set; } = 100;
+}
+
+[LuaType]
+public partial class TestTableRequiredInitTarget
+{
+    public required string Name { get; init; }
+
+    public int Health { get; set; }
+}
+
+[LuaType]
+public partial class TestTableRequiredSetTarget
+{
+    public required string Name { get; set; }
+
+    public int Health { get; set; }
+}
+
+[LuaType(FromTableConversion = LuaFromTableConversion.Disabled)]
+public partial class TestTableDisabledTarget
+{
+    public string Name { get; set; } = "";
+}
+
+[LuaType]
+public partial struct TestTableRequiredInitStruct
+{
+    public required int Value { get; init; }
+
+    public int Health { get; set; }
+}
+
+[LuaType]
+public partial class TestTableInheritedRequiredInitBase
+{
+    public required string Name { get; init; }
+
+    public int BaseHealth { get; set; }
+}
+
+[LuaType]
+public partial class TestTableInheritedRequiredInitDerived : TestTableInheritedRequiredInitBase
+{
+    public int DerivedHealth { get; set; }
+}
+
+[LuaType]
+public partial class TestTableNoParameterlessTarget
+{
+    public string Name { get; }
+
+    public TestTableNoParameterlessTarget(string name)
+    {
+        Name = name;
+    }
+}
+
+[LuaType]
+public partial class TestTableHookTarget
+{
+    public string Name { get; set; } = "";
+
+    public int Health { get; set; }
+}
+
+public partial class TestTableHookTarget
+{
+    static partial void OnBeforeTryGetFromTable(LuaThread thread, LuaTable table)
+    {
+        table["Health"] = 25;
+    }
+
+    static partial void OnAfterTryGetFromTable(LuaThread thread, LuaTable table, ref TestTableHookTarget value)
+    {
+        value.Name += "!";
+    }
+}
+
+[LuaType]
+public partial class TestTableOverrideTarget : ILuaUserDataFromTable<TestTableOverrideTarget>
+{
+    public string Name { get; set; } = "";
+
+    public int Health { get; set; }
+
+    public bool OverrideUsed { get; set; }
+
+    public static bool TryGetFromTable(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TestTableOverrideTarget value)
+    {
+        if (!TryGetFromTableDefault(thread, table, out value))
+        {
+            return false;
+        }
+
+        value.OverrideUsed = true;
+        value.Health += 5;
+        return true;
+    }
+}
+
+[LuaType]
+public partial class TestTableExplicitInterfaceTarget : ILuaUserDataFromTable<TestTableExplicitInterfaceTarget>
+{
+    public string Name { get; set; } = "";
+
+    public bool ExplicitInterfaceUsed { get; set; }
+
+    static bool ILuaUserDataFromTable<TestTableExplicitInterfaceTarget>.TryGetFromTable(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TestTableExplicitInterfaceTarget value)
+    {
+        value = new TestTableExplicitInterfaceTarget
+        {
+            Name = table.GetValue<string, string>("Name"),
+            ExplicitInterfaceUsed = true,
+        };
+
+        return true;
+    }
+}
+
+[LuaType]
+public partial class TestTableCustomMethodWithoutInterface
+{
+    public string Name { get; set; } = "";
+
+    public bool CustomMethodUsed { get; set; }
+
+    private static bool TryGetFromTable(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TestTableCustomMethodWithoutInterface value)
+    {
+        value = new TestTableCustomMethodWithoutInterface
+        {
+            Name = table.GetValue<string, string>("Name"),
+            CustomMethodUsed = true,
+        };
+
+        return true;
+    }
 }
 
 [LuaType]

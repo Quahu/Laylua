@@ -52,11 +52,16 @@ public partial class LuaTypeGenerator
         public int ObjectMembers;
         public int ObsoleteMembers;
         public int AwaitableReturnHandling;
+        public int FromTableConversion;
         public int BindingConversions;
         public bool EmitLength;
         public string? LengthPropertyName;
         public bool ImplementsEnumerable;
+        public bool ImplementsLuaUserDataFromTable;
+        public bool EmitGeneratedFromTableConversion;
+        public bool EmitGeneratedFromTableDefault;
         public bool BaseHasLuaType;
+        public Location? FromTableConversionLocation;
 
         /// <summary>
         ///     Raw unresolved type config, stored for deferred resolution against assembly defaults.
@@ -64,6 +69,7 @@ public partial class LuaTypeGenerator
         public LuaTypeConfig RawConfig;
 
         public readonly List<LuaIndexerInfo> Indexers = [];
+        public readonly List<LuaRequiredMemberInfo> RequiredMembers = [];
         public readonly List<LuaMemberInfo> Properties = [];
         public readonly List<LuaMemberInfo> Fields = [];
         public readonly List<LuaMethodInfo> Methods = [];
@@ -109,14 +115,24 @@ public partial class LuaTypeGenerator
         public string ClrName = "";
         public string LuaName = "";
         public string TypeName = "";
+        public string DeclaringTypeName = "";
         public Location? DeclarationLocation;
         public bool CanRead;
         public bool CanWrite;
+        public bool CanTableWrite;
         public bool IsConstant;
+        public bool IsInitOnly;
+        public bool IsRequired;
         public bool HasExplicitLuaName;
         public LuaValueKind ValueKind;
         public bool IsLuaString; // [LuaString] on a span/memory property/field
         public bool IsObsolete;
+    }
+
+    private class LuaRequiredMemberInfo
+    {
+        public string ClrName = "";
+        public Location? DeclarationLocation;
     }
 
     private class LuaMethodInfo
@@ -238,6 +254,8 @@ public partial class LuaTypeGenerator
         public int? ObjectMembers;
         public int? ObsoleteMembers;
         public int? AwaitableReturnHandling;
+        public int? FromTableConversion;
+        public Location? FromTableConversionLocation;
         public int? BindingConversions;
     }
 }

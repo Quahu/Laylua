@@ -11,13 +11,11 @@ public partial class LuaTypeGenerator
     private static readonly SymbolDisplayFormat DiagnosticMethodSignatureFormat = SymbolDisplayFormat.MinimallyQualifiedFormat
         .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
         .WithMemberOptions(SymbolDisplayMemberOptions.IncludeExplicitInterface | SymbolDisplayMemberOptions.IncludeParameters)
-        .WithParameterOptions(
-            SymbolDisplayParameterOptions.IncludeType
+        .WithParameterOptions(SymbolDisplayParameterOptions.IncludeType
             | SymbolDisplayParameterOptions.IncludeName
             | SymbolDisplayParameterOptions.IncludeParamsRefOut
             | SymbolDisplayParameterOptions.IncludeExtensionThis)
-        .WithMiscellaneousOptions(
-            SymbolDisplayMiscellaneousOptions.UseSpecialTypes
+        .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.UseSpecialTypes
             | SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers
             | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
@@ -127,17 +125,17 @@ public partial class LuaTypeGenerator
         var interopKind = GetInteropKind(typeInfo, kind);
         if (interopKind == LuaValueKind.Marshaled)
         {
-            return $"thread.Stack[{stackIndexExpr}].GetValue<{typeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!";
+            return $"thread.Stack[{stackIndexExpr}].GetValue<{typeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!";
         }
 
         if (!CanUseDirectPrimitiveRead(interopKind, typeName))
         {
-            return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndexExpr}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!";
+            return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndexExpr}, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!";
         }
 
         return $"({EmitExactReadCondition(interopKind, stackIndexExpr)}"
             + $" ? {EmitDirectReadExpression(interopKind, typeName, stackIndexExpr)}"
-            + $" : LuaTypeServices.GetValue<{typeName}>(L, {stackIndexExpr}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!)";
+            + $" : LuaTypeServices.GetValue<{typeName}>(L, {stackIndexExpr}, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!)";
     }
 
     private static string GetReadNullForgivingSuffix(bool isNonNullableReference)
@@ -216,7 +214,7 @@ public partial class LuaTypeGenerator
     {
         if (!CanUseDirectPrimitiveRead(kind, typeName))
         {
-            return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!";
+            return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!";
         }
 
         return kind switch
@@ -234,17 +232,17 @@ public partial class LuaTypeGenerator
         var interopKind = GetInteropKind(typeInfo, kind);
         if (interopKind == LuaValueKind.Marshaled)
         {
-            return $"thread.Stack[{stackIndex}].GetValue<{typeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!";
+            return $"thread.Stack[{stackIndex}].GetValue<{typeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!";
         }
 
         if (!CanUseDirectPrimitiveRead(interopKind, typeName))
         {
-            return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!";
+            return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!";
         }
 
         return $"({EmitExactReadCondition(interopKind, stackIndex.ToString())}"
             + $" ? {EmitDirectReadExpression(interopKind, typeName, stackIndex.ToString())}"
-            + $" : LuaTypeServices.GetValue<{typeName}>(L, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!)";
+            + $" : LuaTypeServices.GetValue<{typeName}>(L, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!)";
     }
 
     private static bool RequiresImplicitConversionRead(LuaTypeInfo typeInfo, LuaValueKind kind, string typeName)
@@ -264,7 +262,7 @@ public partial class LuaTypeGenerator
 
     private static string EmitImplicitConversionReadExpression(string typeName, string stackIndexExpr)
     {
-        return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndexExpr}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!";
+        return $"LuaTypeServices.GetValue<{typeName}>(L, {stackIndexExpr}, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions)!";
     }
 
     private static bool IsStringTypeName(string typeName)
@@ -491,7 +489,7 @@ public partial class LuaTypeGenerator
             "int" => ("int.MinValue", "int.MaxValue"),
             "uint" => ("uint.MinValue", "uint.MaxValue"),
             "ulong" => ("0", "long.MaxValue"), // lua_Integer is signed long; negative values are out of range for ulong
-            _ => null // long, enums, etc. - no narrowing needed
+            _ => null                          // long, enums, etc. - no narrowing needed
         };
     }
 

@@ -70,6 +70,13 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    private static readonly DiagnosticDescriptor UnsupportedFromTableConversionDiagnostic = new("LAYLUA110",
+        "Generated table conversion is unsupported",
+        "From-table conversion is enabled for type '{0}', but generated table conversion cannot be emitted because {1}",
+        "Usage",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     // Naming policy enum values (must match LuaNamingPolicy)
     private const int PolicyOriginal = 1;
     private const int PolicyLowerCase = 2;
@@ -183,6 +190,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
     private const int AwaitableReturnImplicitAwait = 1;
     private const int AwaitableReturnReturnAwaitable = 2;
 
+    // LuaFromTableConversion values (must match LuaFromTableConversion)
+    private const int FromTableConversionDisabled = 1;
+    private const int FromTableConversionWhenTypeHasParameterlessConstructor = 2;
+    private const int FromTableConversionEnabled = 3;
+
     // LuaAllowedValueConversions flag values (must match LuaAllowedValueConversions)
     private const int AllowedConversionsNone = 0;
     private const int AllowedConversionsStringToPrimitive = 1 << 0;
@@ -195,7 +207,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
     private const int AllowedConversionsNumberToEnum = 1 << 7;
     private const int AllowedConversionsTruncateFraction = 1 << 8;
     private const int AllowedConversionsAllowOverflow = 1 << 9;
-    private const int AllowedConversionsDefault = AllowedConversionsAll & ~AllowedConversionsTableToObject;
+    private const int AllowedConversionsDefault = AllowedConversionsAll;
     private const int AllowedConversionsAll = AllowedConversionsStringToPrimitive | AllowedConversionsTableToObject | AllowedConversionsFunctionToCallableTarget | AllowedConversionsObjectFallback | AllowedConversionsPrimitiveToString | AllowedConversionsStringToChar | AllowedConversionsStringToEnum | AllowedConversionsNumberToEnum | AllowedConversionsTruncateFraction | AllowedConversionsAllowOverflow;
 
     // Maps C# operator method names to Lua metamethods and LuaTypeFeatures flag values
@@ -241,6 +253,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             FilterMembers(typeInfo);
             AssignGeneratedMethodIdentifiers(typeInfo);
             ValidateResolvedLuaNames(typeInfo);
+            ResolveFromTableConversionEmission(typeInfo);
 
             foreach (var diag in typeInfo.Diagnostics)
             {
@@ -295,6 +308,14 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                         diag.Location,
                         diag.Properties,
                         parts[0], parts[1], parts[2], parts[3]));
+                }
+                else if (diag.Id is "LAYLUA110")
+                {
+                    var parts = diag.Message.Split('|');
+                    ctx.ReportDiagnostic(Diagnostic.Create(UnsupportedFromTableConversionDiagnostic,
+                        diag.Location,
+                        diag.Properties,
+                        parts[0], parts[1]));
                 }
             }
 
@@ -367,6 +388,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             HasParameterlessConstructor = symbol.IsValueType || symbol.InstanceConstructors.Any(static c => c.Parameters.Length == 0 && c.DeclaredAccessibility == Accessibility.Public),
             ImplementsDisposable = ImplementsInterface(symbol, "System.IDisposable"),
             ImplementsEnumerable = ImplementsInterface(symbol, "System.Collections.IEnumerable"),
+            ImplementsLuaUserDataFromTable = symbol.AllInterfaces.Any(@interface =>
+                @interface.Name == "ILuaUserDataFromTable"
+                && @interface.ContainingNamespace.ToDisplayString() == "Laylua.Marshaling"
+                && @interface.TypeArguments.Length == 1
+                && SymbolEqualityComparer.Default.Equals(@interface.TypeArguments[0], symbol)),
             BaseHasLuaType = HasBaseWithAttribute(symbol, LuaTypeAttributeName),
             TypeLocation = symbol.Locations.FirstOrDefault(),
             RawConfig = config,
@@ -387,9 +413,65 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             containingType = containingType.ContainingType;
         }
 
+        CollectRequiredMembers(symbol, info);
         CollectMembers(symbol, info, GetInitialNamingPolicy(config));
 
         return info;
+    }
+
+    private static void CollectRequiredMembers(INamedTypeSymbol symbol, LuaTypeInfo info)
+    {
+        var seenProperties = new HashSet<string>(StringComparer.Ordinal);
+        var seenFields = new HashSet<string>(StringComparer.Ordinal);
+        var currentType = symbol;
+
+        while (currentType != null && currentType.SpecialType != SpecialType.System_Object)
+        {
+            foreach (var member in currentType.GetMembers())
+            {
+                switch (member)
+                {
+                    case IPropertySymbol property when property is
+                    {
+                        IsIndexer: false,
+                        IsRequired: true,
+                        IsStatic: false
+                    }:
+                    {
+                        if (seenProperties.Add(property.Name))
+                        {
+                            info.RequiredMembers.Add(new LuaRequiredMemberInfo
+                            {
+                                ClrName = property.Name,
+                                DeclarationLocation = property.Locations.FirstOrDefault(static location => location.IsInSource) ?? info.TypeLocation,
+                            });
+                        }
+
+                        break;
+                    }
+                    case IFieldSymbol field when field is
+                    {
+                        IsImplicitlyDeclared: false,
+                        IsRequired: true,
+                        IsStatic: false
+                    }:
+                    {
+                        if (seenFields.Add(field.Name))
+                        {
+                            info.RequiredMembers.Add(new LuaRequiredMemberInfo
+                            {
+                                ClrName = field.Name,
+                                DeclarationLocation = field.Locations.FirstOrDefault(static location => location.IsInSource) ?? info.TypeLocation,
+                            });
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            currentType = currentType.BaseType;
+        }
     }
 
     private static void CollectMembers(
@@ -492,6 +574,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                             LuaName = luaName,
                             HasExplicitLuaName = hasExplicitLuaName,
                             TypeName = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                            DeclaringTypeName = property.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                             DeclarationLocation = property.Locations.FirstOrDefault(static location => location.IsInSource) ?? info.TypeLocation,
                             CanRead = property.GetMethod != null
                                 && (property.GetMethod.DeclaredAccessibility == Accessibility.Public
@@ -500,6 +583,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                                 && !property.SetMethod.IsInitOnly
                                 && (property.SetMethod.DeclaredAccessibility == Accessibility.Public
                                     || HasAttribute(member, LuaIncludeAttributeName)),
+                            CanTableWrite = !isLuaStringProperty && property.SetMethod != null
+                                && (property.SetMethod.DeclaredAccessibility == Accessibility.Public
+                                    || HasAttribute(member, LuaIncludeAttributeName)),
+                            IsInitOnly = property.SetMethod?.IsInitOnly == true,
+                            IsRequired = property.IsRequired,
                             ValueKind = isLuaStringProperty ? LuaValueKind.String : ClassifyType(property.Type),
                             IsLuaString = isLuaStringProperty,
                             IsObsolete = isObsolete,
@@ -536,9 +624,13 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                             LuaName = luaName,
                             HasExplicitLuaName = hasExplicitLuaName,
                             TypeName = field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                            DeclaringTypeName = field.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                             DeclarationLocation = field.Locations.FirstOrDefault(static location => location.IsInSource) ?? info.TypeLocation,
                             CanRead = true,
                             CanWrite = !isLuaStringField && !field.IsReadOnly && !field.IsConst,
+                            CanTableWrite = !isLuaStringField && !field.IsReadOnly && !field.IsConst,
+                            IsInitOnly = false,
+                            IsRequired = field.IsRequired,
                             IsConstant = field.IsConst,
                             ValueKind = isLuaStringField ? LuaValueKind.String : ClassifyType(field.Type),
                             IsLuaString = isLuaStringField,
@@ -559,6 +651,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
 
                     case IMethodSymbol method when method.MethodKind == MethodKind.Ordinary:
                     {
+                        if (info.ImplementsLuaUserDataFromTable && IsLuaUserDataFromTableImplementationMethod(method, symbol))
+                        {
+                            break;
+                        }
+
                         if (method.Name is "GetType" or "Dispose")
                         {
                             break;
@@ -639,16 +736,16 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                                     IsLuaReference = InheritsFromLuaReference(parameter.Type)
                                         || (parameter.Type is IArrayTypeSymbol parameterArrayType
                                             && InheritsFromLuaReference(parameterArrayType.ElementType))
-                                     || (elementType != null && InheritsFromLuaReference(elementType)),
-                                     IsParams = isParams,
-                                     ParamsElementTypeName = elementType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                                     ParamsElementKind = elementType != null ? ClassifyType(elementType) : LuaValueKind.Marshaled,
-                                     IsParamsElementNonNullableReference = elementType != null
-                                         && !elementType.IsValueType
-                                         && elementType.NullableAnnotation == NullableAnnotation.NotAnnotated,
-                                     RefKind = (int) parameter.RefKind,
-                                     IsNonNullableReference = !parameter.Type.IsValueType
-                                         && parameter.NullableAnnotation == NullableAnnotation.NotAnnotated,
+                                        || (elementType != null && InheritsFromLuaReference(elementType)),
+                                    IsParams = isParams,
+                                    ParamsElementTypeName = elementType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                                    ParamsElementKind = elementType != null ? ClassifyType(elementType) : LuaValueKind.Marshaled,
+                                    IsParamsElementNonNullableReference = elementType != null
+                                        && !elementType.IsValueType
+                                        && elementType.NullableAnnotation == NullableAnnotation.NotAnnotated,
+                                    RefKind = (int) parameter.RefKind,
+                                    IsNonNullableReference = !parameter.Type.IsValueType
+                                        && parameter.NullableAnnotation == NullableAnnotation.NotAnnotated,
                                     IsValueType = parameter.Type.IsValueType,
                                     IsNullableValueType = parameter.Type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T,
                                     IsLuaString = isLuaString,
@@ -1023,6 +1120,12 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                     config.AwaitableReturnHandling = awaitableReturnHandling;
                     break;
                 }
+                case "FromTableConversion" when namedArgument.Value.Value is int fromTableConversion:
+                {
+                    config.FromTableConversion = fromTableConversion;
+                    config.FromTableConversionLocation = GetNamedArgumentLocation(attribute, "FromTableConversion");
+                    break;
+                }
                 case "BindingConversions" when namedArgument.Value.Value is int bindingConversions:
                 {
                     config.BindingConversions = bindingConversions;
@@ -1053,6 +1156,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             ObjectMembers = ObjectMembersNone,
             ObsoleteMembers = ObsoleteMembersIgnore,
             AwaitableReturnHandling = AwaitableReturnImplicitAwait,
+            FromTableConversion = FromTableConversionWhenTypeHasParameterlessConstructor,
             BindingConversions = AllowedConversionsDefault,
         };
 
@@ -1143,6 +1247,12 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                     defaults.AwaitableReturnHandling = awaitableReturnHandling;
                     break;
                 }
+                case "FromTableConversion" when namedArgument.Value.Value is int fromTableConversion:
+                {
+                    defaults.FromTableConversion = fromTableConversion;
+                    defaults.FromTableConversionLocation = GetNamedArgumentLocation(attribute, "FromTableConversion");
+                    break;
+                }
                 case "BindingConversions" when namedArgument.Value.Value is int bindingConversions:
                 {
                     defaults.BindingConversions = bindingConversions;
@@ -1171,6 +1281,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             PolicyLowerSnakeCase,
             PolicyUpperSnakeCase,
             PolicyPascalCase);
+
         info.Members = ResolveFlagsConfig(info, config.Members, assemblyDefaults.Members, MembersAll, "Members", "LuaTypeMembers", MembersAll);
         info.PairsBehavior = ResolveEnumConfig(info,
             config.PairsBehavior,
@@ -1180,6 +1291,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaPairsBehavior",
             PairsIfEnumerable,
             PairsProperties);
+
         info.UnknownPropertyBehavior = ResolveEnumConfig(info,
             config.UnknownPropertyBehavior,
             assemblyDefaults.UnknownPropertyBehavior,
@@ -1188,6 +1300,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaUnknownPropertyBehavior",
             UnknownPropSilent,
             UnknownPropError);
+
         info.OverloadResolution = ResolveEnumConfig(info,
             config.OverloadResolution,
             assemblyDefaults.OverloadResolution,
@@ -1196,6 +1309,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaOverloadResolution",
             OverloadBestMatch,
             OverloadError);
+
         info.IndexMembers = ResolveFlagsConfig(info,
             config.IndexMembers,
             assemblyDefaults.IndexMembers,
@@ -1203,6 +1317,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "IndexMembers",
             "LuaIndexMembers",
             IndexMembersAll);
+
         info.IndexPriority = ResolveEnumConfig(info,
             config.IndexPriority,
             assemblyDefaults.IndexPriority,
@@ -1211,6 +1326,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaIndexPriority",
             IndexPriorityMembersFirst,
             IndexPriorityIndexerFirst);
+
         info.Optimizations = ResolveFlagsConfig(info,
             config.Optimizations,
             assemblyDefaults.Optimizations,
@@ -1218,6 +1334,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "Optimizations",
             "LuaTypeOptimizations",
             OptimizationAll);
+
         info.Construction = ResolveEnumConfig(info,
             config.Construction,
             assemblyDefaults.Construction,
@@ -1226,6 +1343,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaConstructionMode",
             ConstructionDirect,
             ConstructionFactory);
+
         info.FactoryMethodName = config.FactoryMethodName ?? assemblyDefaults.FactoryMethodName ?? "new";
         info.ArgumentValidation = ResolveFlagsConfig(info,
             config.ArgumentValidation,
@@ -1234,6 +1352,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "ArgumentValidation",
             "LuaArgumentValidation",
             ArgValidationStrict);
+
         info.ObjectMembers = ResolveFlagsConfig(info,
             config.ObjectMembers,
             assemblyDefaults.ObjectMembers,
@@ -1241,6 +1360,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "ObjectMembers",
             "LuaSystemObjectMembers",
             ObjectMembersReferenceEquals | ObjectMembersGetHashCode | ObjectMembersEquals | ObjectMembersToString);
+
         info.ObsoleteMembers = ResolveEnumConfig(info,
             config.ObsoleteMembers,
             assemblyDefaults.ObsoleteMembers,
@@ -1249,6 +1369,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaObsoleteMemberHandling",
             ObsoleteMembersIgnore,
             ObsoleteMembersInclude);
+
         info.AwaitableReturnHandling = ResolveEnumConfig(info,
             config.AwaitableReturnHandling,
             assemblyDefaults.AwaitableReturnHandling,
@@ -1257,6 +1378,21 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "LuaAwaitableReturnHandling",
             AwaitableReturnImplicitAwait,
             AwaitableReturnReturnAwaitable);
+
+        info.FromTableConversion = ResolveEnumConfig(info,
+            config.FromTableConversion,
+            assemblyDefaults.FromTableConversion,
+            FromTableConversionWhenTypeHasParameterlessConstructor,
+            "FromTableConversion",
+            "LuaFromTableConversion",
+            FromTableConversionDisabled,
+            FromTableConversionWhenTypeHasParameterlessConstructor,
+            FromTableConversionEnabled);
+
+        info.FromTableConversionLocation = config.FromTableConversionLocation
+            ?? assemblyDefaults.FromTableConversionLocation
+            ?? info.TypeLocation;
+
         info.BindingConversions = ResolveFlagsConfig(info,
             config.BindingConversions,
             assemblyDefaults.BindingConversions,
@@ -1272,6 +1408,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             "Features",
             "LuaTypeFeatures",
             FeatureAll);
+
         info.Features = features;
         info.EmitToString = (features & FeatureToString) != 0;
         info.EmitDispose = (features & FeatureDispose) != 0 && info.ImplementsDisposable;
@@ -1360,6 +1497,133 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
     private static bool HasAccessibleParameterlessConstructor(LuaTypeInfo info)
     {
         return info.HasParameterlessConstructor || info.Constructors.Any(static constructor => constructor.Parameters.Count == 0);
+    }
+
+    private static bool IsLuaUserDataFromTableImplementationMethod(IMethodSymbol method, INamedTypeSymbol containingType)
+    {
+        return method.Name == "TryGetFromTable"
+            && method.IsStatic
+            && method.Parameters.Length == 3
+            && method.Parameters[0].Type.ToDisplayString() == "Laylua.LuaThread"
+            && method.Parameters[1].Type.ToDisplayString() == "Laylua.LuaTable"
+            && method.Parameters[2].RefKind == RefKind.Out
+            && SymbolEqualityComparer.Default.Equals(method.Parameters[2].Type, containingType);
+    }
+
+    private static void ResolveFromTableConversionEmission(LuaTypeInfo info)
+    {
+        var tableMembers = info.Properties.Concat(info.Fields).ToList();
+        var requiredMembers = tableMembers.Where(static member => member.IsRequired).ToList();
+        var tableRequiredMemberNames = new HashSet<string>(requiredMembers.Select(static member => member.ClrName),
+            StringComparer.Ordinal);
+
+        var unavailableRequiredMembers = info.RequiredMembers
+            .Where(member => !tableRequiredMemberNames.Contains(member.ClrName))
+            .ToList();
+
+        var optionalInitOnlyMembers = tableMembers
+            .Where(static member => member is
+            {
+                IsInitOnly: true,
+                IsRequired: false
+            })
+            .ToList();
+
+        var missingParameterlessConstructor = !HasAccessibleParameterlessConstructor(info);
+        var nonWritableRequiredMembers = requiredMembers
+            .Where(static member => !member.CanTableWrite)
+            .ToList();
+
+        var canEmitGeneratedDefault = !missingParameterlessConstructor
+            && unavailableRequiredMembers.Count == 0
+            && nonWritableRequiredMembers.Count == 0
+            && optionalInitOnlyMembers.Count == 0;
+
+        if (info.ImplementsLuaUserDataFromTable)
+        {
+            info.EmitGeneratedFromTableDefault = canEmitGeneratedDefault;
+            return;
+        }
+
+        if (info.FromTableConversion == FromTableConversionDisabled)
+        {
+            return;
+        }
+
+        if (unavailableRequiredMembers.Count > 0)
+        {
+            info.Diagnostics.Add(new LuaDiagnosticInfo
+            {
+                Id = "LAYLUA110",
+                Message = $"{info.Name}|required member '{unavailableRequiredMembers[0].ClrName}' is not available for generated table conversion",
+                Location = unavailableRequiredMembers[0].DeclarationLocation ?? info.FromTableConversionLocation ?? info.TypeLocation,
+                Properties = ImmutableDictionary<string, string?>.Empty,
+            });
+
+            return;
+        }
+
+        if (optionalInitOnlyMembers.Count > 0)
+        {
+            info.Diagnostics.Add(new LuaDiagnosticInfo
+            {
+                Id = "LAYLUA110",
+                Message = $"{info.Name}|optional init-only member '{optionalInitOnlyMembers[0].ClrName}' is not supported by generated table conversion",
+                Location = optionalInitOnlyMembers[0].DeclarationLocation ?? info.FromTableConversionLocation ?? info.TypeLocation,
+                Properties = ImmutableDictionary<string, string?>.Empty,
+            });
+
+            return;
+        }
+
+        if (canEmitGeneratedDefault)
+        {
+            info.EmitGeneratedFromTableConversion = true;
+            info.EmitGeneratedFromTableDefault = true;
+            return;
+        }
+
+        if (info.FromTableConversion != FromTableConversionEnabled)
+        {
+            return;
+        }
+
+        var reasons = new List<string>();
+        if (missingParameterlessConstructor)
+        {
+            reasons.Add("the type has no accessible parameterless constructor");
+        }
+
+        foreach (var member in nonWritableRequiredMembers)
+        {
+            reasons.Add($"required member '{member.ClrName}' is not writable from table conversion");
+        }
+
+        info.Diagnostics.Add(new LuaDiagnosticInfo
+        {
+            Id = "LAYLUA110",
+            Message = $"{info.Name}|{string.Join("; ", reasons)}",
+            Location = info.FromTableConversionLocation ?? info.TypeLocation,
+            Properties = ImmutableDictionary<string, string?>.Empty,
+        });
+    }
+
+    private static Location? GetNamedArgumentLocation(AttributeData attribute, string name)
+    {
+        if (attribute.ApplicationSyntaxReference?.GetSyntax() is not AttributeSyntax attributeSyntax)
+        {
+            return null;
+        }
+
+        foreach (var argument in attributeSyntax.ArgumentList?.Arguments ?? default(SeparatedSyntaxList<AttributeArgumentSyntax>))
+        {
+            if (argument.NameEquals?.Name.Identifier.ValueText == name)
+            {
+                return argument.GetLocation();
+            }
+        }
+
+        return attributeSyntax.GetLocation();
     }
 
     /// <summary>
@@ -1506,6 +1770,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             instanceEntries.AddRange(info.Properties
                 .Where(static member => member.CanRead || member.CanWrite)
                 .Select(static member => (member.LuaName, $"property '{member.ClrName}'")));
+
             instanceEntries.AddRange(info.Fields
                 .Where(static member => member.CanRead || member.CanWrite)
                 .Select(static member => (member.LuaName, $"field '{member.ClrName}'")));
@@ -1527,9 +1792,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
         definitionEntries.AddRange(info.StaticProperties
             .Where(static member => member.CanRead || member.CanWrite)
             .Select(static member => (member.LuaName, $"static property '{member.ClrName}'")));
+
         definitionEntries.AddRange(info.StaticFields
             .Where(static member => member.CanRead || member.CanWrite)
             .Select(static member => (member.LuaName, $"static field '{member.ClrName}'")));
+
         definitionEntries.AddRange(info.StaticMethods.Select(static method => (method.LuaName, $"static method '{method.ClrName}'")));
         definitionEntries.AddRange(info.StaticEvents.Select(static eventInfo => (eventInfo.LuaName, $"static event '{eventInfo.ClrName}'")));
 
@@ -1547,9 +1814,9 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
         string scope)
     {
         foreach (var group in entries
-                     .Where(static entry => !string.IsNullOrEmpty(entry.LuaName))
-                     .GroupBy(static entry => entry.LuaName, StringComparer.Ordinal)
-                     .Where(static group => group.Count() > 1))
+            .Where(static entry => !string.IsNullOrEmpty(entry.LuaName))
+            .GroupBy(static entry => entry.LuaName, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1))
         {
             info.Diagnostics.Add(new LuaDiagnosticInfo
             {
@@ -1563,7 +1830,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
 
     private static bool HasFatalDiagnostics(LuaTypeInfo info)
     {
-        return info.Diagnostics.Any(static diagnostic => diagnostic.Id is "LAYLUA107" or "LAYLUA108" or "LAYLUA109");
+        return info.Diagnostics.Any(static diagnostic => diagnostic.Id is "LAYLUA107" or "LAYLUA108" or "LAYLUA109" or "LAYLUA110");
     }
 
     private static void ReapplyNamingPolicy(LuaTypeInfo info)
@@ -1860,6 +2127,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
         writer.Line("#nullable enable");
         writer.Line();
         writer.Line("using System;");
+        writer.Line("using System.Diagnostics.CodeAnalysis;");
         writer.Line("using System.Collections;");
         writer.Line("using System.Reflection;");
         writer.Line("using System.Runtime.CompilerServices;");
@@ -1883,11 +2151,20 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
         }
 
         var typeKeyword = typeInfo.IsValueType ? "struct" : "class";
-        writer.Line($"partial {typeKeyword} {typeInfo.Name}");
+        writer.Line($"unsafe partial {typeKeyword} {typeInfo.Name}");
         writer.OpenBrace();
 
-        EmitPartialHookDeclarations(writer);
+        EmitPartialHookDeclarations(writer, typeInfo);
         writer.Line();
+        writer.Line($"private const int __LayluaBindingConversions = {typeInfo.BindingConversions};");
+        writer.Line();
+
+        var tableMembers = typeInfo.Properties.Concat(typeInfo.Fields).ToList();
+        if (typeInfo.EmitGeneratedFromTableDefault)
+        {
+            EmitOuterTryGetFromTable(writer, typeInfo, tableMembers);
+            writer.Line();
+        }
 
         writer.Line("/// <summary>");
         writer.Line($"///     Source-generated Lua userdata handler for <see cref=\"{typeInfo.Name}\"/>.");
@@ -1905,6 +2182,10 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             writer.Line($"private const string DefinitionMetatableName = \"{metatableName}__definition\";");
         }
 
+        writer.Line($"private const int NamingPolicy = {typeInfo.NamingPolicy};");
+        writer.Line($"private const int Members = {typeInfo.Members};");
+        writer.Line($"private const int UnknownPropertyBehavior = {typeInfo.UnknownPropertyBehavior};");
+        writer.Line($"private const int ObsoleteMembers = {typeInfo.ObsoleteMembers};");
         writer.Line($"private const int BindingConversions = {typeInfo.BindingConversions};");
         writer.Line($"private const int AwaitableReturnHandling = {typeInfo.AwaitableReturnHandling};");
         writer.Line();
@@ -1924,15 +2205,8 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
 
         EmitTryGet(writer, typeInfo);
 
-        var tableMembers = typeInfo.Properties.Concat(typeInfo.Fields)
-            .Where(static member => member.CanRead || member.CanWrite)
-            .ToList();
-
-        if (tableMembers.Count > 0 && HasAccessibleParameterlessConstructor(typeInfo))
-        {
-            writer.Line();
-            EmitTryGetFromTable(writer, typeInfo, tableMembers);
-        }
+        writer.Line();
+        EmitTryGetFromTable(writer, typeInfo);
 
         writer.Line();
         EmitIndexCallback(writer, typeInfo);
