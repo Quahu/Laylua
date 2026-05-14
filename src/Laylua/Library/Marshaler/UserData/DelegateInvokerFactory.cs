@@ -23,7 +23,7 @@ internal static class DelegateInvokerFactory
     private static readonly PropertyInfo LuaStackValueRangeCountProperty;
     private static readonly MethodInfo LuaStackValueRangePushValuesMethod;
     private static readonly PropertyInfo LuaFunctionResultsRangeProperty;
-    private static readonly MethodInfo LuaMarshalerTryToObjectMethod;
+    private static readonly MethodInfo GetArgumentMethod;
     private static readonly MethodInfo GetParamsArgumentMethod;
     private static readonly MethodInfo PushImplicitAwaitableReturnCountMethod;
     private static readonly MethodInfo PushReturnAwaitableReturnCountMethod;
@@ -57,23 +57,9 @@ internal static class DelegateInvokerFactory
         Guard.IsNotNull(luaFunctionResultsRangeProperty);
         LuaFunctionResultsRangeProperty = luaFunctionResultsRangeProperty;
 
-        var luaMarshalerTryToObjectMethod = Array.Find(typeof(LuaMarshaler).GetMethods(BindingFlags.Instance | BindingFlags.Public),
-            static method =>
-            {
-                if (method.Name != nameof(LuaMarshaler.TryGetValue) || !method.IsGenericMethodDefinition)
-                {
-                    return false;
-                }
-
-                var parameters = method.GetParameters();
-                return parameters.Length == 3
-                    && parameters[0].ParameterType == typeof(LuaThread)
-                    && parameters[1].ParameterType == typeof(int)
-                    && parameters[2].IsOut;
-            });
-
-        Guard.IsNotNull(luaMarshalerTryToObjectMethod);
-        LuaMarshalerTryToObjectMethod = luaMarshalerTryToObjectMethod;
+        var getArgumentMethod = typeof(DelegateInvokerFactory).GetMethod(nameof(GetArgument), BindingFlags.Static | BindingFlags.NonPublic);
+        Guard.IsNotNull(getArgumentMethod);
+        GetArgumentMethod = getArgumentMethod;
 
         var getParamsArgumentMethod = typeof(DelegateInvokerFactory).GetMethod(nameof(GetParamsArgument), BindingFlags.Static | BindingFlags.NonPublic);
         Guard.IsNotNull(getParamsArgumentMethod);
@@ -155,20 +141,28 @@ internal static class DelegateInvokerFactory
     {
         var remainingArgumentCount = argumentCount - (argumentIndex - 1);
         if (remainingArgumentCount == 0)
+        {
             return [];
+        }
 
         var paramsArgument = new T?[remainingArgumentCount];
         for (var i = 0; i < remainingArgumentCount; i++)
         {
-            if (!thread.Stack[argumentIndex + i].TryGetValue<T>(out var convertedArgument))
-            {
-                thread.RaiseArgumentTypeError(argumentIndex + i, typeof(T).Name);
-            }
-
-            paramsArgument[i] = convertedArgument;
+            paramsArgument[i] = GetArgument<T>(thread, argumentIndex + i);
         }
 
         return paramsArgument;
+    }
+
+    private static T? GetArgument<T>(LuaThread thread, int argumentIndex)
+    {
+        if (thread.Stack[argumentIndex].TryGetValue<T>(out var convertedArgument, out var error))
+        {
+            return convertedArgument;
+        }
+
+        thread.RaiseArgumentError(argumentIndex, $"failed to convert to {typeof(T).ToTypeString()}: {error}");
+        throw new InvalidOperationException("Unreachable conversion error return.");
     }
 
     private static void RethrowIfNotNull(Exception? exception)
@@ -262,7 +256,7 @@ internal static class DelegateInvokerFactory
             }
             else
             {
-                tryGetMethods[i] = LuaMarshalerTryToObjectMethod.MakeGenericMethod(paramType);
+                tryGetMethods[i] = GetArgumentMethod.MakeGenericMethod(paramType);
             }
 
             if (!paramType.IsValueType)
@@ -332,17 +326,7 @@ internal static class DelegateInvokerFactory
                             }
                             else
                             {
-                                var outArgs = new object?[]
-                                {
-                                    thread, i + 1, null
-                                };
-
-                                if (!(bool) tryGetMethods[i].Invoke(thread.Marshaler, outArgs)!)
-                                {
-                                    thread.RaiseArgumentTypeError(i + 1, parameters[i].ParameterType.ToTypeString());
-                                }
-
-                                args[i] = outArgs[2];
+                                args[i] = tryGetMethods[i].Invoke(null, [thread, i + 1]);
                             }
 
                             break;
@@ -497,12 +481,8 @@ internal static class DelegateInvokerFactory
             if (i != parameters.Length - 1 || ((!parameter.ParameterType.IsArray || parameter.GetCustomAttribute<ParamArrayAttribute>() == null)
                 && parameter.ParameterType != typeof(LuaStackValueRange)))
             {
-                var getArgumentExpression = Expression.IfThen(Expression.IsFalse(Expression.Call(Expression.Property(luaParameterExpression, nameof(Lua.Marshaler)),
-                        LuaMarshalerTryToObjectMethod.MakeGenericMethod(parameterType),
-                        luaParameterExpression, argumentIndexExpression, argumentVariableExpression)),
-                    Expression.Call(luaParameterExpression,
-                        nameof(Lua.RaiseArgumentTypeError), Type.EmptyTypes,
-                        argumentIndexExpression, Expression.Constant(parameterType.ToTypeString())));
+                Expression getArgumentExpression = Expression.Assign(argumentVariableExpression,
+                    Expression.Call(GetArgumentMethod.MakeGenericMethod(parameterType), luaParameterExpression, argumentIndexExpression));
 
                 if (i >= requiredParameterCount)
                 {

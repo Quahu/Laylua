@@ -66,7 +66,6 @@ public partial class LuaTypeGenerator
             }
 
             writer.Line();
-            EmitUnknownPropertyFallback(writer, typeInfo);
         }
         else
         {
@@ -88,26 +87,18 @@ public partial class LuaTypeGenerator
                     writer.CloseBrace();
                     writer.Line();
                     EmitIndexerGet(writer, typeInfo, "self");
-                    writer.Line();
-                    EmitUnknownPropertyFallback(writer, typeInfo);
                 }
-                else
-                {
-                    writer.Line();
-                    EmitUnknownPropertyFallback(writer, typeInfo);
-                }
+
+                writer.Line();
             }
             else if (hasIndexer)
             {
                 EmitIndexerGet(writer, typeInfo, "self");
                 writer.Line();
-                EmitUnknownPropertyFallback(writer, typeInfo);
-            }
-            else
-            {
-                EmitUnknownPropertyFallback(writer, typeInfo);
             }
         }
+
+        EmitUnknownPropertyFallback(writer, typeInfo);
 
         writer.CloseBrace();
     }
@@ -424,9 +415,9 @@ public partial class LuaTypeGenerator
     {
         if (UseMarshaledInterop(typeInfo, member.ValueKind))
         {
-            writer.Code($$"""
+            writer.Code($"""
                 using var thread = LuaThread.FromExtraSpace(L);
-                {{memberAccess}} = thread.Stack[{{stackIndex}}].GetValue<{{member.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
+                {memberAccess} = thread.Stack[{stackIndex}].GetValue<{member.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
                 """);
         }
         else if (member.ValueKind == LuaValueKind.String)
@@ -455,9 +446,9 @@ public partial class LuaTypeGenerator
             }
 
             var keyRead = EmitReadExpression(typeInfo, indexer.KeyValueKind, indexer.KeyTypeName, 2);
-            writer.Code($$"""
-                var indexerKey = {{keyRead}};
-                var indexerValue = {{target}}[indexerKey];
+            writer.Code($"""
+                var indexerKey = {keyRead};
+                var indexerValue = {target}[indexerKey];
                 """);
 
             EmitPushExpression(writer, typeInfo, indexer.ValueKind, indexer.ValueTypeName, "indexerValue", threadAvailable: needsThread, scopeThread: false);
@@ -481,9 +472,9 @@ public partial class LuaTypeGenerator
                 }
 
                 var keyRead = EmitReadExpression(typeInfo, indexer.KeyValueKind, indexer.KeyTypeName, 2);
-                writer.Code($$"""
-                    var indexerKey = {{keyRead}};
-                    var indexerValue = {{target}}[indexerKey];
+                writer.Code($"""
+                    var indexerKey = {keyRead};
+                    var indexerValue = {target}[indexerKey];
                     """);
 
                 EmitPushExpression(writer, typeInfo, indexer.ValueKind, indexer.ValueTypeName, "indexerValue", threadAvailable: needsThread, scopeThread: false);
@@ -512,16 +503,16 @@ public partial class LuaTypeGenerator
 
             if (UseMarshaledInterop(typeInfo, indexer.ValueKind))
             {
-                writer.Code($$"""
-                    var indexerKey = {{keyRead}};
-                    {{target}}[indexerKey] = thread.Stack[3].GetValue<{{indexer.ValueTypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
+                writer.Code($"""
+                    var indexerKey = {keyRead};
+                    {target}[indexerKey] = thread.Stack[3].GetValue<{indexer.ValueTypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
                     """);
             }
             else
             {
-                writer.Code($$"""
-                    var indexerKey = {{keyRead}};
-                    {{target}}[indexerKey] = {{EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)}};
+                writer.Code($"""
+                    var indexerKey = {keyRead};
+                    {target}[indexerKey] = {EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)};
                     """);
             }
 
@@ -548,16 +539,16 @@ public partial class LuaTypeGenerator
 
                 if (UseMarshaledInterop(typeInfo, indexer.ValueKind))
                 {
-                    writer.Code($$"""
-                        var indexerKey = {{keyRead}};
-                        {{target}}[indexerKey] = thread.Stack[3].GetValue<{{indexer.ValueTypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
+                    writer.Code($"""
+                        var indexerKey = {keyRead};
+                        {target}[indexerKey] = thread.Stack[3].GetValue<{indexer.ValueTypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions)!;
                         """);
                 }
                 else
                 {
-                    writer.Code($$"""
-                        var indexerKey = {{keyRead}};
-                        {{target}}[indexerKey] = {{EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)}};
+                    writer.Code($"""
+                        var indexerKey = {keyRead};
+                        {target}[indexerKey] = {EmitReadExpression(typeInfo, indexer.ValueKind, indexer.ValueTypeName, 3)};
                         """);
                 }
 

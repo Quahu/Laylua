@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -1967,7 +1968,7 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                 return "float.NegativeInfinity";
             }
 
-            return $"{floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}f";
+            return $"{floatValue.ToString(CultureInfo.InvariantCulture)}f";
         }
 
         if (value is double doubleValue)
@@ -1987,12 +1988,12 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
                 return "double.NegativeInfinity";
             }
 
-            return $"{doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}d";
+            return $"{doubleValue.ToString(CultureInfo.InvariantCulture)}d";
         }
 
         if (value is decimal decimalValue)
         {
-            return $"{decimalValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}m";
+            return $"{decimalValue.ToString(CultureInfo.InvariantCulture)}m";
         }
 
         if (value is long longValue)
@@ -2037,18 +2038,18 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
     {
         return value switch
         {
-            sbyte sbyteValue => sbyteValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            byte byteValue => byteValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            short shortValue => shortValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ushort ushortValue => ushortValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            int intValue => intValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            uint uintValue => $"{uintValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}U",
+            sbyte sbyteValue => sbyteValue.ToString(CultureInfo.InvariantCulture),
+            byte byteValue => byteValue.ToString(CultureInfo.InvariantCulture),
+            short shortValue => shortValue.ToString(CultureInfo.InvariantCulture),
+            ushort ushortValue => ushortValue.ToString(CultureInfo.InvariantCulture),
+            int intValue => intValue.ToString(CultureInfo.InvariantCulture),
+            uint uintValue => $"{uintValue.ToString(CultureInfo.InvariantCulture)}U",
             long longValue => longValue == long.MinValue
                 ? "long.MinValue"
-                : $"{longValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}L",
+                : $"{longValue.ToString(CultureInfo.InvariantCulture)}L",
             ulong ulongValue => ulongValue == ulong.MaxValue
                 ? "ulong.MaxValue"
-                : $"{ulongValue.ToString(System.Globalization.CultureInfo.InvariantCulture)}UL",
+                : $"{ulongValue.ToString(CultureInfo.InvariantCulture)}UL",
             _ => value.ToString() ?? throw new InvalidOperationException("Enum default value formatting failed.")
         };
     }
@@ -2168,11 +2169,11 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             writer.Line();
         }
 
-        writer.Code($$"""
+        writer.Code($"""
             /// <summary>
-            ///     Source-generated Lua userdata handler for <see cref="{{typeInfo.Name}}"/>.
+            ///     Source-generated Lua userdata handler for <see cref="{typeInfo.Name}"/>.
             /// </summary>
-            public {{(typeInfo.BaseHasLuaType ? "new " : "")}}sealed unsafe class LuaUserDataHandler : ILuaUserDataHandler, ILuaUserDataHandler<{{typeInfo.Name}}>
+            public {(typeInfo.BaseHasLuaType ? "new " : "")}sealed unsafe class LuaUserDataHandler : ILuaUserDataHandler, ILuaUserDataHandler<{typeInfo.Name}>
             """);
 
         writer.OpenBrace();
@@ -2186,13 +2187,13 @@ public partial class LuaTypeGenerator : IIncrementalGenerator
             writer.Line($"private const string DefinitionMetatableName = \"{metatableName}__definition\";");
         }
 
-        writer.Code($$"""
-            private const int NamingPolicy = {{typeInfo.NamingPolicy}};
-            private const int Members = {{typeInfo.Members}};
-            private const int UnknownPropertyBehavior = {{typeInfo.UnknownPropertyBehavior}};
-            private const int ObsoleteMembers = {{typeInfo.ObsoleteMembers}};
-            private const int BindingConversions = {{typeInfo.BindingConversions}};
-            private const int AwaitableReturnHandling = {{typeInfo.AwaitableReturnHandling}};
+        writer.Code($"""
+            private const int NamingPolicy = {typeInfo.NamingPolicy};
+            private const int Members = {typeInfo.Members};
+            private const int UnknownPropertyBehavior = {typeInfo.UnknownPropertyBehavior};
+            private const int ObsoleteMembers = {typeInfo.ObsoleteMembers};
+            private const int BindingConversions = {typeInfo.BindingConversions};
+            private const int AwaitableReturnHandling = {typeInfo.AwaitableReturnHandling};
             """);
 
         writer.Line();

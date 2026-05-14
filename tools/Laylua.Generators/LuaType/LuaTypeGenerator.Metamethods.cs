@@ -373,9 +373,9 @@ public partial class LuaTypeGenerator
             EmitSelfVariable(writer, typeInfo);
             writer.Line();
 
-            writer.Code($$"""
+            writer.Code($"""
                 luaL_checkstack(L, 3, null);
-                lua_createtable(L, 0, {{readableMembers.Count}});
+                lua_createtable(L, 0, {readableMembers.Count});
                 """);
 
             foreach (var member in readableMembers)
@@ -843,26 +843,26 @@ public partial class LuaTypeGenerator
                 }
                 else if (parameter.IsLuaString)
                 {
-                    writer.Code($$"""
-                        {{parameter.TypeName}} {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
-                            ? {{EmitLuaStringReadExpression(parameter.TypeName, stackIndex)}}
-                            : {{defaultValue}};
+                    writer.Code($"""
+                        {parameter.TypeName} {parameter.Name} = lua_gettop(L) >= {stackIndex}
+                            ? {EmitLuaStringReadExpression(parameter.TypeName, stackIndex)}
+                            : {defaultValue};
                         """);
                 }
                 else if (UseMarshaledInterop(typeInfo, parameter.ValueKind))
                 {
-                    writer.Code($$"""
-                        {{parameter.TypeName}} {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
-                            ? thread.Stack[{{stackIndex}}].GetValue<{{parameter.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){{GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}}
-                            : {{defaultValue}};
+                    writer.Code($"""
+                        {parameter.TypeName} {parameter.Name} = lua_gettop(L) >= {stackIndex}
+                            ? thread.Stack[{stackIndex}].GetValue<{parameter.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}
+                            : {defaultValue};
                         """);
                 }
                 else
                 {
-                    writer.Code($$"""
-                        {{parameter.TypeName}} {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
-                            ? {{EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}}
-                            : {{defaultValue}};
+                    writer.Code($"""
+                        {parameter.TypeName} {parameter.Name} = lua_gettop(L) >= {stackIndex}
+                            ? {EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}
+                            : {defaultValue};
                         """);
                 }
 
@@ -907,8 +907,8 @@ public partial class LuaTypeGenerator
         }
 
         var arguments = string.Join(", ", constructor.Parameters.Select(static parameter => parameter.Name));
-        writer.Code($$"""
-            var instance = new {{typeInfo.Name}}({{arguments}});
+        writer.Code($"""
+            var instance = new {typeInfo.Name}({arguments});
             Push(L, instance);
             return 1;
             """);

@@ -14,6 +14,11 @@ public interface ILuaUserDataFromTable<TUserData>
     /// <param name="thread"> The owning Lua thread. </param>
     /// <param name="table"> The source Lua table. </param>
     /// <param name="value"> The materialized value when conversion succeeds. </param>
+    /// <param name="error"> The conversion error, if conversion failed. </param>
     /// <returns> <see langword="true"/> when conversion succeeded; otherwise <see langword="false"/>. </returns>
-    static abstract bool TryGetFromTable(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TUserData value);
+    static abstract bool TryGetFromTable(
+        LuaThread thread,
+        LuaTable table,
+        [MaybeNullWhen(false)] out TUserData value,
+        [NotNullWhen(false)] out LuaConversionError? error);
 }

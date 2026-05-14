@@ -54,6 +54,28 @@ public class TypedImplicitConversionTests : LuaTestBase
     }
 
     [Test]
+    public void TableToObject_OptIn_SelectedMethodArgumentConversionFailure_RaisesDetailedLuaError()
+    {
+        // Arrange
+        var obj = new TypedImplicitConversionAll();
+        Lua["obj"] = obj;
+
+        // Act
+        var exception = Assert.Throws<LuaException>(() =>
+            Lua.Execute("obj:AcceptsTarget({ Name = { }, Value = 42 })"));
+
+        // Assert
+        Assert.That(exception, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("AcceptsTarget"));
+            Assert.That(exception.Message, Does.Contain("argument 'target'"));
+            Assert.That(exception.Message, Does.Contain("$.Name"));
+            Assert.That(exception.Message, Does.Contain("failed to convert member 'Name'"));
+        });
+    }
+
+    [Test]
     public void DefaultPolicy_Table_BindsToTypedConstructorParameter()
     {
         // Arrange

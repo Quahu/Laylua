@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Laylua.Moon;
 using Qommon;
@@ -12,15 +13,17 @@ public unsafe partial class DefaultLuaMarshaler
     private const double TwoTo64 = TwoTo63 * 2;
 
     /// <inheritdoc/>
-    public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj)
+    public override bool TryGetValue<T>(
+        LuaThread thread,
+        int stackIndex,
+        out T? obj,
+        [NotNullWhen(false)] out LuaConversionError? error)
         where T : default
     {
-        return TryGetValue(thread, stackIndex, LuaAllowedValueConversions.Default, out obj);
+        return TryGetValue(thread, stackIndex, LuaAllowedValueConversions.Default, out obj, out error);
     }
 
-    /// <inheritdoc/>
-    public override bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj)
-        where T : default
+    private bool TryGetValueCore<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj)
     {
         var L = thread.State.L;
         var luaType = lua_type(L, stackIndex);
@@ -201,42 +204,7 @@ public unsafe partial class DefaultLuaMarshaler
             }
             case LuaType.Table:
             {
-                if (clrType.IsAssignableFrom(typeof(LuaTable)) || (allowedConversions & LuaAllowedValueConversions.ObjectFallback) != 0 && clrType == typeof(object))
-                {
-                    if (TryCreateTableReference(thread, stackIndex, out var table))
-                    {
-                        obj = (T) (object) table;
-                        return true;
-                    }
-                }
-                else if (clrType == typeof(LuaWeakReference<LuaTable>) || clrType == typeof(LuaWeakReference<LuaReference>))
-                {
-                    if (clrType == typeof(LuaWeakReference<LuaTable>))
-                    {
-                        if (LuaWeakReference.TryCreate<LuaTable>(thread, stackIndex, out var weakReference))
-                        {
-                            obj = (T) (object) weakReference;
-                            return true;
-                        }
-                    }
-                    else if (clrType == typeof(LuaWeakReference<LuaReference>))
-                    {
-                        if (LuaWeakReference.TryCreate<LuaReference>(thread, stackIndex, out var weakReference))
-                        {
-                            obj = (T) (object) weakReference;
-                            return true;
-                        }
-                    }
-                }
-                else if ((allowedConversions & LuaAllowedValueConversions.TableToObject) != 0
-                    && LuaTypeRegistry.TryGetFromTable<T>(L, stackIndex, out var tableValue))
-                {
-                    obj = tableValue!;
-                    return true;
-                }
-
-                obj = default;
-                return false;
+                return TryGetTableValue(thread, stackIndex, clrType, allowedConversions, out obj, out _);
             }
             case LuaType.Function:
             {
@@ -385,6 +353,316 @@ public unsafe partial class DefaultLuaMarshaler
                 throw new ArgumentException("Unsupported Lua type.", nameof(stackIndex));
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public override bool TryGetValue<T>(
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedConversions,
+        out T? obj,
+        [NotNullWhen(false)] out LuaConversionError? error)
+        where T : default
+    {
+        var L = thread.State.L;
+        var luaType = lua_type(L, stackIndex);
+        var clrType = typeof(T);
+        if (clrType.TryGetNullableUnderlyingType(out var nullableType))
+        {
+            clrType = nullableType;
+        }
+
+        if (luaType == LuaType.Table)
+        {
+            return TryGetTableValue(thread, stackIndex, clrType, allowedConversions, out obj, out error);
+        }
+
+        if (TryGetValueCore(thread, stackIndex, allowedConversions, out obj))
+        {
+            error = null;
+            return true;
+        }
+
+        error = CreateConversionError(L, stackIndex, typeof(T), clrType, allowedConversions);
+        return false;
+    }
+
+    private bool TryGetTableValue<T>(
+        LuaThread thread,
+        int stackIndex,
+        Type clrType,
+        LuaAllowedValueConversions allowedConversions,
+        out T? obj,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        var L = thread.State.L;
+        if (clrType.IsAssignableFrom(typeof(LuaTable)) || (allowedConversions & LuaAllowedValueConversions.ObjectFallback) != 0 && clrType == typeof(object))
+        {
+            if (TryCreateTableReference(thread, stackIndex, out var table))
+            {
+                obj = (T) (object) table;
+                error = null;
+                return true;
+            }
+        }
+        else if (clrType == typeof(LuaWeakReference<LuaTable>) || clrType == typeof(LuaWeakReference<LuaReference>))
+        {
+            if (clrType == typeof(LuaWeakReference<LuaTable>))
+            {
+                if (LuaWeakReference.TryCreate<LuaTable>(thread, stackIndex, out var weakReference))
+                {
+                    obj = (T) (object) weakReference;
+                    error = null;
+                    return true;
+                }
+            }
+            else if (clrType == typeof(LuaWeakReference<LuaReference>))
+            {
+                if (LuaWeakReference.TryCreate<LuaReference>(thread, stackIndex, out var weakReference))
+                {
+                    obj = (T) (object) weakReference;
+                    error = null;
+                    return true;
+                }
+            }
+        }
+        else if ((allowedConversions & LuaAllowedValueConversions.TableToObject) != 0)
+        {
+            if (LuaTypeRegistry.TryGetFromTable<T>(L, stackIndex, out var tableValue, out error))
+            {
+                obj = tableValue!;
+                return true;
+            }
+
+            obj = default;
+            return false;
+        }
+
+        obj = default;
+        if (clrType != typeof(object)
+            && !clrType.IsAssignableFrom(typeof(LuaTable))
+            && clrType != typeof(LuaWeakReference<LuaTable>)
+            && clrType != typeof(LuaWeakReference<LuaReference>))
+        {
+            error = LuaConversionError.ConversionPolicyDisabled(typeof(T), LuaType.Table, "table-to-object");
+            return false;
+        }
+
+        error = LuaConversionError.IncompatibleLuaType(typeof(T), LuaType.Table);
+        return false;
+    }
+
+    private LuaConversionError CreateConversionError(
+        lua_State* L,
+        int stackIndex,
+        Type targetType,
+        Type clrType,
+        LuaAllowedValueConversions allowedConversions)
+    {
+        var luaType = lua_type(L, stackIndex);
+        switch (luaType)
+        {
+            case LuaType.None:
+            {
+                return LuaConversionError.InvalidStackValue(targetType);
+            }
+            case LuaType.Nil:
+            {
+                return LuaConversionError.NilCannotBeConverted(targetType);
+            }
+            case LuaType.Boolean:
+            {
+                if (clrType == typeof(string))
+                {
+                    return LuaConversionError.ConversionPolicyDisabled(targetType, luaType, "primitive-to-string");
+                }
+
+                return LuaConversionError.IncompatibleLuaType(targetType, luaType);
+            }
+            case LuaType.LightUserData:
+            {
+                return LuaConversionError.IncompatibleLuaType(targetType, luaType);
+            }
+            case LuaType.Number:
+            {
+                return CreateNumberConversionError(L, stackIndex, targetType, clrType, allowedConversions);
+            }
+            case LuaType.String:
+            {
+                return CreateStringConversionError(L, stackIndex, targetType, clrType, allowedConversions);
+            }
+            case LuaType.Function:
+            {
+                if (clrType == typeof(MethodInfo) || clrType.BaseType == typeof(MulticastDelegate))
+                {
+                    if ((allowedConversions & LuaAllowedValueConversions.FunctionToCallableTarget) == 0)
+                    {
+                        return LuaConversionError.ConversionPolicyDisabled(targetType, luaType, "function-to-callable");
+                    }
+                }
+
+                return LuaConversionError.IncompatibleLuaType(targetType, luaType);
+            }
+            case LuaType.UserData:
+            case LuaType.Thread:
+            {
+                return LuaConversionError.IncompatibleLuaType(targetType, luaType);
+            }
+            default:
+            {
+                throw new ArgumentException("Unsupported Lua type.", nameof(stackIndex));
+            }
+        }
+    }
+
+    private LuaConversionError CreateNumberConversionError(
+        lua_State* L,
+        int stackIndex,
+        Type targetType,
+        Type clrType,
+        LuaAllowedValueConversions allowedConversions)
+    {
+        if (clrType.IsEnum)
+        {
+            if ((allowedConversions & LuaAllowedValueConversions.NumberToEnum) == 0)
+            {
+                return LuaConversionError.ConversionPolicyDisabled(targetType, LuaType.Number, "number-to-enum");
+            }
+
+            if (!lua_isinteger(L, stackIndex))
+            {
+                return LuaConversionError.EnumRequiresDefinedIntegralValue(targetType);
+            }
+
+            return LuaConversionError.UndefinedEnumValue(targetType, lua_tointeger(L, stackIndex));
+        }
+
+        if (lua_isinteger(L, stackIndex))
+        {
+            var integerValue = lua_tointeger(L, stackIndex);
+            if (LuaTypeServices.IsIntegerType(clrType)
+                && (allowedConversions & LuaAllowedValueConversions.AllowOverflow) == 0
+                && !LuaTypeServices.IsIntegerValueInRange(integerValue, clrType))
+            {
+                return LuaConversionError.NumericValueOutOfRange(targetType);
+            }
+
+            if (clrType == typeof(float) && float.IsInfinity((float) integerValue))
+            {
+                return LuaConversionError.NumericValueOutOfRange(targetType);
+            }
+
+            if (clrType == typeof(string))
+            {
+                return LuaConversionError.ConversionPolicyDisabled(targetType, LuaType.Number, "primitive-to-string");
+            }
+
+            return LuaConversionError.IncompatibleLuaType(targetType, LuaType.Number);
+        }
+
+        var numberValue = lua_tonumber(L, stackIndex);
+        if (double.IsNaN(numberValue) || double.IsInfinity(numberValue))
+        {
+            return LuaConversionError.NonFiniteNumberNotAllowed(targetType);
+        }
+
+        if (clrType == typeof(float) && float.IsInfinity((float) numberValue))
+        {
+            return LuaConversionError.NumericValueOutOfRange(targetType);
+        }
+
+        if (clrType == typeof(decimal) && !LuaTypeServices.IsDecimalValueInRange(numberValue))
+        {
+            return LuaConversionError.NumericValueOutOfRange(targetType);
+        }
+
+        if (LuaTypeServices.IsIntegerType(clrType))
+        {
+            if ((allowedConversions & LuaAllowedValueConversions.TruncateFraction) == 0 && !double.IsInteger(numberValue))
+            {
+                return LuaConversionError.FractionalNumberNotAllowed(targetType);
+            }
+
+            if ((allowedConversions & LuaAllowedValueConversions.AllowOverflow) == 0)
+            {
+                if (clrType == typeof(ulong) && numberValue is not (>= 0 and < TwoTo64))
+                {
+                    return LuaConversionError.NumericValueOutOfRange(targetType);
+                }
+
+                if (clrType == typeof(uint) && numberValue is not (>= uint.MinValue and <= uint.MaxValue))
+                {
+                    return LuaConversionError.NumericValueOutOfRange(targetType);
+                }
+
+                if (clrType != typeof(ulong)
+                    && clrType != typeof(uint)
+                    && numberValue is < -TwoTo63 or >= TwoTo63)
+                {
+                    return LuaConversionError.NumericValueOutOfRange(targetType);
+                }
+
+                if (double.IsInteger(numberValue)
+                    && numberValue is >= long.MinValue and <= long.MaxValue
+                    && !LuaTypeServices.IsIntegerValueInRange(unchecked((long) numberValue), clrType))
+                {
+                    return LuaConversionError.NumericValueOutOfRange(targetType);
+                }
+            }
+        }
+
+        if (clrType == typeof(string))
+        {
+            return LuaConversionError.ConversionPolicyDisabled(targetType, LuaType.Number, "primitive-to-string");
+        }
+
+        return LuaConversionError.IncompatibleLuaType(targetType, LuaType.Number);
+    }
+
+    private LuaConversionError CreateStringConversionError(
+        lua_State* L,
+        int stackIndex,
+        Type targetType,
+        Type clrType,
+        LuaAllowedValueConversions allowedConversions)
+    {
+        var stringValue = lua_tostring(L, stackIndex).ToString() ?? string.Empty;
+        if (clrType == typeof(char))
+        {
+            if ((allowedConversions & LuaAllowedValueConversions.StringToChar) == 0)
+            {
+                return LuaConversionError.ConversionPolicyDisabled(targetType, LuaType.String, "string-to-char");
+            }
+
+            return LuaConversionError.StringMustContainSingleCharacter(targetType);
+        }
+
+        if (clrType.IsEnum)
+        {
+            if ((allowedConversions & LuaAllowedValueConversions.StringToEnum) == 0)
+            {
+                return LuaConversionError.ConversionPolicyDisabled(targetType, LuaType.String, "string-to-enum");
+            }
+
+            return LuaConversionError.UndefinedEnumName(targetType, stringValue);
+        }
+
+        if (clrType == typeof(bool) || LuaTypeServices.IsNumericType(clrType))
+        {
+            if ((allowedConversions & LuaAllowedValueConversions.StringToPrimitive) == 0)
+            {
+                return LuaConversionError.ConversionPolicyDisabled(targetType, LuaType.String, "string-to-primitive");
+            }
+
+            if (clrType == typeof(bool))
+            {
+                return LuaConversionError.InvalidBooleanString(targetType, stringValue);
+            }
+
+            return LuaConversionError.InvalidNumericString(targetType, stringValue);
+        }
+
+        return LuaConversionError.IncompatibleLuaType(targetType, LuaType.String);
     }
 
     private static bool TryConvertIntegerValue(long value, Type clrType, LuaAllowedValueConversions allowedConversions, out object? result)

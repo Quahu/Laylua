@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Laylua.Moon;
+using Qommon;
 
 namespace Laylua.Marshaling;
 
@@ -333,44 +335,75 @@ public static unsafe class LuaTypeRegistry
     /// <summary>
     ///     Attempts to materialize a CLR object from a Lua table using a registered handler.
     /// </summary>
-    internal static bool TryGetFromTable(lua_State* L, int stackIndex, Type type, out object? value)
+    internal static bool TryGetFromTable(
+        lua_State* L,
+        int stackIndex,
+        Type type,
+        out object? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
     {
         if (Handlers.TryGetValue(type, out var handler))
         {
-            return handler.TryGetFromTable(L, stackIndex, out value);
+            if (handler.TryGetFromTable(L, stackIndex, out value, out error))
+            {
+                return true;
+            }
+
+            value = null;
+            error ??= LuaConversionError.BrokenTableConversionHandler(type, lua_type(L, stackIndex));
+            return false;
         }
 
         value = null;
+        error = LuaConversionError.NoTableConversionRegistered(L, stackIndex, type);
+
         return false;
     }
 
     /// <summary>
-    ///     Attempts to materialize a <typeparamref name="T"/> from a Lua table
-    ///     using the generic fast-path to avoid boxing for value types.
+    ///     Attempts to materialize a <typeparamref name="T"/> from a Lua table.
     /// </summary>
-    internal static bool TryGetFromTable<T>(lua_State* L, int stackIndex, out T? value)
+    internal static bool TryGetFromTable<T>(
+        lua_State* L,
+        int stackIndex,
+        out T? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
     {
         var typedHandler = TypedHandler<T>.TypedInstance;
         if (typedHandler != null)
         {
-            return typedHandler.TryGetFromTable(L, stackIndex, out value);
+            return typedHandler.TryGetFromTable(L, stackIndex, out value, out error);
         }
 
         if (Handlers.TryGetValue(typeof(T), out var handler))
         {
             if (handler is ILuaUserDataHandler<T> typed)
             {
-                return typed.TryGetFromTable(L, stackIndex, out value);
+                return typed.TryGetFromTable(L, stackIndex, out value, out error);
             }
 
-            if (handler.TryGetFromTable(L, stackIndex, out var boxed))
+            if (handler.TryGetFromTable(L, stackIndex, out var boxed, out error))
             {
-                value = (T) boxed!;
-                return true;
+                if (boxed is T typedBoxed)
+                {
+                    value = typedBoxed;
+                    return true;
+                }
+
+                value = default;
+                error = LuaConversionError.IncompatibleBoxedValue(L, stackIndex, typeof(T));
+
+                return false;
             }
+
+            value = default;
+            error ??= LuaConversionError.BrokenTableConversionHandler(typeof(T), lua_type(L, stackIndex));
+            return false;
         }
 
         value = default;
+        error = LuaConversionError.NoTableConversionRegistered(L, stackIndex, typeof(T));
+
         return false;
     }
 

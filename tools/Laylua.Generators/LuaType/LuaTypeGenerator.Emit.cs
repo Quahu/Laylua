@@ -25,7 +25,7 @@ public partial class LuaTypeGenerator
         if (typeInfo.EmitGeneratedFromTableConversion)
         {
             writer.Line();
-            writer.Code($$"""
+            writer.Code($"""
                 /// <summary>
                 ///     Called before the generated table-to-object conversion runs.
                 /// </summary>
@@ -34,7 +34,7 @@ public partial class LuaTypeGenerator
                 /// <summary>
                 ///     Called after the generated table-to-object conversion succeeds.
                 /// </summary>
-                static partial void OnAfterTryGetFromTable(LuaThread thread, LuaTable table, ref {{typeInfo.Name}} value);
+                static partial void OnAfterTryGetFromTable(LuaThread thread, LuaTable table, ref {typeInfo.Name} value);
                 """);
         }
     }
@@ -329,9 +329,9 @@ public partial class LuaTypeGenerator
 
     private static void EmitInitCallback(CodeWriter writer, string camelName, string methodName)
     {
-        writer.Code($$"""
-            _{{camelName}}Function = {{methodName}};
-            _{{camelName}}FunctionPtr = CreateSafeCFunction(_{{camelName}}Function);
+        writer.Code($"""
+            _{camelName}Function = {methodName};
+            _{camelName}FunctionPtr = CreateSafeCFunction(_{camelName}Function);
             """);
     }
 
@@ -406,18 +406,18 @@ public partial class LuaTypeGenerator
 
         writer.Line();
         writer.Code("""
-                using var thread = LuaThread.FromExtraSpace(L);
-                OnMetatableCreated(thread, thread.Stack[-1]);
-            }
-            catch
-            {
-                lua_pushnil(L);
-                lua_setfield(L, LuaRegistry.Index, MetatableName);
-                LuaTypeServices.TryFreeUserData(ud);
-                lua_pop(L, 2);
-                throw;
-            }
-        """);
+                    using var thread = LuaThread.FromExtraSpace(L);
+                    OnMetatableCreated(thread, thread.Stack[-1]);
+                }
+                catch
+                {
+                    lua_pushnil(L);
+                    lua_setfield(L, LuaRegistry.Index, MetatableName);
+                    LuaTypeServices.TryFreeUserData(ud);
+                    lua_pop(L, 2);
+                    throw;
+                }
+            """);
 
         writer.CloseBrace();
 
@@ -469,18 +469,18 @@ public partial class LuaTypeGenerator
 
         writer.Line();
         writer.Code("""
-                using var thread = LuaThread.FromExtraSpace(L);
-                OnDefinitionMetatableCreated(thread, thread.Stack[-1]);
-            }
-            catch
-            {
-                lua_pushnil(L);
-                lua_setfield(L, LuaRegistry.Index, DefinitionMetatableName);
-                LuaTypeServices.TryFreeUserData(ud);
-                lua_pop(L, 2);
-                throw;
-            }
-        """);
+                    using var thread = LuaThread.FromExtraSpace(L);
+                    OnDefinitionMetatableCreated(thread, thread.Stack[-1]);
+                }
+                catch
+                {
+                    lua_pushnil(L);
+                    lua_setfield(L, LuaRegistry.Index, DefinitionMetatableName);
+                    LuaTypeServices.TryFreeUserData(ud);
+                    lua_pop(L, 2);
+                    throw;
+                }
+            """);
 
         writer.CloseBrace();
 
@@ -491,9 +491,9 @@ public partial class LuaTypeGenerator
 
     private static void EmitSetMetamethod(CodeWriter writer, string name, string ptrField)
     {
-        writer.Code($$"""
-            lua_pushstring(L, "{{name}}"u8);
-            lua_pushcfunction(L, {{ptrField}});
+        writer.Code($"""
+            lua_pushstring(L, "{name}"u8);
+            lua_pushcfunction(L, {ptrField});
             lua_rawset(L, -3);
             """);
     }
@@ -536,48 +536,26 @@ public partial class LuaTypeGenerator
             /// <summary>
             ///     Runs the generated built-in Lua table conversion for <see cref="{{typeInfo.Name}}"/>.
             /// </summary>
-            private static bool TryGetFromTableDefault(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out {{typeInfo.Name}} value)
+            private static bool TryGetFromTableDefault(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out {{typeInfo.Name}} value, [NotNullWhen(false)] out LuaConversionError? error)
             {
                 thread.Stack.EnsureFreeCapacity(1);
 
                 using (thread.Stack.SnapshotCount())
                 {
                     thread.Stack.Push(table);
-                    return TryGetFromTableDefaultCore(thread.State.L, -1, out value);
+                    return TryGetFromTableDefaultCore(thread.State.L, -1, out value, out error);
                 }
             }
             """);
 
-        if (typeInfo.EmitGeneratedFromTableConversion)
-        {
-            writer.Line();
-            writer.Code($$"""
-                /// <summary>
-                ///     Runs the generated Lua table conversion for <see cref="{{typeInfo.Name}}"/>.
-                /// </summary>
-                private static bool __TryGetFromTableGenerated(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out {{typeInfo.Name}} value)
-                {
-                    OnBeforeTryGetFromTable(thread, table);
-
-                    if (!TryGetFromTableDefault(thread, table, out value))
-                    {
-                        return false;
-                    }
-
-                    OnAfterTryGetFromTable(thread, table, ref value);
-
-                    return true;
-                }
-                """);
-        }
-
         writer.Line();
         writer.Code($$"""
-            private static bool TryGetFromTableDefaultCore(lua_State* L, int stackIndex, [MaybeNullWhen(false)] out {{typeInfo.Name}} value)
+            private static bool TryGetFromTableDefaultCore(lua_State* L, int stackIndex, [MaybeNullWhen(false)] out {{typeInfo.Name}} value, [NotNullWhen(false)] out LuaConversionError? error)
             {
                 if (lua_type(L, stackIndex) != LuaType.Table)
                 {
                     value = default;
+                    error = LuaConversionError.ExpectedTable(L, stackIndex, typeof({{typeInfo.Name}}));
                     return false;
                 }
             """);
@@ -598,17 +576,28 @@ public partial class LuaTypeGenerator
 
             if (bindableMembers.Count == 0)
             {
-                writer.Code("""
+                writer.Code($$"""
+                    if (lua_type(L, -2) != LuaType.String)
+                    {
+                        value = default;
+                        error = LuaConversionError.UnexpectedTableKeyType(typeof({{typeInfo.Name}}), lua_type(L, -2), "$");
+                        return false;
+                    }
+
+                    var key = lua_tolstring(L, -2, out _);
+                    var keyName = key.ToString()!;
                     value = default;
+                    error = LuaConversionError.UnknownMember(L, -2, typeof({{typeInfo.Name}}), keyName, "$." + keyName);
                     return false;
                     """);
             }
             else
             {
-                writer.Code("""
+                writer.Code($$"""
                     if (lua_type(L, -2) != LuaType.String)
                     {
                         value = default;
+                        error = LuaConversionError.UnexpectedTableKeyType(typeof({{typeInfo.Name}}), lua_type(L, -2), "$");
                         return false;
                     }
 
@@ -625,9 +614,11 @@ public partial class LuaTypeGenerator
                 }
 
                 writer.Dedent();
-                writer.Code("""
+                writer.Code($$"""
                     {
+                        var keyName = key.ToString()!;
                         value = default;
+                        error = LuaConversionError.UnknownMember(L, -2, typeof({{typeInfo.Name}}), keyName, "$." + keyName);
                         return false;
                     }
                     """);
@@ -654,9 +645,9 @@ public partial class LuaTypeGenerator
             var member = bindableMembers[i];
             var memberIdentifier = memberIdentifiers[i];
             writer.Line();
-            writer.Code($$"""
-                var {{memberIdentifier}}WasProvided = false;
-                {{member.TypeName}} {{memberIdentifier}} = default!;
+            writer.Code($"""
+                var {memberIdentifier}WasProvided = false;
+                {member.TypeName} {memberIdentifier} = default!;
                 """);
         }
 
@@ -679,7 +670,20 @@ public partial class LuaTypeGenerator
                 writer.DisableWarning("CS0618");
             }
 
-            writer.Line($"{memberIdentifier} = {EmitReadExpression(typeInfo, member.ValueKind, member.TypeName, -1)};");
+            writer.Code($$"""
+                if (!LuaTypeServices.TryGetValue<{{member.TypeName}}>(L, -1, (global::Laylua.Marshaling.LuaAllowedValueConversions) __LayluaBindingConversions, out var {{memberIdentifier}}Value, out var {{memberIdentifier}}Error))
+                {
+                    value = default;
+                """);
+
+            writer.Line($"error = LuaConversionError.MemberConversionFailed(L, -1, typeof({typeInfo.Name}), typeof({member.TypeName}), \"{member.LuaName}\", \"$.{member.LuaName}\", {memberIdentifier}Error?.WithPathPrefix(\"$.{member.LuaName}\"));");
+
+            writer.Code($$"""
+                    return false;
+                }
+
+                {{memberIdentifier}} = {{memberIdentifier}}Value!;
+                """);
 
             if (member.IsObsolete)
             {
@@ -705,6 +709,7 @@ public partial class LuaTypeGenerator
                 if (!{{memberIdentifier}}WasProvided)
                 {
                     value = default;
+                    error = LuaConversionError.MissingRequiredMember(typeof({{typeInfo.Name}}), "{{member.LuaName}}", "$.{{member.LuaName}}");
                     return false;
                 }
                 """);
@@ -745,10 +750,11 @@ public partial class LuaTypeGenerator
 
         writer.Line();
         writer.Code("""
-                value = result;
-                return true;
-            }
-        """);
+                    value = result;
+                    error = null;
+                    return true;
+                }
+            """);
     }
 
     private static void EmitTableResultConstruction(
@@ -843,24 +849,34 @@ public partial class LuaTypeGenerator
             ///     Attempts to read a Lua table into a <see cref="{{typeInfo.Name}}"/> instance.
             /// </summary>
             public static bool TryGetFromTable(lua_State* L, int stackIndex, out {{typeInfo.Name}}{{nullableSuffix}} value)
+            {
+                return TryGetFromTable(L, stackIndex, out value, out _);
+            }
+
+            /// <summary>
+            ///     Attempts to read a Lua table into a <see cref="{{typeInfo.Name}}"/> instance.
+            /// </summary>
+            public static bool TryGetFromTable(lua_State* L, int stackIndex, out {{typeInfo.Name}}{{nullableSuffix}} value, [NotNullWhen(false)] out LuaConversionError? error)
             """);
 
         writer.OpenBrace();
         if (!typeInfo.ImplementsLuaUserDataFromTable && !typeInfo.EmitGeneratedFromTableConversion)
         {
-            writer.Code("""
-                    value = default;
-                    return false;
-                }
-            """);
+            writer.Code($$"""
+                        value = default;
+                        error = LuaConversionError.NoTableConversionRegistered(L, stackIndex, typeof({{typeInfo.Name}}));
+                        return false;
+                    }
+                """);
 
             return;
         }
 
-        writer.Code("""
+        writer.Code($$"""
             if (lua_type(L, stackIndex) != LuaType.Table)
             {
                 value = default;
+                error = LuaConversionError.ExpectedTable(L, stackIndex, typeof({{typeInfo.Name}}));
                 return false;
             }
 
@@ -870,11 +886,29 @@ public partial class LuaTypeGenerator
 
         if (typeInfo.ImplementsLuaUserDataFromTable)
         {
-            writer.Line($"return __TryGetFromTableInterface<{typeInfo.Name}>(thread, table, out value);");
+            writer.Code($$"""
+                if (__TryGetFromTableInterface<{{typeInfo.Name}}>(thread, table, out value, out error))
+                {
+                    return true;
+                }
+
+                error ??= LuaConversionError.BrokenTableConversionHandler(typeof({{typeInfo.Name}}), LuaType.Table);
+                return false;
+                """);
         }
         else
         {
-            writer.Line("return __TryGetFromTableGenerated(thread, table, out value);");
+            writer.Code("""
+                OnBeforeTryGetFromTable(thread, table);
+
+                if (!TryGetFromTableDefault(thread, table, out value, out error))
+                {
+                    return false;
+                }
+
+                OnAfterTryGetFromTable(thread, table, ref value);
+                return true;
+                """);
         }
 
         writer.CloseBrace();
@@ -882,13 +916,13 @@ public partial class LuaTypeGenerator
         if (typeInfo.ImplementsLuaUserDataFromTable)
         {
             writer.Line();
-            writer.Line("private static bool __TryGetFromTableInterface<TValue>(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TValue value)");
+            writer.Line("private static bool __TryGetFromTableInterface<TValue>(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TValue value, [NotNullWhen(false)] out LuaConversionError? error)");
             writer.Indent();
             writer.Line("where TValue : ILuaUserDataFromTable<TValue>");
             writer.Dedent();
             writer.Code("""
                 {
-                    return TValue.TryGetFromTable(thread, table, out value);
+                    return TValue.TryGetFromTable(thread, table, out value, out error);
                 }
                 """);
         }
@@ -949,9 +983,9 @@ public partial class LuaTypeGenerator
         writer.Line();
 
         writer.Code($$"""
-            bool ILuaUserDataHandler.TryGetFromTable(lua_State* L, int stackIndex, out object? value)
+            bool ILuaUserDataHandler.TryGetFromTable(lua_State* L, int stackIndex, out object? value, [NotNullWhen(false)] out LuaConversionError? error)
             {
-                if (TryGetFromTable(L, stackIndex, out var typed))
+                if (TryGetFromTable(L, stackIndex, out var typed, out error))
                 {
                     value = typed;
                     return true;
@@ -961,9 +995,9 @@ public partial class LuaTypeGenerator
                 return false;
             }
 
-            bool ILuaUserDataHandler<{{typeInfo.Name}}>.TryGetFromTable(lua_State* L, int stackIndex, out {{typeInfo.Name}}{{nullableSuffix}} value)
+            bool ILuaUserDataHandler<{{typeInfo.Name}}>.TryGetFromTable(lua_State* L, int stackIndex, out {{typeInfo.Name}}{{nullableSuffix}} value, [NotNullWhen(false)] out LuaConversionError? error)
             {
-                return TryGetFromTable(L, stackIndex, out value);
+                return TryGetFromTable(L, stackIndex, out value, out error);
             }
             """);
 

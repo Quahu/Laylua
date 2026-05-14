@@ -43,21 +43,6 @@ internal unsafe partial class Program
         }
     }
 
-    [LuaType]
-    public partial class Player(string name)
-    {
-        public string Name { get; } = name;
-
-        public int Health { get; private set; } = 100;
-
-        public string? Test { get; set; }
-
-        public void TakeDamage(int amount = 25)
-        {
-            Health -= amount;
-        }
-    }
-
     private static void Code()
     {
         var allocator = new NativeMemoryLuaAllocator(1024 * 1024);
@@ -71,26 +56,6 @@ internal unsafe partial class Program
         using (var lua = new Lua(allocator))
         {
             lua.OpenLibrary(LuaLibraries.Standard.Base);
-
-            var print = lua.Evaluate<Action<string>>("return function(value) print(value) end")!;
-            print("test");
-
-            var print2 = lua.Evaluate<LuaFunction>("return function(value) print(value) end")!;
-            var print3 = print2.CloneReference();
-            print2.Call("call2").Dispose();
-            print3.Call("call3").Dispose();
-
-            print2.Dispose();
-            print3.Call("call3").Dispose();
-
-            lua["player"] = new Player("Steve");
-
-            lua.Execute("""
-                        player:TakeDamage()
-                        print(player.Name, player.Health)
-                        """);
-
-            return;
 
             var L = lua.State.L;
             try

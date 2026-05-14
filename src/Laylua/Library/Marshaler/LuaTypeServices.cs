@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Laylua.Marshaling;
+using Qommon;
 
 namespace Laylua.Moon;
 
@@ -193,6 +194,65 @@ public static unsafe class LuaTypeServices
     }
 
     /// <summary>
+    ///     Reads an argument value from the Lua stack and raises a Lua error if conversion fails.
+    /// </summary>
+    public static T? GetArgumentValue<T>(
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedConversions,
+        string callableName,
+        string argumentName)
+    {
+        if (thread.Marshaler.TryGetValue<T>(thread, stackIndex, allowedConversions, out var value, out var error))
+        {
+            return value;
+        }
+
+        RaiseArgumentConversionError<T>(thread.State.L, callableName, argumentName, error);
+        throw new InvalidOperationException("Unreachable conversion error return.");
+    }
+
+    /// <summary>
+    ///     Reads an argument value from the Lua stack and raises a Lua error if conversion fails.
+    /// </summary>
+    public static T? GetArgumentValue<T>(
+        lua_State* L,
+        int stackIndex,
+        LuaAllowedValueConversions allowedConversions,
+        string callableName,
+        string argumentName)
+    {
+        using var thread = LuaThread.FromExtraSpace(L);
+        return GetArgumentValue<T>(thread, stackIndex, allowedConversions, callableName, argumentName);
+    }
+
+    /// <summary>
+    ///     Tries to read a value from the Lua stack using the given conversion rules.
+    /// </summary>
+    public static bool TryGetValue<T>(
+        lua_State* L,
+        int stackIndex,
+        LuaAllowedValueConversions allowedConversions,
+        out T? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        using var thread = LuaThread.FromExtraSpace(L);
+        return thread.Marshaler.TryGetValue(thread, stackIndex, allowedConversions, out value, out error);
+    }
+
+    [DoesNotReturn]
+    private static void RaiseArgumentConversionError<T>(
+        lua_State* L,
+        string callableName,
+        string argumentName,
+        LuaConversionError error)
+    {
+        var message = $"{callableName}: argument '{argumentName}' failed to convert to {typeof(T).ToTypeString()}: {error}";
+        LuaException.RaiseErrorInfo(L, message, null);
+        throw new InvalidOperationException("Unreachable conversion error return.");
+    }
+
+    /// <summary>
     ///     Yields the awaitable currently on top of the Lua stack to Laylua's asynchronous coroutine driver.
     /// </summary>
     public static int YieldAwaitable(lua_State* L)
@@ -255,16 +315,41 @@ public static unsafe class LuaTypeServices
         return LuaTypeRegistry.TryGet(L, stackIndex, type, out value);
     }
 
-    /// <inheritdoc cref="LuaTypeRegistry.TryGetFromTable(lua_State*, int, Type, out object)" />
+    /// <inheritdoc cref="LuaTypeRegistry.TryGetFromTable(lua_State*, int, Type, out object, out LuaConversionError)" />
     public static bool TryGetFromTable(lua_State* L, int stackIndex, Type type, out object? value)
     {
-        return LuaTypeRegistry.TryGetFromTable(L, stackIndex, type, out value);
+        return LuaTypeRegistry.TryGetFromTable(L, stackIndex, type, out value, out _);
     }
 
-    /// <inheritdoc cref="LuaTypeRegistry.TryGetFromTable{T}(lua_State*, int, out T)" />
+    /// <summary>
+    ///     Attempts to materialize a CLR object from a Lua table.
+    /// </summary>
+    public static bool TryGetFromTable(
+        lua_State* L,
+        int stackIndex,
+        Type type,
+        out object? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        return LuaTypeRegistry.TryGetFromTable(L, stackIndex, type, out value, out error);
+    }
+
+    /// <inheritdoc cref="LuaTypeRegistry.TryGetFromTable{T}(lua_State*, int, out T, out LuaConversionError)" />
     public static bool TryGetFromTable<T>(lua_State* L, int stackIndex, out T? value)
     {
-        return LuaTypeRegistry.TryGetFromTable(L, stackIndex, out value);
+        return LuaTypeRegistry.TryGetFromTable(L, stackIndex, out value, out _);
+    }
+
+    /// <summary>
+    ///     Attempts to materialize a typed value from a Lua table.
+    /// </summary>
+    public static bool TryGetFromTable<T>(
+        lua_State* L,
+        int stackIndex,
+        out T? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        return LuaTypeRegistry.TryGetFromTable(L, stackIndex, out value, out error);
     }
 
     /// <inheritdoc cref="LuaTypeRegistry.GetHandler(Type)" />

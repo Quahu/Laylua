@@ -344,6 +344,6 @@ public unsafe partial class DefaultLuaMarshaler
         }
 
         var handler = LuaTypeRegistry.GetHandler(targetType);
-        return handler != null;
+        return handler != null && handler is not DynamicUserDataHandler;
     }
 }

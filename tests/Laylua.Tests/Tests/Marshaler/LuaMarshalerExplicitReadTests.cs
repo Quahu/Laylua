@@ -171,6 +171,29 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
     }
 
     [Test]
+    public void TryGetValue_MultiCharString_WithStringToChar_ReturnsSpecificConversionError()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        Lua.Stack.Push("AB");
+
+        // Act
+        var result = Lua.Stack[1].TryGetValue(LuaAllowedValueConversions.StringToChar, out char _, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("exactly one character"));
+            Assert.That(error.Message, Does.Not.Contain("failed to convert"));
+            Assert.That(error.Path, Is.EqualTo("$"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(char)));
+            Assert.That(error.LuaType, Is.EqualTo(LuaType.String));
+        });
+    }
+
+    [Test]
     public void TryGetValue_EmptyString_WithStringToChar_Fails()
     {
         // Arrange
@@ -211,6 +234,30 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
 
         // Assert
         Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void TryGetValue_StringToEnum_InvalidName_ReturnsSpecificConversionError()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        Lua.Stack.Push("Yellow");
+
+        // Act
+        var result = Lua.Stack[1].TryGetValue(LuaAllowedValueConversions.StringToEnum, out ImplicitConversionStatus _, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("defined name"));
+            Assert.That(error.Message, Does.Contain(nameof(ImplicitConversionStatus)));
+            Assert.That(error.Message, Does.Not.Contain("failed to convert"));
+            Assert.That(error.Path, Is.EqualTo("$"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(ImplicitConversionStatus)));
+            Assert.That(error.LuaType, Is.EqualTo(LuaType.String));
+        });
     }
 
     [Test]
@@ -388,6 +435,29 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
     }
 
     [Test]
+    public void TryGetValue_StringToInt_InvalidValue_ReturnsSpecificConversionError()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        Lua.Stack.Push("forty-two");
+
+        // Act
+        var result = Lua.Stack[1].TryGetValue(LuaAllowedValueConversions.StringToPrimitive, out int _, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("valid int value"));
+            Assert.That(error.Message, Does.Not.Contain("failed to convert"));
+            Assert.That(error.Path, Is.EqualTo("$"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(int)));
+            Assert.That(error.LuaType, Is.EqualTo(LuaType.String));
+        });
+    }
+
+    [Test]
     public void TryGetValue_IntegerToByte_OutOfRange_WithNarrowingEnabled_Wraps()
     {
         // Arrange
@@ -414,6 +484,29 @@ public unsafe class LuaMarshalerExplicitReadTests : LuaTestBase
 
         // Assert
         Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void TryGetValue_IntegerToByte_OutOfRange_WithOverflowDisabled_ReturnsSpecificConversionError()
+    {
+        // Arrange
+        using var _ = Lua.Stack.SnapshotCount();
+        Lua.Stack.Push(256);
+
+        // Act
+        var result = Lua.Stack[1].TryGetValue(LuaAllowedValueConversions.Default & ~LuaAllowedValueConversions.AllowOverflow, out byte _, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("outside the range"));
+            Assert.That(error.Message, Does.Not.Contain("failed to convert"));
+            Assert.That(error.Path, Is.EqualTo("$"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(byte)));
+            Assert.That(error.LuaType, Is.EqualTo(LuaType.Number));
+        });
     }
 
     [Test]

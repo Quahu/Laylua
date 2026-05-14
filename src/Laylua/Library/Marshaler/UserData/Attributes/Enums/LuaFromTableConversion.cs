@@ -16,7 +16,7 @@ public enum LuaFromTableConversion
     WhenTypeHasParameterlessConstructor = 2,
 
     /// <summary>
-    ///     Require generated table-to-object conversion support and report an error when it cannot be emitted.
+    ///     Emit generated table-to-object conversion support and thus require a parameterless constructor.
     /// </summary>
     Enabled = 3,
 }

@@ -262,20 +262,30 @@ public unsafe class TypedUserDataConstructionTests : LuaTestBase
     public void GeneratedTableToPoco_MissingRequiredMember_Throws()
     {
         // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        var exception = Assert.Throws<LuaConversionException>(() =>
             Lua.Evaluate<TestTableRequiredInitTarget>("return { Health = 15 }"));
 
-        Assert.That(exception!.Message, Does.Contain(nameof(TestTableRequiredInitTarget)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Error.Message, Does.Contain("missing required member 'Name'"));
+            Assert.That(exception.Error.Path, Is.EqualTo("$.Name"));
+            Assert.That(exception.Error.TargetType, Is.EqualTo(typeof(TestTableRequiredInitTarget)));
+        });
     }
 
     [Test]
     public void GeneratedTableToPoco_NilRequiredMember_Throws()
     {
         // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        var exception = Assert.Throws<LuaConversionException>(() =>
             Lua.Evaluate<TestTableRequiredInitTarget>("return { Name = nil, Health = 15 }"));
 
-        Assert.That(exception!.Message, Does.Contain(nameof(TestTableRequiredInitTarget)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Error.Message, Does.Contain("missing required member 'Name'"));
+            Assert.That(exception.Error.Path, Is.EqualTo("$.Name"));
+            Assert.That(exception.Error.TargetType, Is.EqualTo(typeof(TestTableRequiredInitTarget)));
+        });
     }
 
     [Test]
@@ -325,6 +335,106 @@ public unsafe class TypedUserDataConstructionTests : LuaTestBase
             Assert.That(result, Is.False);
             Assert.That(value, Is.Null);
             Assert.That(lua_gettop(L), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_MissingRequiredMember_ReturnsConversionError()
+    {
+        // Arrange
+        Lua.Execute("t = { Health = 15 }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestTableRequiredInitTarget? value, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("missing required member 'Name'"));
+            Assert.That(error.Path, Is.EqualTo("$.Name"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(TestTableRequiredInitTarget)));
+            Assert.That(error.MemberName, Is.EqualTo("Name"));
+            Assert.That(error.InnerError, Is.Null);
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_StrictUnknownStringKey_ReturnsConversionError()
+    {
+        // Arrange
+        Lua.Execute("t = { Value = 10, Extra = 20 }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestStrictType? value, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("unknown member 'Extra'"));
+            Assert.That(error.Path, Is.EqualTo("$.Extra"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(TestStrictType)));
+            Assert.That(error.MemberName, Is.EqualTo("Extra"));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_StrictUnexpectedNonStringKey_ReturnsConversionError()
+    {
+        // Arrange
+        Lua.Execute("t = { Value = 10, [1] = 20 }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestStrictType? value, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("table keys must be strings"));
+            Assert.That(error.Message, Does.Not.Contain("failed to convert"));
+            Assert.That(error.Path, Is.EqualTo("$"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(TestStrictType)));
+            Assert.That(error.LuaType, Is.EqualTo(LuaType.Number));
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_NestedMemberConversionFailure_ReturnsConversionErrorPath()
+    {
+        // Arrange
+        Lua.Execute("t = { Content = 'Foo', Embed = { Description = { } } }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestTableNestedMessageTarget? value, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("failed to convert member 'Embed'"));
+            Assert.That(error.Path, Is.EqualTo("$.Embed"));
+            Assert.That(error.MemberName, Is.EqualTo("Embed"));
+            Assert.That(error.InnerError, Is.Not.Null);
+            Assert.That(error.InnerError!.Path, Is.EqualTo("$.Embed.Description"));
+            Assert.That(error.InnerError.Message, Does.Contain("failed to convert member 'Description'"));
         });
     }
 
@@ -419,6 +529,31 @@ public unsafe class TypedUserDataConstructionTests : LuaTestBase
         {
             Assert.That(result!.Name, Is.EqualTo("explicit"));
             Assert.That(result.ExplicitInterfaceUsed, Is.True);
+        });
+    }
+
+    [Test]
+    public void GeneratedTableToPoco_ExplicitInterfaceOverride_PropagatesCustomError()
+    {
+        // Arrange
+        Lua.Execute("t = { Name = 'wrong' }");
+
+        // Act
+        using var _ = Lua.Stack.SnapshotCount();
+        lua_getglobal(L, "t");
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out TestTableInterfaceErrorTarget? value, out var error);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("only accepts Name = 'ok'"));
+            Assert.That(error.Message, Does.Not.Contain("failed to convert"));
+            Assert.That(error.Path, Is.EqualTo("$.Name"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(TestTableInterfaceErrorTarget)));
+            Assert.That(error.MemberName, Is.EqualTo("Name"));
         });
     }
 

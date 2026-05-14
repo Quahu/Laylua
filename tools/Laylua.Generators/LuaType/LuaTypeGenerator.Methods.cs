@@ -687,7 +687,9 @@ public partial class LuaTypeGenerator
 
                 if (UseMarshaledInterop(typeInfo, parameter.ParamsElementKind))
                 {
-                    writer.Line($"{parameter.Name}[__pi] = thread.Stack[{stackIndex} + __pi].GetValue<{parameter.ParamsElementTypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsParamsElementNonNullableReference)};");
+                    writer.Code($"""
+                        {parameter.Name}[__pi] = LuaTypeServices.GetArgumentValue<{parameter.ParamsElementTypeName}>(thread, {stackIndex} + __pi, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions, "{method.LuaName}", "{parameter.Name}"){GetReadNullForgivingSuffix(parameter.IsParamsElementNonNullableReference)};
+                        """);
                 }
                 else
                 {
@@ -721,18 +723,18 @@ public partial class LuaTypeGenerator
                 }
                 else if (UseMarshaledInterop(typeInfo, parameter.ValueKind))
                 {
-                    writer.Code($$"""
-                        var {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
-                            ? thread.Stack[{{stackIndex}}].GetValue<{{parameter.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){{GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}}
-                            : {{parameter.DefaultValue ?? $"default({parameter.TypeName})"}};
+                    writer.Code($"""
+                        var {parameter.Name} = lua_gettop(L) >= {stackIndex}
+                            ? LuaTypeServices.GetArgumentValue<{parameter.TypeName}>(thread, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions, "{method.LuaName}", "{parameter.Name}"){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}
+                            : {parameter.DefaultValue ?? $"default({parameter.TypeName})"};
                         """);
                 }
                 else
                 {
-                    writer.Code($$"""
-                        var {{parameter.Name}} = lua_gettop(L) >= {{stackIndex}}
-                            ? {{EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}}
-                            : {{parameter.DefaultValue ?? $"default({parameter.TypeName})"}};
+                    writer.Code($"""
+                        var {parameter.Name} = lua_gettop(L) >= {stackIndex}
+                            ? {EmitReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex)}
+                            : {parameter.DefaultValue ?? $"default({parameter.TypeName})"};
                         """);
                 }
 
@@ -765,15 +767,17 @@ public partial class LuaTypeGenerator
                     {
                         if (useNilDefault)
                         {
-                            writer.Code($$"""
-                                var {{parameter.Name}} = lua_type(L, {{stackIndex}}) == LuaType.Nil
-                                    ? default({{parameter.TypeName}})
-                                    : thread.Stack[{{stackIndex}}].GetValue<{{parameter.TypeName}}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){{GetReadNullForgivingSuffix(parameter.IsNonNullableReference)}};
+                            writer.Code($"""
+                                var {parameter.Name} = lua_type(L, {stackIndex}) == LuaType.Nil
+                                    ? default({parameter.TypeName})
+                                    : LuaTypeServices.GetArgumentValue<{parameter.TypeName}>(thread, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions, "{method.LuaName}", "{parameter.Name}"){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)};
                                 """);
                         }
                         else
                         {
-                            writer.Line($"var {parameter.Name} = thread.Stack[{stackIndex}].GetValue<{parameter.TypeName}>((global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)};");
+                            writer.Code($"""
+                                var {parameter.Name} = LuaTypeServices.GetArgumentValue<{parameter.TypeName}>(thread, {stackIndex}, (global::Laylua.Marshaling.LuaAllowedValueConversions) BindingConversions, "{method.LuaName}", "{parameter.Name}"){GetReadNullForgivingSuffix(parameter.IsNonNullableReference)};
+                                """);
                         }
                     }
                     else if (rangeCheck != null)
@@ -804,20 +808,20 @@ public partial class LuaTypeGenerator
                     }
                     else if (useNilDefault)
                     {
-                        writer.Code($$"""
-                            var {{parameter.Name}} = lua_type(L, {{stackIndex}}) == LuaType.Nil
-                                ? default({{parameter.TypeName}})
-                                : {{(useImplicitConversionRead ? EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString()) : EmitCheckedReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex))}};
+                        writer.Code($"""
+                            var {parameter.Name} = lua_type(L, {stackIndex}) == LuaType.Nil
+                                ? default({parameter.TypeName})
+                                : {(useImplicitConversionRead ? EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString()) : EmitCheckedReadExpression(typeInfo, parameter.ValueKind, parameter.TypeName, stackIndex))};
                             """);
                     }
                     else
                     {
                         if (useImplicitConversionRead)
                         {
-                            writer.Code($$"""
-                                var {{parameter.Name}} = lua_type(L, {{stackIndex}}) == LuaType.Nil
-                                    ? {{EmitCheckedReadExpression(parameter.ValueKind, parameter.TypeName, stackIndex)}}
-                                    : {{EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString())}};
+                            writer.Code($"""
+                                var {parameter.Name} = lua_type(L, {stackIndex}) == LuaType.Nil
+                                    ? {EmitCheckedReadExpression(parameter.ValueKind, parameter.TypeName, stackIndex)}
+                                    : {EmitImplicitConversionReadExpression(parameter.TypeName, stackIndex.ToString())};
                                 """);
                         }
                         else

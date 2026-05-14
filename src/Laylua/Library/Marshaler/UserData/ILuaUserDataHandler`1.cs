@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Laylua.Moon;
 
 namespace Laylua.Marshaling;
@@ -21,5 +22,9 @@ public unsafe interface ILuaUserDataHandler<T> : ILuaUserDataHandler
     /// <summary>
     ///     Attempts to materialize a <typeparamref name="T"/> from a Lua table at the given index.
     /// </summary>
-    bool TryGetFromTable(lua_State* L, int stackIndex, out T? value);
+    bool TryGetFromTable(
+        lua_State* L,
+        int stackIndex,
+        out T? value,
+        [NotNullWhen(false)] out LuaConversionError? error);
 }

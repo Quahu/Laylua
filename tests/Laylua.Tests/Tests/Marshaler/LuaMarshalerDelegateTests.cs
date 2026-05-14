@@ -1,5 +1,6 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Reflection;
+using Laylua.Marshaling;
 
 namespace Laylua.Tests;
 
@@ -229,6 +230,28 @@ public class LuaMarshalerDelegateTests : LuaTestBase
     }
 
     [Test]
+    public void Delegate_TableArgumentConversionFailure_RaisesDetailedLuaError()
+    {
+        // Arrange
+        Lua.SetGlobal("func", static (TypedImplicitConversionTarget target) =>
+            { });
+
+        // Act
+        var exception = Assert.Throws<LuaException>(() =>
+            Lua.Execute("func({ Name = { }, Value = 42 })"));
+
+        // Assert
+        Assert.That(exception, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Status, Is.EqualTo(LuaStatus.RuntimeError));
+            Assert.That(exception.Message, Does.Contain("$.Name"));
+            Assert.That(exception.Message, Does.Contain("failed to convert member 'Name'"));
+            Assert.That(exception.Message, Does.Contain("failed to convert to"));
+        });
+    }
+
+    [Test]
     public void Delegate_LuaReference_DisposesLuaReference()
     {
         // Arrange
@@ -432,13 +455,13 @@ public class LuaMarshalerDelegateTests : LuaTestBase
         int i, int j, int k, int l, int m, int n, int o, int p, int q);
 
     [Test]
-    public void Delegate_MoreThan16Parameters_PlainLuaFunction_ThrowsInvalidOperation()
+    public void Delegate_MoreThan16Parameters_PlainLuaFunction_ThrowsLuaConversionException()
     {
         // Arrange
         Lua.Execute("function hugeFunc() return 0 end");
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<LuaConversionException>(() =>
         {
             Lua.Evaluate<TooManyParamsDelegate>("return hugeFunc");
         });

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Laylua.Marshaling;
@@ -1134,9 +1135,10 @@ internal sealed unsafe class StringUserDataHandler(Type type, string value) : IL
         return false;
     }
 
-    public bool TryGetFromTable(lua_State* L, int stackIndex, out object? value)
+    public bool TryGetFromTable(lua_State* L, int stackIndex, out object? value, [NotNullWhen(false)] out LuaConversionError? error)
     {
         value = null;
+        error = LuaConversionError.NoTableConversionRegistered(L, stackIndex, Type);
         return false;
     }
 

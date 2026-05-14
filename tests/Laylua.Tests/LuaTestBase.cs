@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using Laylua.Marshaling;
@@ -185,26 +186,28 @@ public abstract unsafe class LuaTestBase
             _test = test;
         }
 
-        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj)
+        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj, [NotNullWhen(false)] out LuaConversionError? error)
             where T : default
         {
-            var result = base.TryGetValue(thread, stackIndex, out obj);
-            if (obj is LuaReference reference)
-            {
-                if (!_test.IsTornDown)
-                {
-                    _test.References[reference] = reference.ToString();
-                    thread.State.GC.RegisterCallback(reference, () => _test.References.Remove(reference));
-                }
-            }
+            var result = base.TryGetValue(thread, stackIndex, out obj, out error);
+
+            TrackReference(thread, obj);
 
             return result;
         }
 
-        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj)
+        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj, [NotNullWhen(false)] out LuaConversionError? error)
             where T : default
         {
-            var result = base.TryGetValue(thread, stackIndex, allowedConversions, out obj);
+            var result = base.TryGetValue(thread, stackIndex, allowedConversions, out obj, out error);
+
+            TrackReference(thread, obj);
+
+            return result;
+        }
+
+        private void TrackReference<T>(LuaThread thread, T? obj)
+        {
             if (obj is LuaReference reference)
             {
                 if (!_test.IsTornDown)
@@ -213,8 +216,6 @@ public abstract unsafe class LuaTestBase
                     thread.State.GC.RegisterCallback(reference, () => _test.References.Remove(reference));
                 }
             }
-
-            return result;
         }
     }
 }

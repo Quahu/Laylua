@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+using System.Reflection;
+using Laylua.Marshaling;
 
 namespace Laylua.Tests;
 
@@ -278,13 +279,13 @@ public unsafe class TypedUserDataMarshalingTests : LuaTestBase
     }
 
     [Test]
-    public void FunctionToDelegate_PlainLuaFunction_ThrowsInvalidOperation()
+    public void FunctionToDelegate_PlainLuaFunction_ThrowsLuaConversionException()
     {
         // Arrange
         Lua.Execute("function noop() end");
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<LuaConversionException>(() =>
         {
             Lua.Evaluate<Action>("return noop");
         });
@@ -547,24 +548,24 @@ public unsafe class TypedUserDataMarshalingTests : LuaTestBase
     }
 
     [Test]
-    public void FunctionToMethodInfo_PlainLuaFunction_Throws()
+    public void FunctionToMethodInfo_PlainLuaFunction_ThrowsLuaConversionException()
     {
         // Arrange
         Lua.Execute("function luaAdd(a, b) return a + b end");
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => Lua.Evaluate<MethodInfo>("return luaAdd"));
+        Assert.Throws<LuaConversionException>(() => Lua.Evaluate<MethodInfo>("return luaAdd"));
     }
 
     [Test]
-    public void FunctionToMethodInfo_OverloadedMethod_ThrowsInvalidOperation()
+    public void FunctionToMethodInfo_OverloadedMethod_ThrowsLuaConversionException()
     {
         // Arrange
         var obj = new TestOverloaded();
         Lua["obj"] = obj;
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<LuaConversionException>(() =>
             Lua.Evaluate<MethodInfo>("return obj.Compute"));
     }
 

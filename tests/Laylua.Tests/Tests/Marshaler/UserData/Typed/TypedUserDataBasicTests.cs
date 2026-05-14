@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Laylua.Marshaling;
 
@@ -32,30 +33,32 @@ public unsafe class TypedUserDataBasicTests : LuaTestBase
             base.PushValue(thread, obj);
         }
 
-        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj)
+        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj, [NotNullWhen(false)] out LuaConversionError? error)
             where T : default
         {
             if (RewriteIntReads && typeof(T) == typeof(int) && lua_type(thread.State.L, stackIndex) == LuaType.Number)
             {
                 IntReadCount++;
                 obj = (T) (object) MagicIntReadValue;
+                error = null;
                 return true;
             }
 
-            return base.TryGetValue(thread, stackIndex, out obj);
+            return base.TryGetValue(thread, stackIndex, out obj, out error);
         }
 
-        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj)
+        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj, [NotNullWhen(false)] out LuaConversionError? error)
             where T : default
         {
             if (RewriteIntReads && typeof(T) == typeof(int) && lua_type(thread.State.L, stackIndex) == LuaType.Number)
             {
                 IntReadCount++;
                 obj = (T) (object) MagicIntReadValue;
+                error = null;
                 return true;
             }
 
-            return base.TryGetValue(thread, stackIndex, allowedConversions, out obj);
+            return base.TryGetValue(thread, stackIndex, allowedConversions, out obj, out error);
         }
     }
 

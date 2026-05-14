@@ -96,9 +96,9 @@ public partial class LuaTypeGenerator
                 }
                 else
                 {
-                    writer.Code($$"""
+                    writer.Code($"""
                         using var thread = LuaThread.FromExtraSpace(L);
-                        thread.Stack.Push({{expression}});
+                        thread.Stack.Push({expression});
                         """);
                 }
 

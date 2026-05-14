@@ -218,7 +218,28 @@ public abstract partial class LuaMarshaler
     /// <returns>
     ///     <see langword="true"/> if successful.
     /// </returns>
-    public abstract bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj);
+    public bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj)
+    {
+        return TryGetValue(thread, stackIndex, out obj, out _);
+    }
+
+    /// <summary>
+    ///     Tries to convert the Lua value at the specified stack index
+    ///     to a .NET value of type <typeparamref name="T"/>.
+    /// </summary>
+    /// <param name="thread"> The Lua thread. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="obj"> The output value. </param>
+    /// <param name="error"> The conversion error, if conversion failed. </param>
+    /// <typeparam name="T"> The type of the value. </typeparam>
+    /// <returns>
+    ///     <see langword="true"/> if successful.
+    /// </returns>
+    public abstract bool TryGetValue<T>(
+        LuaThread thread,
+        int stackIndex,
+        out T? obj,
+        [NotNullWhen(false)] out LuaConversionError? error);
 
     /// <summary>
     ///     Tries to convert the Lua value at the specified stack index
@@ -232,7 +253,30 @@ public abstract partial class LuaMarshaler
     /// <returns>
     ///     <see langword="true"/> if successful.
     /// </returns>
-    public abstract bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj);
+    public bool TryGetValue<T>(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedConversions, out T? obj)
+    {
+        return TryGetValue(thread, stackIndex, allowedConversions, out obj, out _);
+    }
+
+    /// <summary>
+    ///     Tries to convert the Lua value at the specified stack index
+    ///     to a .NET value of type <typeparamref name="T"/>, applying the specified conversion rules.
+    /// </summary>
+    /// <param name="thread"> The Lua thread. </param>
+    /// <param name="stackIndex"> The index on the Lua stack. </param>
+    /// <param name="allowedConversions"> The conversion rules to apply. </param>
+    /// <param name="obj"> The output value. </param>
+    /// <param name="error"> The conversion error, if conversion failed. </param>
+    /// <typeparam name="T"> The type of the value. </typeparam>
+    /// <returns>
+    ///     <see langword="true"/> if successful.
+    /// </returns>
+    public abstract bool TryGetValue<T>(
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedConversions,
+        out T? obj,
+        [NotNullWhen(false)] out LuaConversionError? error);
 
     /// <summary>
     ///     Pushes the specified .NET value onto the Lua stack,

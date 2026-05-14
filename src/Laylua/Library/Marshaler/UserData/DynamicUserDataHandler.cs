@@ -66,6 +66,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
     private const string PairsEnumeratorMetatableName = "__Laylua:PairsEnumerator";
     private static readonly ConcurrentDictionary<Type, TryGetObjectDelegate> MarshalerReaders = new();
     private static readonly ConcurrentDictionary<Type, GetObjectDelegate> MarshalerGetters = new();
+    private static readonly ConcurrentDictionary<Type, GetArgumentObjectDelegate> MarshalerArgumentGetters = new();
     private static readonly ConcurrentDictionary<ParameterInfo, bool> NonNullableReferenceParameters = new();
     private static readonly ConcurrentDictionary<Type, object> DefaultValueTypeInstances = new();
 
@@ -145,9 +146,21 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
 
     private readonly DynamicUserDataOptions _options;
 
-    private delegate bool TryGetObjectDelegate(LuaMarshaler marshaler, LuaThread thread, int stackIndex, out object? value);
+    private delegate bool TryGetObjectDelegate(
+        LuaMarshaler marshaler,
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedValueConversions,
+        out object? value);
 
     private delegate object? GetObjectDelegate(LuaThread thread, int stackIndex, LuaAllowedValueConversions allowedValueConversions);
+
+    private delegate object? GetArgumentObjectDelegate(
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedValueConversions,
+        string callableName,
+        string argumentName);
 
     public DynamicUserDataHandler(Type type)
         : this(type, new DynamicUserDataOptions())
@@ -1138,65 +1151,15 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
     }
 
     /// <inheritdoc/>
-    public bool TryGetFromTable(lua_State* L, int stackIndex, out object? value)
+    public bool TryGetFromTable(
+        lua_State* L,
+        int stackIndex,
+        out object? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
     {
-        if (lua_type(L, stackIndex) != LuaType.Table || !TryCreateParameterlessInstance(out var instance))
-        {
-            value = default;
-            return false;
-        }
-
-        EnsureFreeStackCapacity(L, 1);
-
-        using var thread = LuaThread.FromExtraSpace(L);
-
-        foreach (var (luaName, setter) in _propertySetters)
-        {
-            lua_getfield(L, stackIndex, luaName);
-            try
-            {
-                if (lua_type(L, -1) != LuaType.Nil)
-                {
-                    var propertyType = _writableProperties[luaName].PropertyType;
-                    if (!TryReadWithMarshaler(thread, -1, propertyType, out var fieldValue))
-                    {
-                        value = default;
-                        return false;
-                    }
-
-                    setter(instance, fieldValue);
-                }
-            }
-            finally
-            {
-                lua_pop(L);
-            }
-        }
-
-        foreach (var (luaName, field) in _writableFields)
-        {
-            lua_getfield(L, stackIndex, luaName);
-            try
-            {
-                if (lua_type(L, -1) != LuaType.Nil)
-                {
-                    if (!TryReadWithMarshaler(thread, -1, field.FieldType, out var fieldValue))
-                    {
-                        value = default;
-                        return false;
-                    }
-
-                    field.SetValue(instance, fieldValue);
-                }
-            }
-            finally
-            {
-                lua_pop(L);
-            }
-        }
-
-        value = instance;
-        return true;
+        value = default;
+        error = LuaConversionError.NoTableConversionRegistered(L, stackIndex, Type);
+        return false;
     }
 
     /// <summary>
@@ -2054,7 +2017,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 {
                     if (j < argCount)
                     {
-                        args[j] = ReadInvocationArgument(L, j + argBase, parameters[j], _options.ArgumentValidation, _options.BindingConversions);
+                        args[j] = ReadInvocationArgument(L, j + argBase, parameters[j], Type.Name, _options.ArgumentValidation, _options.BindingConversions);
                     }
                     else if (parameters[j].HasDefaultValue)
                     {
@@ -2067,7 +2030,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 var paramsArray = Array.CreateInstance(paramsElementType, paramsCount);
                 for (var k = 0; k < paramsCount; k++)
                 {
-                    paramsArray.SetValue(ReadInvocationArgument(L, fixedParamCount + k + argBase, paramsElementType, parameters[^1], _options.ArgumentValidation, _options.BindingConversions), k);
+                    paramsArray.SetValue(ReadInvocationArgument(L, fixedParamCount + k + argBase, paramsElementType, parameters[^1], Type.Name, _options.ArgumentValidation, _options.BindingConversions), k);
                 }
 
                 args[fixedParamCount] = paramsArray;
@@ -2078,7 +2041,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 {
                     if (j < argCount)
                     {
-                        args[j] = ReadInvocationArgument(L, j + argBase, parameters[j], _options.ArgumentValidation, _options.BindingConversions);
+                        args[j] = ReadInvocationArgument(L, j + argBase, parameters[j], Type.Name, _options.ArgumentValidation, _options.BindingConversions);
                     }
                     else if (parameters[j].HasDefaultValue)
                     {
@@ -2336,7 +2299,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 var stackIndex = fixedInputCount + 1;
                 if (fixedInputCount < argCount)
                 {
-                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], argValidation, allowedConversions);
+                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], callableName, argValidation, allowedConversions);
                 }
                 else if (parameters[i].HasDefaultValue)
                 {
@@ -2352,7 +2315,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             for (var i = 0; i < paramsCount; i++)
             {
                 var stackIndex = fixedInputCount + i + 1;
-                paramsArray.SetValue(ReadInvocationArgument(L, stackIndex, paramsElementType, parameters[^1], argValidation, allowedConversions), i);
+                paramsArray.SetValue(ReadInvocationArgument(L, stackIndex, paramsElementType, parameters[^1], callableName, argValidation, allowedConversions), i);
             }
 
             args[fixedCount] = paramsArray;
@@ -2371,7 +2334,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 var stackIndex = inputCount + 1;
                 if (inputCount < argCount)
                 {
-                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], argValidation, allowedConversions);
+                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], callableName, argValidation, allowedConversions);
                 }
                 else if (parameters[i].HasDefaultValue)
                 {
@@ -2446,22 +2409,38 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
 
     private static bool TryReadWithMarshaler(LuaThread thread, int index, Type targetType, out object? value)
     {
+        return TryReadWithMarshaler(thread, index, targetType, LuaAllowedValueConversions.Default, out value);
+    }
+
+    private static bool TryReadWithMarshaler(
+        LuaThread thread,
+        int index,
+        Type targetType,
+        LuaAllowedValueConversions allowedValueConversions,
+        out object? value)
+    {
         targetType = GetLuaBoundaryType(targetType);
         var reader = MarshalerReaders.GetOrAdd(targetType, static type =>
         {
             var method = typeof(DynamicUserDataHandler)
-                .GetMethod(nameof(TryReadWithMarshalerGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
+                .GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+                .Single(static method => method.Name == nameof(TryReadWithMarshalerGeneric) && method.GetParameters().Length == 5)
                 .MakeGenericMethod(type);
 
             return (TryGetObjectDelegate) method.CreateDelegate(typeof(TryGetObjectDelegate));
         });
 
-        return reader(thread.Marshaler, thread, index, out value);
+        return reader(thread.Marshaler, thread, index, allowedValueConversions, out value);
     }
 
-    private static bool TryReadWithMarshalerGeneric<T>(LuaMarshaler marshaler, LuaThread thread, int stackIndex, out object? value)
+    private static bool TryReadWithMarshalerGeneric<T>(
+        LuaMarshaler marshaler,
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedValueConversions,
+        out object? value)
     {
-        if (marshaler.TryGetValue<T>(thread, stackIndex, out var typed))
+        if (marshaler.TryGetValue<T>(thread, stackIndex, allowedValueConversions, out var typed))
         {
             value = typed;
             return true;
@@ -2490,12 +2469,43 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         return reader(thread, index, allowedValueConversions);
     }
 
+    private static object? GetArgumentValueWithMarshaler(
+        LuaThread thread,
+        int index,
+        Type targetType,
+        LuaAllowedValueConversions allowedValueConversions,
+        string callableName,
+        string argumentName)
+    {
+        targetType = GetLuaBoundaryType(targetType);
+        var reader = MarshalerArgumentGetters.GetOrAdd(targetType, static type =>
+        {
+            var method = typeof(DynamicUserDataHandler)
+                .GetMethod(nameof(GetArgumentValueWithMarshalerGeneric), BindingFlags.NonPublic | BindingFlags.Static)!
+                .MakeGenericMethod(type);
+
+            return (GetArgumentObjectDelegate) method.CreateDelegate(typeof(GetArgumentObjectDelegate));
+        });
+
+        return reader(thread, index, allowedValueConversions, callableName, argumentName);
+    }
+
     private static object? GetValueWithMarshalerGeneric<T>(
         LuaThread thread,
         int stackIndex,
         LuaAllowedValueConversions allowedValueConversions)
     {
         return thread.Stack[stackIndex].GetValue<T>(allowedValueConversions);
+    }
+
+    private static object? GetArgumentValueWithMarshalerGeneric<T>(
+        LuaThread thread,
+        int stackIndex,
+        LuaAllowedValueConversions allowedValueConversions,
+        string callableName,
+        string argumentName)
+    {
+        return LuaTypeServices.GetArgumentValue<T>(thread, stackIndex, allowedValueConversions, callableName, argumentName);
     }
 
     private static object? ReadObject(lua_State* L, int stackIndex, Type targetType)
@@ -2647,12 +2657,25 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
         return Nullable.GetUnderlyingType(parameterType) == null;
     }
 
-    private static object? ReadInvocationArgument(lua_State* L, int stackIndex, ParameterInfo parameter, LuaArgumentValidation argValidation, LuaAllowedValueConversions allowedConversions)
+    private static object? ReadInvocationArgument(
+        lua_State* L,
+        int stackIndex,
+        ParameterInfo parameter,
+        string callableName,
+        LuaArgumentValidation argValidation,
+        LuaAllowedValueConversions allowedConversions)
     {
-        return ReadInvocationArgument(L, stackIndex, parameter.ParameterType, parameter, argValidation, allowedConversions);
+        return ReadInvocationArgument(L, stackIndex, parameter.ParameterType, parameter, callableName, argValidation, allowedConversions);
     }
 
-    private static object? ReadInvocationArgument(lua_State* L, int stackIndex, Type parameterType, ParameterInfo parameter, LuaArgumentValidation argValidation, LuaAllowedValueConversions allowedConversions)
+    private static object? ReadInvocationArgument(
+        lua_State* L,
+        int stackIndex,
+        Type parameterType,
+        ParameterInfo parameter,
+        string callableName,
+        LuaArgumentValidation argValidation,
+        LuaAllowedValueConversions allowedConversions)
     {
         var originalParameterType = parameterType;
         parameterType = GetLuaBoundaryType(parameterType);
@@ -2677,79 +2700,137 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             }
         }
 
+        if (TryReadDirectInvocationArgument(L, stackIndex, parameterType, luaType, out var directValue))
+        {
+            return directValue;
+        }
+
+        using var thread = LuaThread.FromExtraSpace(L);
+        return GetArgumentValueWithMarshaler(
+            thread,
+            stackIndex,
+            parameterType,
+            allowedConversions,
+            callableName,
+            parameter.Name!);
+    }
+
+    private static bool TryReadDirectInvocationArgument(
+        lua_State* L,
+        int stackIndex,
+        Type parameterType,
+        LuaType luaType,
+        out object? value)
+    {
         if (parameterType == typeof(bool))
         {
-            return lua_toboolean(L, stackIndex);
+            value = lua_toboolean(L, stackIndex);
+            return true;
         }
 
         if (parameterType == typeof(string))
         {
-            if (luaType == LuaType.Nil)
+            if (luaType == LuaType.String || luaType == LuaType.Nil)
             {
-                return luaL_checkstring(L, stackIndex)!;
+                value = luaL_checkstring(L, stackIndex)!;
+                return true;
             }
 
-            return LuaTypeServices.GetValue<string>(L, stackIndex, allowedConversions)!;
+            value = default;
+            return false;
         }
 
         if (IsIntegerType(parameterType))
         {
-            var value = luaL_checkinteger(L, stackIndex);
-            if (parameterType == typeof(byte))
+            if (luaType == LuaType.Number || luaType == LuaType.Nil)
             {
-                return (byte) value;
+                value = ReadDirectIntegerInvocationArgument(L, stackIndex, parameterType);
+                return true;
             }
 
-            if (parameterType == typeof(sbyte))
-            {
-                return (sbyte) value;
-            }
-
-            if (parameterType == typeof(short))
-            {
-                return (short) value;
-            }
-
-            if (parameterType == typeof(ushort))
-            {
-                return (ushort) value;
-            }
-
-            if (parameterType == typeof(int))
-            {
-                return (int) value;
-            }
-
-            if (parameterType == typeof(uint))
-            {
-                return (uint) value;
-            }
-
-            if (parameterType == typeof(ulong))
-            {
-                return (ulong) value;
-            }
-
-            return value;
+            value = default;
+            return false;
         }
 
         if (parameterType == typeof(float))
         {
-            return (float) luaL_checknumber(L, stackIndex);
+            if (luaType == LuaType.Number || luaType == LuaType.Nil)
+            {
+                value = (float) luaL_checknumber(L, stackIndex);
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
         if (parameterType == typeof(decimal))
         {
-            return (decimal) luaL_checknumber(L, stackIndex);
+            if (luaType == LuaType.Number || luaType == LuaType.Nil)
+            {
+                value = (decimal) luaL_checknumber(L, stackIndex);
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
         if (parameterType == typeof(double))
         {
-            return luaL_checknumber(L, stackIndex);
+            if (luaType == LuaType.Number || luaType == LuaType.Nil)
+            {
+                value = luaL_checknumber(L, stackIndex);
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
-        using var thread = LuaThread.FromExtraSpace(L);
-        return GetValueWithMarshaler(thread, stackIndex, parameterType, allowedConversions);
+        value = default;
+        return false;
+    }
+
+    private static object ReadDirectIntegerInvocationArgument(lua_State* L, int stackIndex, Type parameterType)
+    {
+        var value = luaL_checkinteger(L, stackIndex);
+        if (parameterType == typeof(byte))
+        {
+            return (byte) value;
+        }
+
+        if (parameterType == typeof(sbyte))
+        {
+            return (sbyte) value;
+        }
+
+        if (parameterType == typeof(short))
+        {
+            return (short) value;
+        }
+
+        if (parameterType == typeof(ushort))
+        {
+            return (ushort) value;
+        }
+
+        if (parameterType == typeof(int))
+        {
+            return (int) value;
+        }
+
+        if (parameterType == typeof(uint))
+        {
+            return (uint) value;
+        }
+
+        if (parameterType == typeof(ulong))
+        {
+            return (ulong) value;
+        }
+
+        return value;
     }
 
     private static bool RequiresDirectLuaRead(Type parameterType)
@@ -3093,7 +3174,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 var stackIndex = fixedInputCount + 2;
                 if (fixedInputCount < argCount)
                 {
-                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], argValidation, allowedConversions);
+                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], callableName, argValidation, allowedConversions);
                 }
                 else if (parameters[i].HasDefaultValue)
                 {
@@ -3109,7 +3190,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
             for (var i = 0; i < paramsCount; i++)
             {
                 var stackIndex = fixedInputCount + i + 2;
-                paramsArray.SetValue(ReadInvocationArgument(L, stackIndex, paramsElementType, parameters[^1], argValidation, allowedConversions), i);
+                paramsArray.SetValue(ReadInvocationArgument(L, stackIndex, paramsElementType, parameters[^1], callableName, argValidation, allowedConversions), i);
             }
 
             args[fixedCount] = paramsArray;
@@ -3128,7 +3209,7 @@ public sealed unsafe class DynamicUserDataHandler : ILuaUserDataHandler
                 var stackIndex = inputCount + 2;
                 if (inputCount < argCount)
                 {
-                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], argValidation, allowedConversions);
+                    args[i] = ReadInvocationArgument(L, stackIndex, parameters[i], callableName, argValidation, allowedConversions);
                 }
                 else if (parameters[i].HasDefaultValue)
                 {

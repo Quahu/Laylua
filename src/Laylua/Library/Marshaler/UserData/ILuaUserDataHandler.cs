@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Laylua.Moon;
 
 namespace Laylua.Marshaling;
@@ -41,8 +42,13 @@ public unsafe interface ILuaUserDataHandler
     /// <param name="L"> The Lua state. </param>
     /// <param name="stackIndex"> The stack index of the table. </param>
     /// <param name="value"> The materialized CLR object, or <c>null</c> if conversion failed. </param>
+    /// <param name="error"> The conversion error, if conversion failed. </param>
     /// <returns> <c>true</c> if a value was successfully materialized; otherwise <c>false</c>. </returns>
-    bool TryGetFromTable(lua_State* L, int stackIndex, out object? value);
+    bool TryGetFromTable(
+        lua_State* L,
+        int stackIndex,
+        out object? value,
+        [NotNullWhen(false)] out LuaConversionError? error);
 
     /// <summary>
     ///     Pushes the type definition (static members) onto the Lua stack.

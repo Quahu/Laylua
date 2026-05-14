@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Numerics;
 using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Laylua.Marshaling;
@@ -562,19 +563,6 @@ public class DynamicDecimalTarget
     }
 }
 
-public class DynamicNumericTableTarget
-{
-    public uint UIntValue { get; set; }
-
-    public ulong ULongValue { get; set; }
-
-    public ushort UShortValue { get; set; }
-
-    public sbyte SByteValue { get; set; }
-
-    public decimal DecimalValue { get; set; }
-}
-
 public class DynamicCtorIntOnlyTarget
 {
     public int Value { get; }
@@ -588,13 +576,6 @@ public class DynamicCtorIntOnlyTarget
     {
         Value = value ? 1 : 0;
     }
-}
-
-public class DynamicPartialMaterializationTarget
-{
-    public int Number { get; set; }
-
-    public string Text { get; set; } = "";
 }
 
 public class DynamicLuaReferenceAssignmentTarget
@@ -1034,9 +1015,10 @@ public unsafe class DynamicUserDataTests : LuaTestBase
             return false;
         }
 
-        public bool TryGetFromTable(lua_State* L, int stackIndex, out object? value)
+        public bool TryGetFromTable(lua_State* L, int stackIndex, out object? value, [NotNullWhen(false)] out LuaConversionError? error)
         {
             value = null;
+            error = LuaConversionError.NoTableConversionRegistered(L, stackIndex, _type);
             return false;
         }
 
@@ -1071,17 +1053,37 @@ public unsafe class DynamicUserDataTests : LuaTestBase
             base.PushValue(thread, obj);
         }
 
-        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj)
+        public override bool TryGetValue<T>(LuaThread thread, int stackIndex, out T? obj, [NotNullWhen(false)] out LuaConversionError? error)
             where T : default
         {
             if (RewriteIntReads && typeof(T) == typeof(int) && lua_type(thread.State.L, stackIndex) == LuaType.Number)
             {
                 IntReadCount++;
                 obj = (T) (object) 999;
+                error = null;
                 return true;
             }
 
-            return base.TryGetValue(thread, stackIndex, out obj);
+            return base.TryGetValue(thread, stackIndex, out obj, out error);
+        }
+
+        public override bool TryGetValue<T>(
+            LuaThread thread,
+            int stackIndex,
+            LuaAllowedValueConversions allowedConversions,
+            out T? obj,
+            [NotNullWhen(false)] out LuaConversionError? error)
+            where T : default
+        {
+            if (RewriteIntReads && typeof(T) == typeof(int) && lua_type(thread.State.L, stackIndex) == LuaType.Number)
+            {
+                IntReadCount++;
+                obj = (T) (object) 999;
+                error = null;
+                return true;
+            }
+
+            return base.TryGetValue(thread, stackIndex, allowedConversions, out obj, out error);
         }
     }
 
@@ -1115,7 +1117,6 @@ public unsafe class DynamicUserDataTests : LuaTestBase
         Marshaler.AllowsDynamicMarshaling = true;
         LuaTypeRegistry.Unregister<DynamicFactoryTarget>();
         LuaTypeRegistry.Unregister<DynamicCtorIntOnlyTarget>();
-        LuaTypeRegistry.Unregister<DynamicPartialMaterializationTarget>();
         LuaTypeRegistry.Unregister<DynamicLuaReferenceAssignmentTarget>();
     }
 
@@ -1123,7 +1124,6 @@ public unsafe class DynamicUserDataTests : LuaTestBase
     {
         LuaTypeRegistry.Unregister<DynamicFactoryTarget>();
         LuaTypeRegistry.Unregister<DynamicCtorIntOnlyTarget>();
-        LuaTypeRegistry.Unregister<DynamicPartialMaterializationTarget>();
         LuaTypeRegistry.Unregister<DynamicLuaReferenceAssignmentTarget>();
         Marshaler.AllowsDynamicMarshaling = false;
         base.TearDown();
@@ -1485,7 +1485,7 @@ public unsafe class DynamicUserDataTests : LuaTestBase
     }
 
     [Test]
-    public void DynamicTableToPoco_ReflectionTarget_Materializes()
+    public void DynamicTableToPoco_ReflectionTarget_IsNotSupported()
     {
         // Arrange
         Lua["dummy"] = new ReflectionTarget("dummy", 0);
@@ -1494,14 +1494,16 @@ public unsafe class DynamicUserDataTests : LuaTestBase
         // Act
         using var _ = Lua.Stack.SnapshotCount();
         lua_getglobal(L, "t");
-        var result = Lua.Stack[-1].GetValue<ReflectionTarget>(LuaAllowedValueConversions.TableToObject);
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out ReflectionTarget? value, out var error);
 
         // Assert
-        Assert.That(result, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(result!.Name, Is.EqualTo("reflected"));
-            Assert.That(result.Value, Is.EqualTo(99));
+            Assert.That(result, Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("no table conversion is registered"));
+            Assert.That(error.TargetType, Is.EqualTo(typeof(ReflectionTarget)));
         });
     }
 
@@ -4162,27 +4164,21 @@ public unsafe class DynamicUserDataTests : LuaTestBase
     }
 
     [Test]
-    public void DynamicTableToPoco_NumericFields_MaterializesAllSupportedTypes()
+    public void DynamicTableToPoco_GetValue_ThrowsLuaConversionException()
     {
         // Arrange
-        Lua["dummy"] = new DynamicNumericTableTarget();
-        Lua.Execute("t = { UIntValue = 1, ULongValue = 2, UShortValue = 3, SByteValue = 4, DecimalValue = 5.5 }");
+        Lua["dummy"] = new ReflectionTarget("dummy", 0);
+        Lua.Execute("t = { Name = 'reflected', Value = 99 }");
 
         // Act
         using var _ = Lua.Stack.SnapshotCount();
         lua_getglobal(L, "t");
-        var result = Lua.Stack[-1].GetValue<DynamicNumericTableTarget>(LuaAllowedValueConversions.TableToObject);
+        var exception = Assert.Throws<LuaConversionException>(() =>
+            Lua.Stack[-1].GetValue<ReflectionTarget>(LuaAllowedValueConversions.TableToObject));
 
         // Assert
-        Assert.That(result, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(result!.UIntValue, Is.EqualTo(1u));
-            Assert.That(result.ULongValue, Is.EqualTo(2ul));
-            Assert.That(result.UShortValue, Is.EqualTo((ushort) 3));
-            Assert.That(result.SByteValue, Is.EqualTo((sbyte) 4));
-            Assert.That(result.DecimalValue, Is.EqualTo(5.5m));
-        });
+        Assert.That(exception, Is.Not.Null);
+        Assert.That(exception!.Error.Message, Does.Contain("no table conversion is registered"));
     }
 
     [Test]
@@ -4286,22 +4282,24 @@ public unsafe class DynamicUserDataTests : LuaTestBase
     }
 
     [Test]
-    public void TableToObject_FailedMemberConversion_FailsWithoutPartialObject()
+    public void TableToObject_DynamicHandler_ReturnsUnsupportedConversionError()
     {
         // Arrange
-        LuaTypeRegistry.ConfigureDynamic<DynamicPartialMaterializationTarget>();
-        Lua.Execute("t = { Number = 42, Text = {} }");
+        Lua["dummy"] = new ReflectionTarget("dummy", 0);
+        Lua.Execute("t = { Name = 'reflected', Value = 99 }");
 
         // Act
         using var _ = Lua.Stack.SnapshotCount();
         lua_getglobal(L, "t");
-        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out DynamicPartialMaterializationTarget? value);
+        var result = Lua.Stack[-1].TryGetValue(LuaAllowedValueConversions.TableToObject, out ReflectionTarget? value, out var error);
 
         // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.False);
             Assert.That(value, Is.Null);
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Message, Does.Contain("no table conversion is registered"));
         });
     }
 

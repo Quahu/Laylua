@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Laylua.Marshaling;
 using Laylua.Moon;
+using Qommon;
 
 namespace Laylua;
 
@@ -95,7 +97,9 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     private void ThrowIfInvalid()
     {
         if (Type == LuaType.None)
+        {
             throw new InvalidOperationException($"The index of this {nameof(LuaStackValue)} is not valid.");
+        }
     }
 
     internal static void ValidateOwnership(LuaThread thread, LuaStackValue value)
@@ -145,13 +149,23 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     /// </returns>
     public bool TryGetValue<T>(out T? value)
     {
-        if (Type == LuaType.None)
-        {
-            value = default;
-            return false;
-        }
-
+        ThrowIfInvalid();
         return _thread.Marshaler.TryGetValue(_thread, Index, out value);
+    }
+
+    /// <summary>
+    ///     Attempts to get the .NET value of this stack value.
+    /// </summary>
+    /// <typeparam name="T"> The expected type of the value. </typeparam>
+    /// <param name="value"> The output value. </param>
+    /// <param name="error"> The conversion error, if conversion failed. </param>
+    /// <returns>
+    ///     <see langword="true"/> if successful.
+    /// </returns>
+    public bool TryGetValue<T>(out T? value, [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        ThrowIfInvalid();
+        return _thread.Marshaler.TryGetValue(_thread, Index, out value, out error);
     }
 
     /// <summary>
@@ -165,13 +179,27 @@ public readonly unsafe struct LuaStackValue : IEquatable<LuaStackValue>
     /// </returns>
     public bool TryGetValue<T>(LuaAllowedValueConversions allowedConversions, out T? value)
     {
-        if (Type == LuaType.None)
-        {
-            value = default;
-            return false;
-        }
-
+        ThrowIfInvalid();
         return _thread.Marshaler.TryGetValue(_thread, Index, allowedConversions, out value);
+    }
+
+    /// <summary>
+    ///     Attempts to get the .NET value of this stack value, applying the specified conversion rules.
+    /// </summary>
+    /// <typeparam name="T"> The expected type of the value. </typeparam>
+    /// <param name="allowedConversions"> The conversion rules to apply. </param>
+    /// <param name="value"> The output value. </param>
+    /// <param name="error"> The conversion error, if conversion failed. </param>
+    /// <returns>
+    ///     <see langword="true"/> if successful.
+    /// </returns>
+    public bool TryGetValue<T>(
+        LuaAllowedValueConversions allowedConversions,
+        out T? value,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        ThrowIfInvalid();
+        return _thread.Marshaler.TryGetValue(_thread, Index, allowedConversions, out value, out error);
     }
 
     /// <summary>

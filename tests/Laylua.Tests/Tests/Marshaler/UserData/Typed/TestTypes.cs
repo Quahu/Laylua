@@ -1823,6 +1823,20 @@ public partial class TestTableRequiredSetTarget
     public int Health { get; set; }
 }
 
+[LuaType]
+public partial class TestTableNestedMessageTarget
+{
+    public required string Content { get; init; }
+
+    public TestTableNestedEmbedTarget? Embed { get; set; }
+}
+
+[LuaType]
+public partial class TestTableNestedEmbedTarget
+{
+    public string Description { get; set; } = "";
+}
+
 [LuaType(FromTableConversion = LuaFromTableConversion.Disabled)]
 public partial class TestTableDisabledTarget
 {
@@ -1892,15 +1906,25 @@ public partial class TestTableOverrideTarget : ILuaUserDataFromTable<TestTableOv
 
     public bool OverrideUsed { get; set; }
 
-    public static bool TryGetFromTable(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TestTableOverrideTarget value)
+    public static bool TryGetFromTable(LuaThread luaThread, LuaTable table, [MaybeNullWhen(false)] out TestTableOverrideTarget value)
     {
-        if (!TryGetFromTableDefault(thread, table, out value))
+        return TryGetFromTable(luaThread, table, out value, out _);
+    }
+
+    public static bool TryGetFromTable(
+        LuaThread luaThread,
+        LuaTable table,
+        [MaybeNullWhen(false)] out TestTableOverrideTarget value,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        if (!TryGetFromTableDefault(luaThread, table, out value, out error))
         {
             return false;
         }
 
         value.OverrideUsed = true;
         value.Health += 5;
+        error = null;
         return true;
     }
 }
@@ -1912,7 +1936,11 @@ public partial class TestTableExplicitInterfaceTarget : ILuaUserDataFromTable<Te
 
     public bool ExplicitInterfaceUsed { get; set; }
 
-    static bool ILuaUserDataFromTable<TestTableExplicitInterfaceTarget>.TryGetFromTable(LuaThread thread, LuaTable table, [MaybeNullWhen(false)] out TestTableExplicitInterfaceTarget value)
+    static bool ILuaUserDataFromTable<TestTableExplicitInterfaceTarget>.TryGetFromTable(
+        LuaThread luaThread,
+        LuaTable table,
+        [MaybeNullWhen(false)] out TestTableExplicitInterfaceTarget value,
+        [NotNullWhen(false)] out LuaConversionError? error)
     {
         value = new TestTableExplicitInterfaceTarget
         {
@@ -1920,7 +1948,42 @@ public partial class TestTableExplicitInterfaceTarget : ILuaUserDataFromTable<Te
             ExplicitInterfaceUsed = true,
         };
 
+        error = null;
         return true;
+    }
+}
+
+[LuaType]
+public partial class TestTableInterfaceErrorTarget : ILuaUserDataFromTable<TestTableInterfaceErrorTarget>
+{
+    public string Name { get; set; } = "";
+
+    static bool ILuaUserDataFromTable<TestTableInterfaceErrorTarget>.TryGetFromTable(
+        LuaThread luaThread,
+        LuaTable table,
+        [MaybeNullWhen(false)] out TestTableInterfaceErrorTarget value,
+        [NotNullWhen(false)] out LuaConversionError? error)
+    {
+        if (table.TryGetValue<string, string>("Name", out var name) && name == "ok")
+        {
+            value = new TestTableInterfaceErrorTarget
+            {
+                Name = name,
+            };
+
+            error = null;
+            return true;
+        }
+
+        value = default;
+        error = new LuaConversionError(
+            "custom table conversion only accepts Name = 'ok'",
+            "$.Name",
+            typeof(TestTableInterfaceErrorTarget),
+            LuaType.String,
+            "Name");
+
+        return false;
     }
 }
 
